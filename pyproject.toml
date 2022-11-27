@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "indexhub"
+description = "IndexHub API and workflows."
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+authors = [
+    { name = "Christopher Lo", email = "christopher@orcabase.com"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "aiobotocore",
+    "boto3",
+    "darts",
+    "dask",
+    "distributed",
+    "fastapi",
+    "httpx",
+    "lxml",
+    "numpy",
+    "polars",
+    "prefect-dask",
+    "prefect",
+    "requests",
+    "s3fs",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/OrcaBaseHQ/indexhub"
+
+[project.optional-dependencies]
+dev = [
+    "autoflake",
+    "black",
+    "flake8",
+    "isort",
+    "pre-commit",
+    "pytest-cov",
+    "pytest",
+]
+
+[tool.hatch.version]
+path = "indexhub/__init__.py"
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
