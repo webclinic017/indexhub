@@ -39,11 +39,13 @@ Homepage = "https://github.com/OrcaBaseHQ/indexhub"
 dev = [
     "autoflake",
     "black",
+    "coverage[toml]",
     "flake8",
     "isort",
     "pre-commit",
-    "pytest-cov",
     "pytest",
+    "pyupgrade",
+    "ruff",
 ]
 
 [tool.hatch.version]
@@ -52,3 +54,33 @@ path = "indexhub/__init__.py"
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.pytest.ini_options]
+addopts = [
+  "--strict-config",
+  "--strict-markers",
+]
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+parallel = true
+source = [
+    "tests",
+    "functime"
+]
+context = '${CONTEXT}'
+
+[tool.ruff]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
