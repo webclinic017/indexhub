@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "aiobotocore",
-    "boto3",
+    "boto3==1.24.59",
     "darts",
     "dask",
     "distributed",
