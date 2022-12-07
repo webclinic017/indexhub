@@ -6,13 +6,13 @@ build-backend = "hatchling.build"
 name = "indexhub"
 description = "IndexHub API and workflows."
 readme = "README.md"
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.9,<3.10"
 authors = [
     { name = "Christopher Lo", email = "christopher@orcabase.com"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
     "aiobotocore",
