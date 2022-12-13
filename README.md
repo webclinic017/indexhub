@@ -6,7 +6,7 @@
 pre-commit install
 
 # Create new conda environment
-conda create -n "indexhub" python=3.10
+conda create -n "indexhub" python=3.9
 conda activate indexhub
 pip install --upgrade pip
 # Install indexhub pip package and dependencies
