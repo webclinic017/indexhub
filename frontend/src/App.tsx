@@ -10,10 +10,11 @@ import Login from "./views/login";
 import ProtectedNestedView from "./views/nested_page/protected_nested_view";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
+import themes from "./theme/theme";
 
 function App() {
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={themes["default_theme"]}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
