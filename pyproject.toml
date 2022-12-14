@@ -24,6 +24,9 @@ dependencies = [
     "prefect",
     "requests",
     "s3fs",
+    "xlsx2csv",
+    "pyarrow",
+    "openpyxl"
 ]
 dynamic = ["version"]
 
