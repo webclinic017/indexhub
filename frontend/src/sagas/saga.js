@@ -3,8 +3,10 @@ import axios from "axios";
 import {
   ADD_FAVOURITES,
   ADD_FAVOURITES_SUCCESS,
+  ADD_REPORT_ID_SUCCESS,
   LOAD_COMING_SOON,
   LOAD_COMING_SOON_SUCCESS,
+  ADD_REPORT_ID
 } from "../actions/actions";
 
 function comingSoonApi() {
@@ -22,9 +24,14 @@ function* workAddFavourites({ item }) {
   yield put({ type: ADD_FAVOURITES_SUCCESS, item });
 }
 
+function* workAddReportId({ report_id, user_id }) {
+  yield put({ type: ADD_REPORT_ID_SUCCESS, report_id, user_id });
+}
+
 function* mySaga() {
   yield takeEvery(LOAD_COMING_SOON, workLoadComingSoon);
   yield takeEvery(ADD_FAVOURITES, workAddFavourites);
+  yield takeEvery(ADD_REPORT_ID, workAddReportId);
 }
 
 export default mySaga;

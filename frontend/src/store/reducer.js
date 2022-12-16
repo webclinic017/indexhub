@@ -4,6 +4,7 @@ const initialState = {
     items: [],
     itemsId: [],
   },
+  report_ids: []
 };
 
 const reducer = (state = initialState, action) => {
@@ -22,7 +23,11 @@ const reducer = (state = initialState, action) => {
       newState.favourites = new_favourites;
     }
   }
-
+  switch (action.type) {
+    case "ADD_REPORT_ID_SUCCESS": {
+      newState.report_ids = [...state.report_ids, action.report_id]
+    }
+  }
   return newState;
 };
 

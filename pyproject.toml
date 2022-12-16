@@ -25,6 +25,9 @@ dependencies = [
     "prefect",
     "requests",
     "s3fs",
+    "sqlmodel",
+    "jwt",
+    "PyJWT",
     "xlsx2csv",
     "pyarrow",
     "openpyxl"
