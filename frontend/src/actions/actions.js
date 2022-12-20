@@ -2,11 +2,13 @@
 export const LOAD_COMING_SOON = "LOAD_COMING_SOON";
 export const ADD_FAVOURITES = "ADD_FAVOURITES";
 export const ADD_REPORT_ID = "ADD_REPORT_ID";
+export const INIT_USER = "INIT_USER";
 
 //event types for listeners in redux reducer
 export const ADD_FAVOURITES_SUCCESS = "ADD_FAVOURITES_SUCCESS";
 export const LOAD_COMING_SOON_SUCCESS = "LOAD_COMING_SOON_SUCCESS";
 export const ADD_REPORT_ID_SUCCESS = "ADD_REPORT_ID_SUCCESS";
+export const INIT_USER_SUCCESS = "INIT_USER_SUCCESS";
 
 export const loadComingSoon = () => ({
   type: LOAD_COMING_SOON,
@@ -22,3 +24,8 @@ export const addReportId = (report_id, user_id) => ({
   report_id,
   user_id
 });
+
+export const initUser = (user_details) => ({
+  type: INIT_USER,
+  user_details
+})

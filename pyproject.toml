@@ -30,7 +30,8 @@ dependencies = [
     "PyJWT",
     "xlsx2csv",
     "pyarrow",
-    "openpyxl"
+    "openpyxl",
+    "psycopg2"
 ]
 dynamic = ["version"]
 

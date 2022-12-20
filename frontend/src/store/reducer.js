@@ -4,6 +4,14 @@ const initialState = {
     items: [],
     itemsId: [],
   },
+  user: {
+    user_id: "",
+    name: "",
+    nickname: "",
+    email: "",
+    email_verified: false,
+    report_ids: null,
+  },
   report_ids: []
 };
 
@@ -26,6 +34,18 @@ const reducer = (state = initialState, action) => {
   switch (action.type) {
     case "ADD_REPORT_ID_SUCCESS": {
       newState.report_ids = [...state.report_ids, action.report_id]
+    }
+  }
+  switch (action.type) {
+    case "INIT_USER_SUCCESS": {
+      newState.user = {
+        user_id: action.user_details.user_id,
+        name: action.user_details.name,
+        nickname: action.user_details.nickname,
+        email: action.user_details.email,
+        email_verified: action.user_details.email_verified,
+        report_ids: action.user_details.report_id,
+      };
     }
   }
   return newState;

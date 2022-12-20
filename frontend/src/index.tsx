@@ -19,7 +19,6 @@ sagaMiddleware.run(mySaga);
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
-console.log(window.location.origin);
 root.render(
   <React.StrictMode>
     <Provider store={store}>

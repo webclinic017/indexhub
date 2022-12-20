@@ -13,10 +13,17 @@ export default function ProtectedPage() {
   const report_ids = useSelector(
     (state: AppState) => state.reducer?.report_ids
   );
+  const user_details = useSelector(
+    (state: AppState) => state.reducer?.user
+  );
 
   React.useEffect(() => {
     console.log(report_ids);
   }, [report_ids]);
+
+  React.useEffect(() => {
+    console.log(user_details)
+  }, [user_details])
 
   const createReport = async () => {
     const create_report_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports`;
