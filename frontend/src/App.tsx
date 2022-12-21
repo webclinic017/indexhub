@@ -3,14 +3,15 @@ import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ChakraProvider } from "@chakra-ui/react";
 import Home from "./views/home";
-import NestedPage from "./views/nested_page/nested_page";
-import NestedView from "./views/nested_page/nested_view";
-import ProtectedPage from "./views/protected_page";
-import Login from "./views/login";
-import ProtectedNestedView from "./views/nested_page/protected_nested_view";
+import Reports from "./views/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import themes from "./theme/theme";
+import Models from "./views/models";
+import Notifications from "./views/notifications";
+import Settings from "./views/settings";
+import Profile from "./views/profile";
+import Docs from "./views/docs";
 
 function App() {
   return (
@@ -19,24 +20,15 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="nested_page" element={<NestedPage />}>
-              <Route path="nested_view" element={<NestedView />} />
-              <Route
-                path="protected_nested_view"
-                element={
-                  <ProtectedRoute nested_view={true}>
-                    <ProtectedNestedView />
-                  </ProtectedRoute>
-                }
-              />
-            </Route>
-
+            <Route path="models" element={<Models />} />
+            <Route path="docs" element={<Docs />} />
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
-              <Route path="protected_page" element={<ProtectedPage />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
-
-            <Route path="/login" element={<Login />} />
           </Route>
         </Routes>
       </BrowserRouter>

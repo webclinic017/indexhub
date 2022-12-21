@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
 import { Grid, GridItem, VStack, Container } from "@chakra-ui/react";
+import { Button } from '@chakra-ui/react'
 import { ReactComponent as IndexHubLogo } from "../../assets/images/svg/indexhub_icon.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -13,8 +14,11 @@ import {
   faMagnifyingGlass,
   faUser,
 } from "@fortawesome/free-solid-svg-icons";
+import { Link } from "react-router-dom"
+import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Layout() {
+  const {user, logout, loginWithRedirect} = useAuth0()
   return (
     <>
       <Grid
@@ -33,7 +37,20 @@ export default function Layout() {
           alignItems="center"
           display="flex"
         >
-          Header
+          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset">
+            Header
+          </Container>
+          <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto">
+            {user?.sub ? (
+              <Button colorScheme="teal" size="sm" onClick={() => logout({ returnTo: window.location.origin })}>
+                Logout
+              </Button>
+            ) : (
+              <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect()}>
+                Login
+              </Button>
+            )}
+          </Container>
         </GridItem>
         <GridItem
           pl="2"
@@ -69,15 +86,18 @@ export default function Layout() {
                 </Container>
               </VStack>
               <VStack>
-                <Container
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  width="3rem"
-                  height="3rem"
-                >
-                  <FontAwesomeIcon icon={faDatabase} size="2x" />
-                </Container>
+                <Link to="/models">
+                  <Container
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    width="3rem"
+                    height="3rem"
+                  >
+                    <FontAwesomeIcon icon={faDatabase} size="2x" />
+                  </Container>
+                </Link>
+                <Link to="/reports">
                 <Container
                   display="flex"
                   justifyContent="center"
@@ -87,6 +107,8 @@ export default function Layout() {
                 >
                   <FontAwesomeIcon icon={faFile} size="2x" />
                 </Container>
+                </Link>
+                <Link to="/notifications">
                 <Container
                   display="flex"
                   justifyContent="center"
@@ -96,6 +118,7 @@ export default function Layout() {
                 >
                   <FontAwesomeIcon icon={faBell} size="2x" />
                 </Container>
+                </Link>
               </VStack>
               <VStack>
                 <Container
@@ -113,6 +136,7 @@ export default function Layout() {
               </VStack>
             </VStack>
             <VStack padding="30px" height="50%" justifyContent="flex-end">
+              <Link to="/settings">
               <Container
                 display="flex"
                 justifyContent="center"
@@ -126,6 +150,8 @@ export default function Layout() {
                   size="2x"
                 />
               </Container>
+              </Link>
+              <Link to="/docs">
               <Container
                 display="flex"
                 justifyContent="center"
@@ -139,6 +165,8 @@ export default function Layout() {
                   size="2x"
                 />
               </Container>
+              </Link>
+              <Link to="/profile">
               <Container
                 display="flex"
                 justifyContent="center"
@@ -152,6 +180,7 @@ export default function Layout() {
                   size="2x"
                 />
               </Container>
+              </Link>
             </VStack>
           </VStack>
         </GridItem>
