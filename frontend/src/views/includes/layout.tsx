@@ -14,11 +14,20 @@ import {
   faMagnifyingGlass,
   faUser,
 } from "@fortawesome/free-solid-svg-icons";
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Layout() {
   const {user, logout, loginWithRedirect} = useAuth0()
+  const current_path = useLocation().pathname
+
+  const getIconColor = (icon_path: string) => {
+    if (current_path.split("/")[1] == icon_path){
+      return "#4f4fff"
+    }
+    else return "white"
+  }
+
   return (
     <>
       <Grid
@@ -46,7 +55,9 @@ export default function Layout() {
                 Logout
               </Button>
             ) : (
-              <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect()}>
+              <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect({
+                redirectUri: `http://localhost:3000${current_path}`
+              })}>
                 Login
               </Button>
             )}
@@ -62,7 +73,7 @@ export default function Layout() {
           <VStack
             justifyContent="space-between"
             alignItems="center"
-            height="100%"
+            height="100vh"
           >
             <VStack
               padding="30px 0"
@@ -70,9 +81,11 @@ export default function Layout() {
               justifyContent="space-between"
             >
               <VStack>
+                <Link to="/">
                 <Container paddingBottom="20px">
                   <IndexHubLogo width="3rem" height="100%" />
                 </Container>
+                </Link>
                 <Container
                   display="flex"
                   justifyContent="center"
@@ -94,7 +107,7 @@ export default function Layout() {
                     width="3rem"
                     height="3rem"
                   >
-                    <FontAwesomeIcon icon={faDatabase} size="2x" />
+                    <FontAwesomeIcon icon={faDatabase} size="2x" color={getIconColor("models")}/>
                   </Container>
                 </Link>
                 <Link to="/reports">
@@ -105,7 +118,7 @@ export default function Layout() {
                   width="3rem"
                   height="3rem"
                 >
-                  <FontAwesomeIcon icon={faFile} size="2x" />
+                  <FontAwesomeIcon icon={faFile} size="2x" color={getIconColor("reports")}/>
                 </Container>
                 </Link>
                 <Link to="/notifications">
@@ -116,7 +129,7 @@ export default function Layout() {
                   width="3rem"
                   height="3rem"
                 >
-                  <FontAwesomeIcon icon={faBell} size="2x" />
+                  <FontAwesomeIcon icon={faBell} size="2x" color={getIconColor("notifications")}/>
                 </Container>
                 </Link>
               </VStack>
@@ -148,6 +161,7 @@ export default function Layout() {
                   icon={faGear}
                   overlineThickness="bold"
                   size="2x"
+                  color={getIconColor("settings")}
                 />
               </Container>
               </Link>
@@ -163,6 +177,7 @@ export default function Layout() {
                   icon={faBook}
                   overlineThickness="bold"
                   size="2x"
+                  color={getIconColor("docs")}
                 />
               </Container>
               </Link>
@@ -178,6 +193,7 @@ export default function Layout() {
                   icon={faUser}
                   overlineThickness="bold"
                   size="2x"
+                  color={getIconColor("profile")}
                 />
               </Container>
               </Link>

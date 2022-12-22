@@ -6,7 +6,8 @@ import { useAuth0AccessToken } from "./hooks/auth0";
 import { useDispatch } from "react-redux";
 import { initUser } from "../actions/actions";
 import { getUserDetails, createUser } from "./backend_calls/user";
-import { Container, Button} from "@chakra-ui/react";
+import { Button } from "@chakra-ui/react";
+import { useLocation } from 'react-router-dom';
 
 export default function ProtectedRoute({
   children,
@@ -18,6 +19,7 @@ export default function ProtectedRoute({
   const {user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
   const access_token_indexhub_api = useAuth0AccessToken()
   const dispatch = useDispatch()
+  const current_path = useLocation().pathname
 
   useEffect(() => {
     if (isAuthenticated && access_token_indexhub_api) {
@@ -46,12 +48,16 @@ export default function ProtectedRoute({
     if (!isAuthenticated) {
       if (nested_view) {
         return (
-          <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect()}>
+          <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect({
+            redirectUri: `http://localhost:3000${current_path}`
+          })}>
             Login
           </Button>
         )
       } else {
-        loginWithRedirect();
+        loginWithRedirect({
+          redirectUri: `http://localhost:3000${current_path}`
+        })
       }
     } else {
       return children ? children : <Outlet />;

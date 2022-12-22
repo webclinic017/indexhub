@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from api.models.report import Report
 from api.utils.init_db import engine
@@ -25,7 +26,7 @@ def create_report(
         report.chart_id = uuid.uuid4().hex
         report.table_id = uuid.uuid4().hex
         report.status = "RUNNING"
-        report.report_metadata = uuid.uuid4().hex
+        report.created_at = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
         session.add(report)
         session.commit()
