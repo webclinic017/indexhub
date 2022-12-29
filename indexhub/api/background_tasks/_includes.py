@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import polars as pl
 from sqlmodel import Session
 
 from indexhub.api.models.chart import Chart
@@ -27,6 +28,26 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
         }
     )
     chart.chart_type = "line"
+
+    # Populate chart entities
+    df = pl.read_parquet(chart.path)
+    chart.entities = json.dumps(
+        {
+            "year": {
+                "title": "Year",
+                "values": df["time"].dt.year().unique().to_list(),
+            },
+            "region": {
+                "title": "Region",
+                "values": df["territory"].unique().to_list(),
+            },
+            "risk_metric": {
+                "title": "Risk Metric (Indexhub Forecast)",
+                "values": df["quantile"].unique().to_list(),
+            },
+        }
+    )
+
     session.add(chart)
     session.commit()
     session.refresh(chart)

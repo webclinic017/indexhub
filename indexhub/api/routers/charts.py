@@ -30,7 +30,7 @@ class ChartResponse(BaseModel):
     axis_labels: Dict[str, str]
     readable_names: Dict[str, str]
     chart_type: str
-    entity_id: Optional[str] = None
+    entities: Optional[Dict] = None
 
 
 @router.post("/charts")
@@ -97,7 +97,7 @@ def get_chart(chart_id: str = None, filters: dict = None, year: list[int] = None
                     axis_labels=json.loads(charts[0].axis_labels),
                     readable_names=json.loads(charts[0].readable_names),
                     chart_type=charts[0].chart_type,
-                    entity_id=charts[0].entity_id,
+                    entities=json.loads(charts[0].entities),
                 )
 
                 return response

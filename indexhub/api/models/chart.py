@@ -10,4 +10,4 @@ class Chart(SQLModel, table=True):
     axis_labels: str
     readable_names: str  # dict
     chart_type: str
-    entity_id: Optional[float] = None
+    entities: Optional[str] = None
