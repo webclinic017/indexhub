@@ -31,7 +31,7 @@ dependencies = [
     "xlsx2csv",
     "pyarrow",
     "openpyxl",
-    "psycopg2"
+    "psycopg2-binary"
 ]
 dynamic = ["version"]
 

@@ -1,10 +1,11 @@
 from typing import List, Optional
 
-from api.models.user import User
-from api.utils.init_db import engine
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 from sqlmodel import Field, Session, select
+
+from indexhub.api.models.user import User
+from indexhub.api.utils.init_db import engine
 
 router = APIRouter()
 

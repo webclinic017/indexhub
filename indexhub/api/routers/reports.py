@@ -1,11 +1,13 @@
 import uuid
 from datetime import datetime
 
-from api.models.report import Report
-from api.utils.init_db import engine
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
+
+from indexhub.api.background_tasks.populate_report import populate_report_data
+from indexhub.api.models.report import Report
+from indexhub.api.utils.init_db import engine
 
 router = APIRouter()
 
@@ -15,22 +17,20 @@ class CreateReport(BaseModel):
 
 
 @router.post("/reports")
-def create_report(
-    create_report: CreateReport,
-):
+def create_report(create_report: CreateReport, background_tasks: BackgroundTasks):
     with Session(engine) as session:
 
         report = Report()
         report.report_id = uuid.uuid4().hex
         report.user_id = create_report.user_id
-        report.chart_id = uuid.uuid4().hex
-        report.table_id = uuid.uuid4().hex
         report.status = "RUNNING"
         report.created_at = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
         session.add(report)
         session.commit()
         session.refresh(report)
+
+        background_tasks.add_task(populate_report_data, report.report_id)
 
         return {"user_id": create_report.user_id, "report_id": report.report_id}
 

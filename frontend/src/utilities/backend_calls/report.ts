@@ -41,3 +41,21 @@ export const getReport = async (user_id = "", report_id = "", access_token_index
   const response_json = await get_report_response.json();
   return response_json
 }
+
+export const getChart = async (chart_id:string, access_token_indexhub_api:string) => {
+  let get_chart_url = ""
+
+  get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts?chart_id=${chart_id}`;
+
+  const get_chart_response = await fetch(get_chart_url, {
+    method: "GET",
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+
+  });
+
+  const response_json = await get_chart_response.json();
+  return response_json
+}
