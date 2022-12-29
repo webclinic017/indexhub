@@ -53,8 +53,8 @@ def load_fct_panel(s3_bucket: str, s3_path: str):
 @task
 def select_rows(df: pl.LazyFrame, filters: Mapping[str, List[str]]):
     for col, values in filters.items():
-        df.filter(~pl.col(col).is_in(values))
-    return df.collect(streaming=True).lazy()
+        filtered_df = df.filter(~pl.col(col).is_in(values))
+    return filtered_df.collect(streaming=True).lazy()
 
 
 @task
@@ -88,19 +88,14 @@ def clean_raw_panel(
         .select([*entity_cols, "time", target_col])
         # Sort by entity and time
         .sort(by=[*entity_cols, "time"])
-        # Defensive resampling
-        .groupby_dynamic("time", every=freq, by=entity_cols)
-        .agg(pl.mean(target_col))
         .collect(streaming=True)
     )
     return df_new.lazy()
 
 
 @task
-def add_calendar_effects(df: pl.LazyFrame) -> pl.LazyFrame:
+def add_holiday_effects(df: pl.LazyFrame) -> pl.LazyFrame:
     exprs = [
-        pl.col("time").dt.month().alias("month"),
-        pl.col("time").dt.year().alias("year"),
         pl.col("time").dt.month().is_in([1, 2]).alias("is_holiday"),
     ]
     df_new = df.with_columns(exprs).collect(streaming=True)
@@ -177,17 +172,24 @@ def preprocess_panel(
 
 
 @task
-def reindex_ftr_panel(df: pl.DataFrame) -> pl.DataFrame:
+def reindex_ftr_panel(df: pl.DataFrame) -> pl.LazyFrame:
     # Create new index
-    entity_col, time_col = df.columns[:2]
+    entity_col, time_col, target_col = df.columns
+    dtypes = df.dtypes[:2]
     entities = df.get_column(entity_col).unique()
     timestamps = df.get_column(time_col).unique()
     full_idx = pl.DataFrame(
         itertools.product(entities, timestamps), columns=df.columns[:2]
     )
-    # Outer join
-    df_new = df.join(full_idx, on=[entity_col, time_col], how="outer")
-    return df_new
+    # Defensive cast dtypes to be consistent with df
+    full_idx = full_idx.select(
+        [pl.col(col).cast(dtypes[i]) for i, col in enumerate(full_idx.columns)]
+    )
+    # Outer join and fill nulls with 0
+    df_new = df.join(full_idx, on=[entity_col, time_col], how="outer").with_column(
+        pl.col(target_col).fill_null(pl.lit(0))
+    )
+    return df_new.lazy()
 
 
 @task
@@ -196,19 +198,33 @@ def groupby_aggregate(
     entity_group: List[str],
     target_col: str,
     agg_by: str,
+    freq: str,
 ) -> pl.DataFrame:
     entity_id = ":".join(entity_group)
     agg_methods = {
         "sum": pl.sum(target_col),
         "mean": pl.mean(target_col),
     }
-
     df_new = (
-        df.with_columns(pl.concat_str(entity_group, sep=":").alias(entity_id))
+        df.with_columns(
+            [
+                # Remove negative values from target col
+                pl.when(pl.col(target_col) <= 0)
+                .then(0)
+                .otherwise(pl.col(target_col))
+                .keep_name(),
+                # Assign new col with entity_id
+                pl.concat_str(entity_group, sep=":").alias(entity_id),
+            ]
+        )
+        .sort("time")
         .groupby(["time", entity_id], maintain_order=True)
         .agg(agg_methods[agg_by])
         # Defensive reorder columns
         .select([entity_id, "time", target_col])
+        # Defensive resampling
+        .groupby_dynamic("time", every=freq, by=entity_id)
+        .agg(agg_methods[agg_by])
     )
 
     return df_new
@@ -216,7 +232,7 @@ def groupby_aggregate(
 
 @task
 def export_ftr_panel(
-    df: pl.DataFrame, s3_bucket: str, fct_data_path: str, suffix: Optional[str] = None
+    df: pl.LazyFrame, s3_bucket: str, fct_data_path: str, suffix: Optional[str] = None
 ):
     # Use hash of fct data path and entity col as ID
     dataset_id = fct_data_path + df.columns[0]
@@ -225,7 +241,9 @@ def export_ftr_panel(
     s3_path = f"processed/{identifer}/{ts}"
     if suffix:
         s3_path = f"{s3_path}_{suffix}"
-    df.to_pandas().to_parquet(f"s3://{s3_bucket}/{s3_path}.parquet", index=False)
+    df.collect().to_pandas().to_parquet(
+        f"s3://{s3_bucket}/{s3_path}.parquet", index=False
+    )
     return f"{s3_path}.parquet"
 
 
@@ -236,20 +254,23 @@ def prepare_hierarchical_panel(
     agg_method: Literal["sum", "mean"],
     fct_panel_path: str,
     target_col: str,
+    freq: str,
     manual_forecasts_path: Optional[str] = None,
 ):
 
     fct_panel = load_fct_panel(s3_bucket, fct_panel_path)
-    ftr_panel = reindex_ftr_panel(fct_panel).pipe(
-        groupby_aggregate, entity_group, target_col, agg_method
+    ftr_panel = (
+        groupby_aggregate(fct_panel, entity_group, target_col, agg_method, freq)
+        .pipe(reindex_ftr_panel)
+        .pipe(add_holiday_effects)
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
     if manual_forecasts_path is not None:
         fct_manual_forecast = load_fct_panel(s3_bucket, manual_forecasts_path)
-        ftr_manual_forecast = reindex_ftr_panel(fct_manual_forecast).pipe(
-            groupby_aggregate, entity_group, target_col, agg_method
-        )
+        ftr_manual_forecast = groupby_aggregate(
+            fct_manual_forecast, entity_group, target_col, agg_method, freq
+        ).pipe(reindex_ftr_panel)
         paths["manual"] = export_ftr_panel(
             ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
         )
