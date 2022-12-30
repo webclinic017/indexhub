@@ -31,7 +31,7 @@ dependencies = [
     "xlsx2csv",
     "pyarrow",
     "openpyxl",
-    "psycopg2-binary"
+    "psycopg2-binary",
 ]
 dynamic = ["version"]
 
@@ -49,6 +49,12 @@ dev = [
     "pytest",
     "pyupgrade",
     "ruff",
+]
+
+ml = [
+    "joblib==1.2.0",
+    "mlforecast==0.4.0",
+    "lightgbm==3.3.3",
 ]
 
 [tool.hatch.version]

@@ -172,7 +172,7 @@ def preprocess_panel(
 
 
 @task
-def reindex_ftr_panel(df: pl.DataFrame) -> pl.LazyFrame:
+def reindex_ftr_panel(df: pl.DataFrame, suffix: str) -> pl.LazyFrame:
     # Create new index
     entity_col, time_col, target_col = df.columns
     dtypes = df.dtypes[:2]
@@ -185,9 +185,13 @@ def reindex_ftr_panel(df: pl.DataFrame) -> pl.LazyFrame:
     full_idx = full_idx.select(
         [pl.col(col).cast(dtypes[i]) for i, col in enumerate(full_idx.columns)]
     )
-    # Outer join and fill nulls with 0
-    df_new = df.join(full_idx, on=[entity_col, time_col], how="outer").with_column(
-        pl.col(target_col).fill_null(pl.lit(0))
+    # Outer join
+    df_new = (
+        df.join(full_idx, on=[entity_col, time_col], how="outer")
+        # Fill nulls with 0 and add suffix to target col (actual/manual/forecast)
+        .with_column(
+            pl.col(target_col).fill_null(pl.lit(0)).alias(f"{target_col}:{suffix}")
+        ).drop(target_col)
     )
     return df_new.lazy()
 
@@ -205,18 +209,10 @@ def groupby_aggregate(
         "sum": pl.sum(target_col),
         "mean": pl.mean(target_col),
     }
+
     df_new = (
-        df.with_columns(
-            [
-                # Remove negative values from target col
-                pl.when(pl.col(target_col) <= 0)
-                .then(0)
-                .otherwise(pl.col(target_col))
-                .keep_name(),
-                # Assign new col with entity_id
-                pl.concat_str(entity_group, sep=":").alias(entity_id),
-            ]
-        )
+        # Assign new col with entity_id
+        df.with_column(pl.concat_str(entity_group, sep=":").alias(entity_id))
         .sort("time")
         .groupby(["time", entity_id], maintain_order=True)
         .agg(agg_methods[agg_by])
@@ -226,7 +222,22 @@ def groupby_aggregate(
         .groupby_dynamic("time", every=freq, by=entity_id)
         .agg(agg_methods[agg_by])
     )
+    return df_new
 
+
+@task
+def filter_negative_values(
+    df: pl.DataFrame,
+    target_col: str,
+) -> pl.DataFrame:
+
+    df_new = df.with_column(
+        # Remove negative values from target col
+        pl.when(pl.col(target_col) <= 0)
+        .then(0)
+        .otherwise(pl.col(target_col))
+        .keep_name()
+    )
     return df_new
 
 
@@ -256,21 +267,32 @@ def prepare_hierarchical_panel(
     target_col: str,
     freq: str,
     manual_forecasts_path: Optional[str] = None,
+    allow_negatives: Optional[bool] = False,
 ):
 
     fct_panel = load_fct_panel(s3_bucket, fct_panel_path)
     ftr_panel = (
-        groupby_aggregate(fct_panel, entity_group, target_col, agg_method, freq)
-        .pipe(reindex_ftr_panel)
+        filter_negative_values(fct_panel, target_col)
+        if allow_negatives is False
+        else fct_panel
+    )
+    ftr_panel = (
+        groupby_aggregate(ftr_panel, entity_group, target_col, agg_method, freq)
+        .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
     if manual_forecasts_path is not None:
         fct_manual_forecast = load_fct_panel(s3_bucket, manual_forecasts_path)
+        ftr_manual_forecast = (
+            filter_negative_values(fct_manual_forecast, target_col)
+            if allow_negatives is False
+            else fct_manual_forecast
+        )
         ftr_manual_forecast = groupby_aggregate(
-            fct_manual_forecast, entity_group, target_col, agg_method, freq
-        ).pipe(reindex_ftr_panel)
+            ftr_manual_forecast, entity_group, target_col, agg_method, freq
+        ).pipe(reindex_ftr_panel, suffix="manual")
         paths["manual"] = export_ftr_panel(
             ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
         )
