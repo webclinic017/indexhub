@@ -52,7 +52,6 @@ export default function Reports() {
   React.useEffect(() => {
     const getChartByChartId = async () => {
       const chart_response = await getChart(selectedReport?.chart_id, access_token_indexhub_api)
-      console.log(chart_response)
       setChartData(chart_response)
     }
     if (access_token_indexhub_api && selectedReport.report_id){
@@ -138,7 +137,6 @@ export default function Reports() {
             </Thead>
             <Tbody>
               {reports.reports.slice(start_index, start_index + reports_per_page).map((item) => {
-                {console.log(reports)}
                 return (
                   <Tr onClick={() => setSelectedReport(item)} key={item.report_id}>
                     <Td>{item.report_id}</Td>

@@ -48,7 +48,7 @@ export const getChart = async (chart_id:string, access_token_indexhub_api:string
   get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts?chart_id=${chart_id}`;
 
   const get_chart_response = await fetch(get_chart_url, {
-    method: "GET",
+    method: "POST",
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${access_token_indexhub_api}`,

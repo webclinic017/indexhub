@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from indexhub.api.models.chart import Chart
 from indexhub.api.models.report import Report
+from indexhub.api.models.table import Table
 
 
 async def populate_forecast_recommendations_data(report: Report, session: Session):
@@ -54,6 +55,32 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
 
     # Update report with the relevant chart_id
     report.chart_id = chart.chart_id
+    report.status = "RUNNING"
+    session.add(report)
+    session.commit()
+    session.refresh(report)
+
+    # Populate table related data
+    table = Table()
+    table.table_id = uuid.uuid4().hex
+    table.path = "rpt_tourism_forecast_by_territory_state_quantile_20221222.parquet"
+    table.title = "Forecasting Scenarios"
+    table.readable_names = json.dumps(
+        {
+            "month_year": "Month",
+            "trips_in_000s:indexhub_forecast_0.1": "Indexhub Forecast (10%)",
+            "trips_in_000s:indexhub_forecast_0.3": "Indexhub Forecast (30%)",
+            "trips_in_000s:indexhub_forecast_0.5": "Indexhub Forecast (50%)",
+            "trips_in_000s:indexhub_forecast_0.7": "Indexhub Forecast (70%)",
+            "trips_in_000s:indexhub_forecast_0.9": "Indexhub Forecast (90%)",
+        }
+    )
+    session.add(table)
+    session.commit()
+    session.refresh(table)
+
+    # Update report with the relevant table_id
+    report.table_id = table.table_id
     report.status = "COMPLETE"
     session.add(report)
     session.commit()
