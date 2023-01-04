@@ -1,5 +1,6 @@
 import io
 import itertools
+import re
 from datetime import datetime
 from hashlib import md5
 from typing import List, Mapping, Optional
@@ -107,6 +108,10 @@ def add_entity_effects(df: pl.LazyFrame, entity_cols: List[str]) -> pl.LazyFrame
     fixed_effects = pl.get_dummies(df.collect().select(entity_cols)).select(
         pl.all().cast(pl.Boolean).prefix("is_")
     )
+    # Replace spaces and semicolons with underscores
+    fixed_effects.columns = [
+        re.sub(r"[\s:]", "_", str(col).lower()) for col in fixed_effects.columns
+    ]
     df_new = pl.concat([df.collect(), fixed_effects], how="horizontal")
     return df_new.lazy()
 
@@ -269,7 +274,7 @@ def prepare_hierarchical_panel(
     manual_forecasts_path: Optional[str] = None,
     allow_negatives: Optional[bool] = False,
 ):
-
+    merged_entity_col = ":".join(entity_group)
     fct_panel = load_fct_panel(s3_bucket, fct_panel_path)
     ftr_panel = (
         filter_negative_values(fct_panel, target_col)
@@ -280,6 +285,7 @@ def prepare_hierarchical_panel(
         groupby_aggregate(ftr_panel, entity_group, target_col, agg_method, freq)
         .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
+        .pipe(add_entity_effects, [merged_entity_col])
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 

@@ -166,7 +166,7 @@ def run_backtest(
         y_preds.append(y_pred)
 
     y_preds = pl.concat(y_preds).with_column(pl.lit(quantile).alias("quantile"))
-    return y_preds
+    return y_preds, fitted_model
 
 
 @task
@@ -350,6 +350,31 @@ def run_forecast(
 
 
 @task
+def compute_feature_importance(
+    fitted_model_by_quantile: Mapping[int, Any], quantile: int
+):
+    try:
+        # Find the first LGBMRegressor in the list of models
+        fitted_model = next(
+            model
+            for model in fitted_model_by_quantile[quantile].models_
+            if isinstance(model, LGBMRegressor)
+        )
+    except StopIteration as err:
+        raise ValueError("Missing LGBMRegressor in `fitted_model`") from err
+
+    feature_importance = pl.DataFrame(
+        {
+            "quantile": [quantile] * fitted_model.n_features_,
+            "feature_name": fitted_model.feature_name_,
+            "importance": fitted_model.feature_importances_.tolist(),
+        }
+    ).sort("importance", reverse=True)
+
+    return feature_importance.lazy()
+
+
+@task
 def export_panel(
     df: pl.LazyFrame, s3_bucket: str, ftr_data_path: str, suffix: Optional[str] = None
 ):
@@ -376,7 +401,6 @@ def run_forecast_flow(
     freq_cols: List[str],
     freq: str,
     lags: List[int],
-    static_cols: List[str] = None,
     allow_negatives: bool = False,
     use_manual_zeros: bool = False,
 ):
@@ -393,6 +417,12 @@ def run_forecast_flow(
         )
 
     # 2. Time series split - return mapping of n_split to LazyFrame
+    static_cols = [
+        col
+        for col in ftr_panel.select(pl.col(pl.Boolean)).columns
+        if "is_holiday" not in col
+    ]
+
     splits_kwargs = {
         "time_col": time_col,
         "merged_index_col": merged_index_col,
@@ -419,10 +449,11 @@ def run_forecast_flow(
         "use_manual_zeros": use_manual_zeros,
     }
 
-    # 3. Backtest - return backtest by quantile
+    # 3. Backtest - return backtest and fitted_model by quantile
     backtests = []
+    fitted_model_by_quantile = {}
     for quantile in QUANTILES:
-        backtest = run_backtest(
+        backtest, fitted_model = run_backtest(
             n_split_to_ftr_train=n_split_to_ftr_train,
             n_split_to_ftr_test=n_split_to_ftr_test,
             quantile=quantile,
@@ -430,6 +461,7 @@ def run_forecast_flow(
         )
 
         backtests.append(backtest)
+        fitted_model_by_quantile[quantile] = fitted_model
 
     # 4. Postproc
     transf_backtests = postproc(
@@ -482,6 +514,22 @@ def run_forecast_flow(
     )
     paths["y_preds"] = export_panel(
         transf_y_preds, s3_artifacts_bucket, ftr_data_paths["actual"], suffix="y_preds"
+    )
+
+    # 7. Compute feature importance
+    feature_importances = []
+    for quantile in QUANTILES:
+        feature_importances_by_quantile = compute_feature_importance(
+            fitted_model_by_quantile, quantile
+        )
+        feature_importances.append(feature_importances_by_quantile)
+    feature_importances = pl.concat(feature_importances)
+
+    paths["feature_importances"] = export_panel(
+        feature_importances,
+        s3_artifacts_bucket,
+        ftr_data_paths["actual"],
+        suffix="feature_importances",
     )
 
     return paths
