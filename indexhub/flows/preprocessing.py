@@ -102,8 +102,8 @@ def add_holiday_effects(df: pl.LazyFrame) -> pl.LazyFrame:
 
 
 @task
-def add_entity_effects(df: pl.LazyFrame, entity_group: List[str]) -> pl.LazyFrame:
-    entity_id = ":".join(entity_group)
+def add_entity_effects(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(levels)
     fixed_effects = pl.get_dummies(df.collect().select(entity_id)).select(
         pl.all().cast(pl.Boolean).prefix("is_")
     )
@@ -203,12 +203,12 @@ def reindex_ftr_panel(df: pl.DataFrame, suffix: str) -> pl.LazyFrame:
 @task
 def groupby_aggregate(
     df: pl.DataFrame,
-    entity_group: List[str],
+    levels: List[str],
     target_col: str,
     agg_by: str,
     freq: str,
 ) -> pl.DataFrame:
-    entity_id = ":".join(entity_group)
+    entity_id = ":".join(levels)
     agg_methods = {
         "sum": pl.sum(target_col),
         "mean": pl.mean(target_col),
@@ -216,7 +216,7 @@ def groupby_aggregate(
 
     df_new = (
         # Assign new col with entity_id
-        df.with_column(pl.concat_str(entity_group, sep=":").alias(entity_id))
+        df.with_column(pl.concat_str(levels, sep=":").alias(entity_id))
         .sort("time")
         .groupby(["time", entity_id], maintain_order=True)
         .agg(agg_methods[agg_by])
@@ -246,8 +246,8 @@ def filter_negative_values(
 
 
 @task
-def coerce_entity_colname(df: pl.LazyFrame, entity_group: List[str]) -> pl.LazyFrame:
-    entity_id = ":".join(entity_group)
+def coerce_entity_colname(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(levels)
 
     # Coerce entity column name and defensive sort columns
     df_new = df.select(
@@ -284,7 +284,7 @@ def export_ftr_panel(
 @flow
 def prepare_hierarchical_panel(
     s3_bucket: str,
-    entity_group: List[str],
+    levels: List[str],
     agg_method: Literal["sum", "mean"],
     fct_panel_path: str,
     target_col: str,
@@ -299,11 +299,11 @@ def prepare_hierarchical_panel(
         else fct_panel
     )
     ftr_panel = (
-        groupby_aggregate(ftr_panel, entity_group, target_col, agg_method, freq)
+        groupby_aggregate(ftr_panel, levels, target_col, agg_method, freq)
         .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
-        .pipe(add_entity_effects, entity_group)
-        .pipe(coerce_entity_colname, entity_group)
+        .pipe(add_entity_effects, levels)
+        .pipe(coerce_entity_colname, levels)
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
@@ -315,11 +315,9 @@ def prepare_hierarchical_panel(
             else fct_manual_forecast
         )
         ftr_manual_forecast = (
-            groupby_aggregate(
-                ftr_manual_forecast, entity_group, target_col, agg_method, freq
-            )
+            groupby_aggregate(ftr_manual_forecast, levels, target_col, agg_method, freq)
             .pipe(reindex_ftr_panel, suffix="manual")
-            .pipe(coerce_entity_colname, entity_group)
+            .pipe(coerce_entity_colname, levels)
         )
         paths["manual"] = export_ftr_panel(
             ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
