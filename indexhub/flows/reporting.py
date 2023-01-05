@@ -62,8 +62,7 @@ def prepare_past_review_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    merged_entity_id: str,
-    time_col: str,
+    entity_group: List[str],
 ):
     # 1. Load ftr actual, ftr manual, and backtests
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
@@ -88,21 +87,23 @@ def prepare_past_review_report(
     # 3. Merge ftr actual, ftr manual, and backtests
     rpt_past_review = backtests.join(
         transf_ftr_panel,
-        on=[merged_entity_id, time_col, "quantile"],
+        on=["entity", "time", "quantile"],
         how="outer",
     )
     if ftr_panel_manual is not None:
         rpt_past_review = rpt_past_review.join(
             transf_ftr_panel_manual,
-            on=[merged_entity_id, time_col, "quantile"],
+            on=["entity", "time", "quantile"],
             how="outer",
         )
 
     # 4. Split merged entity cols and cast to categorical
     rpt_past_review = (
-        split_merged_entity_cols(rpt_past_review, merged_entity_id)
-        .pipe(cast_entity_cols_to_categorical, merged_entity_id)
-        .drop("is_holiday")
+        split_merged_entity_cols(rpt_past_review, entity_group).pipe(
+            cast_entity_cols_to_categorical
+        )
+        # Filter columns by entity, quantile, time and target cols
+        .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
     )
 
     paths = {
@@ -117,22 +118,20 @@ def prepare_past_review_report(
 
 
 @task
-def split_merged_entity_cols(df: pl.LazyFrame, merged_entity_id: str) -> pl.LazyFrame:
-    new_entity_cols = merged_entity_id.split(":")
-
+def split_merged_entity_cols(df: pl.LazyFrame, entity_group: List[str]) -> pl.LazyFrame:
     df_new = (
         df.collect()
-        .with_columns(pl.col(merged_entity_id).str.split(":"))
+        .with_columns(pl.col("entity").str.split(":"))
         # Split the merged entity col into separated columns
         .with_column(
             pl.struct(
                 [
-                    pl.col(merged_entity_id).arr.get(i).alias(f"{col}")
-                    for i, col in enumerate(new_entity_cols)
+                    pl.col("entity").arr.get(i).alias(f"entity_{i}")
+                    for i, col in enumerate(entity_group)
                 ]
-            ).alias(merged_entity_id),
+            ).alias("entity"),
         )
-        .unnest(merged_entity_id)
+        .unnest("entity")
     )
 
     return df_new.lazy()
@@ -140,12 +139,10 @@ def split_merged_entity_cols(df: pl.LazyFrame, merged_entity_id: str) -> pl.Lazy
 
 @task
 def cast_entity_cols_to_categorical(
-    df: pl.LazyFrame, merged_entity_id: str
+    df: pl.LazyFrame,
 ) -> pl.LazyFrame:
-    new_entity_cols = merged_entity_id.split(":")
-    df_new = df.with_columns(
-        [pl.col(col).cast(pl.Categorical) for col in new_entity_cols]
-    )
+    df_new = df.with_columns(pl.col("^entity.*$").cast(pl.Categorical))
+
     return df_new
 
 
@@ -153,7 +150,7 @@ def cast_entity_cols_to_categorical(
 def prepare_metrics_report(
     s3_artifact_bucket: str,
     forecast_data_paths: Mapping[str, str],
-    merged_entity_id: str,
+    entity_group: List[str],
 ):
     # 1. Load metrics from forecast data
     metrics = load_data(
@@ -161,8 +158,8 @@ def prepare_metrics_report(
     )
 
     # 2. Split entity id into list of cols and cast entity cols to categorical
-    rpt_metrics = split_merged_entity_cols(metrics, merged_entity_id).pipe(
-        cast_entity_cols_to_categorical, merged_entity_id
+    rpt_metrics = split_merged_entity_cols(metrics, entity_group).pipe(
+        cast_entity_cols_to_categorical
     )
 
     paths = {
@@ -183,9 +180,7 @@ def prepare_forecast_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    merged_entity_id: str,
-    target_col: str,
-    time_col: str,
+    entity_group: List[str],
 ):
     # 1. Load ftr actual, ftr manual, backtests, y_preds
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
@@ -212,25 +207,27 @@ def prepare_forecast_report(
 
     # 3. Join ftr_actual, backtests, and y_preds into single df
     rpt_forecast = backtests.join(
-        transf_ftr_panel, on=[merged_entity_id, time_col, "quantile"], how="outer"
+        transf_ftr_panel, on=["entity", "time", "quantile"], how="outer"
     ).join(
         y_preds,
-        on=[merged_entity_id, time_col, "quantile", f"{target_col}:forecast"],
+        on=["entity", "time", "quantile", "target:forecast"],
         how="outer",
     )
 
     if ftr_panel_manual is not None:
         rpt_forecast = rpt_forecast.join(
             transf_ftr_panel_manual,
-            on=[merged_entity_id, time_col, "quantile"],
+            on=["entity", "time", "quantile"],
             how="outer",
         )
 
     # 4. Split entity id into list of cols, cast entity cols to categorical and drop is_holiday
     rpt_forecast = (
-        split_merged_entity_cols(rpt_forecast, merged_entity_id)
-        .pipe(cast_entity_cols_to_categorical, merged_entity_id)
-        .drop("is_holiday")
+        split_merged_entity_cols(rpt_forecast, entity_group).pipe(
+            cast_entity_cols_to_categorical
+        )
+        # Filter columns by entity, quantile, time and target cols
+        .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
     )
 
     paths = {
@@ -247,13 +244,10 @@ def prepare_forecast_report(
 @task
 def assign_month_year(
     df: pl.LazyFrame,
-    time_col: str,
 ) -> pl.LazyFrame:
     df_new = df.collect().with_columns(
         (
-            pl.col(time_col).dt.strftime("%b")
-            + " "
-            + pl.col(time_col).dt.strftime("%Y")
+            pl.col("time").dt.strftime("%b") + " " + pl.col("time").dt.strftime("%Y")
         ).alias("month_year")
     )
     return df_new.lazy()
@@ -262,9 +256,6 @@ def assign_month_year(
 @task
 def transform_target_col_to_wide_format(
     y_preds: pl.LazyFrame,
-    target_col: str,
-    merged_entity_id: str,
-    time_col: str,
     quantiles: List[int],
 ):
     df_new = (
@@ -272,14 +263,14 @@ def transform_target_col_to_wide_format(
         y_preds.collect()
         # Unstack quantiles to columns
         .pivot(
-            index=[merged_entity_id, time_col],
+            index=["entity", "time"],
             columns="quantile",
-            values=target_col,
+            values="target:forecast",
         )
         .with_columns(
             # Rename target_col with quantile as suffix
             [
-                pl.col(f"{quantile}").alias(f"{target_col}_{quantile}")
+                pl.col(f"{quantile}").alias(f"target:forecast_{quantile}")
                 for quantile in quantiles
             ]
         )
@@ -292,9 +283,7 @@ def transform_target_col_to_wide_format(
 def prepare_forecast_scenario_report(
     s3_artifact_bucket: str,
     forecast_data_paths: Mapping[str, str],
-    merged_entity_id: str,
-    target_col: str,
-    time_col: str,
+    entity_group: List[str],
 ):
     # 1. Load y_preds
     y_preds = load_data(
@@ -306,12 +295,10 @@ def prepare_forecast_scenario_report(
 
     # 3. Convert target col to wide, assign month_year, split merged entity id and cast to categorical
     rpt_forecast_scenario = (
-        transform_target_col_to_wide_format(
-            y_preds, f"{target_col}:forecast", merged_entity_id, time_col, quantiles
-        )
-        .pipe(assign_month_year, time_col)
-        .pipe(split_merged_entity_cols, merged_entity_id)
-        .pipe(cast_entity_cols_to_categorical, merged_entity_id)
+        transform_target_col_to_wide_format(y_preds, quantiles)
+        .pipe(assign_month_year)
+        .pipe(split_merged_entity_cols, entity_group)
+        .pipe(cast_entity_cols_to_categorical)
     )
 
     paths = {
@@ -328,37 +315,35 @@ def prepare_forecast_scenario_report(
 @task
 def groupby_agg(
     df: pl.LazyFrame,
-    target_col: str,
-    merged_entity_id: str,
     agg_by: str,
 ) -> pl.DataFrame:
-    agg_method = {"std": pl.std(target_col), "mean": pl.mean(target_col)}
+    agg_method = {"std": pl.std("target:actual"), "mean": pl.mean("target:actual")}
     df_new = (
-        df.groupby(merged_entity_id)
+        df.groupby("entity")
         .agg(agg_method[agg_by])
-        .with_column(pl.col(target_col).alias(agg_by))
-        .drop(target_col)
+        .with_column(pl.col("target:actual").alias(agg_by))
+        .drop("target:actual")
     )
     return df_new
 
 
 @task
 def filter_df_by_quantile(
-    df: pl.LazyFrame, entity_cols: str, filter_col: str, quantile: int
+    df: pl.LazyFrame, filter_col: str, quantile: int
 ) -> pl.LazyFrame:
     df_new = (
         df.collect()
         .filter(pl.col("quantile") == quantile)
         .with_column(pl.col(filter_col).round(2))
-        .select([entity_cols, filter_col])
+        .select(["entity", filter_col])
     )
     return df_new.lazy()
 
 
 @task
-def assign_cv_column(df: pl.LazyFrame, target_col: str) -> pl.LazyFrame:
+def assign_cv_column(df: pl.LazyFrame) -> pl.LazyFrame:
     df_new = df.with_column(
-        (pl.col("std") / pl.col("mean")).round(2).alias(f"{target_col}_cv")
+        (pl.col("std") / pl.col("mean")).round(2).alias("target_cv")
     ).drop_nulls()
     return df_new.lazy()
 
@@ -367,16 +352,16 @@ def assign_cv_column(df: pl.LazyFrame, target_col: str) -> pl.LazyFrame:
 def assign_trendline_columns(df: pl.LazyFrame) -> pl.LazyFrame:
     # Use numpy to compute the slope and intercept
     slope, intercept = np.polyfit(
-        df.collect()["quantity_cv"], df.collect()["smape:manual"], 1
+        df.collect()["target_cv"], df.collect()["smape:manual"], 1
     )
     df_new = df.with_columns(
         [
             # Compute the ratio of manual smape over cv
-            (pl.col("smape:manual") / pl.col("quantity_cv"))
+            (pl.col("smape:manual") / pl.col("target_cv"))
             .alias("manual_smape_over_cv")
             .round(2),
             # Compute the trendline value
-            (slope * pl.col("quantity_cv") + intercept).alias("trendline").round(2),
+            (slope * pl.col("target_cv") + intercept).alias("trendline").round(2),
         ]
     )
     # Compute the distance of manual smape to trendline
@@ -408,8 +393,7 @@ def prepare_volatility_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    merged_entity_id: str,
-    target_col: str,
+    entity_group: List[str],
 ):
     # Skip the report if the source does not have manual forecasts
     if "manual" in ftr_data_paths:
@@ -422,28 +406,24 @@ def prepare_volatility_report(
         )
 
         # 2. Prepare tables for coefficient of volatility and join tables
-        ftr_panel_std = groupby_agg(
-            ftr_panel, f"{target_col}:actual", merged_entity_id, agg_by="std"
-        )
-        ftr_panel_mean = groupby_agg(
-            ftr_panel, f"{target_col}:actual", merged_entity_id, agg_by="mean"
-        )
+        ftr_panel_std = groupby_agg(ftr_panel, agg_by="std")
+        ftr_panel_mean = groupby_agg(ftr_panel, agg_by="mean")
         smape_manual_metrics = filter_df_by_quantile(
-            metrics, merged_entity_id, "smape:manual", quantile=0.5
+            metrics, "smape:manual", quantile=0.5
         )
         rpt_volatility = (
             # Join mean, average and manual smape cols into single df
-            ftr_panel_std.join(ftr_panel_mean, on=merged_entity_id).join(
-                smape_manual_metrics, on=merged_entity_id
+            ftr_panel_std.join(ftr_panel_mean, on="entity").join(
+                smape_manual_metrics, on="entity"
             )
         )
 
         # 3. Assign cv and trendline columns, split merged_entity_cols and cast to categorical
         rpt_volatility = (
-            assign_cv_column(rpt_volatility, target_col)
+            assign_cv_column(rpt_volatility)
             .pipe(assign_trendline_columns)
-            .pipe(split_merged_entity_cols, merged_entity_id)
-            .pipe(cast_entity_cols_to_categorical, merged_entity_id)
+            .pipe(split_merged_entity_cols, entity_group)
+            .pipe(cast_entity_cols_to_categorical)
         )
 
         paths = {

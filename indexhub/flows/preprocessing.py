@@ -85,8 +85,6 @@ def clean_raw_panel(
         )
         # Downcast numeric dtypes
         .select(pl.all().shrink_dtype())
-        # Defensive reorder columns
-        .select([*entity_cols, "time", target_col])
         # Sort by entity and time
         .sort(by=[*entity_cols, "time"])
         .collect(streaming=True)
@@ -104,8 +102,9 @@ def add_holiday_effects(df: pl.LazyFrame) -> pl.LazyFrame:
 
 
 @task
-def add_entity_effects(df: pl.LazyFrame, entity_cols: List[str]) -> pl.LazyFrame:
-    fixed_effects = pl.get_dummies(df.collect().select(entity_cols)).select(
+def add_entity_effects(df: pl.LazyFrame, entity_group: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(entity_group)
+    fixed_effects = pl.get_dummies(df.collect().select(entity_id)).select(
         pl.all().cast(pl.Boolean).prefix("is_")
     )
     # Replace spaces and semicolons with underscores
@@ -193,9 +192,9 @@ def reindex_ftr_panel(df: pl.DataFrame, suffix: str) -> pl.LazyFrame:
     # Outer join
     df_new = (
         df.join(full_idx, on=[entity_col, time_col], how="outer")
-        # Fill nulls with 0 and add suffix to target col (actual/manual/forecast)
+        # Fill nulls with 0 and rename target col (actual/manual/forecast)
         .with_column(
-            pl.col(target_col).fill_null(pl.lit(0)).alias(f"{target_col}:{suffix}")
+            pl.col(target_col).fill_null(pl.lit(0)).alias(f"target:{suffix}")
         ).drop(target_col)
     )
     return df_new.lazy()
@@ -247,12 +246,31 @@ def filter_negative_values(
 
 
 @task
+def coerce_entity_colname(df: pl.LazyFrame, entity_group: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(entity_group)
+
+    # Coerce entity column name and defensive sort columns
+    df_new = df.select(
+        [
+            # Coerce entity column name
+            pl.col(entity_id).alias("entity"),
+            pl.col("time"),
+            # Include target col with prefix "target"
+            pl.col("^target_.*$"),
+            # Drop original entity_id col
+            pl.all().exclude(["time", entity_id]),
+        ]
+    )
+    return df_new
+
+
+@task
 def export_ftr_panel(
     df: pl.LazyFrame, s3_bucket: str, fct_data_path: str, suffix: Optional[str] = None
 ):
     # Use hash of fct data path and entity col as ID
     dataset_id = fct_data_path + df.columns[0]
-    identifer = md5(dataset_id.encode("utf-8")).hexdigest()
+    identifer = md5(dataset_id.encode("utf-8")).hexdigest()[:7]
     ts = int(datetime.now().timestamp())
     s3_path = f"processed/{identifer}/{ts}"
     if suffix:
@@ -274,7 +292,6 @@ def prepare_hierarchical_panel(
     manual_forecasts_path: Optional[str] = None,
     allow_negatives: Optional[bool] = False,
 ):
-    merged_entity_col = ":".join(entity_group)
     fct_panel = load_fct_panel(s3_bucket, fct_panel_path)
     ftr_panel = (
         filter_negative_values(fct_panel, target_col)
@@ -285,7 +302,8 @@ def prepare_hierarchical_panel(
         groupby_aggregate(ftr_panel, entity_group, target_col, agg_method, freq)
         .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
-        .pipe(add_entity_effects, [merged_entity_col])
+        .pipe(add_entity_effects, entity_group)
+        .pipe(coerce_entity_colname, entity_group)
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
@@ -296,9 +314,13 @@ def prepare_hierarchical_panel(
             if allow_negatives is False
             else fct_manual_forecast
         )
-        ftr_manual_forecast = groupby_aggregate(
-            ftr_manual_forecast, entity_group, target_col, agg_method, freq
-        ).pipe(reindex_ftr_panel, suffix="manual")
+        ftr_manual_forecast = (
+            groupby_aggregate(
+                ftr_manual_forecast, entity_group, target_col, agg_method, freq
+            )
+            .pipe(reindex_ftr_panel, suffix="manual")
+            .pipe(coerce_entity_colname, entity_group)
+        )
         paths["manual"] = export_ftr_panel(
             ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
         )

@@ -54,10 +54,10 @@ def load_ftr_panel(s3_bucket: str, s3_path: str) -> pl.LazyFrame:
 
 @task
 def get_train_test_splits(
-    ftr_panel: pl.LazyFrame, time_col: str, merged_index_col: str, freq: str
+    ftr_panel: pl.LazyFrame, freq: str
 ) -> Mapping[int, pl.LazyFrame]:
-    # Create a Pandas dataframe from the panel and group it by the merged_index_col
-    df = ftr_panel.collect().to_pandas().groupby(merged_index_col)
+    # Create a Pandas dataframe from the panel and group by entity
+    df = ftr_panel.collect().to_pandas().groupby("entity")
     # Initialize dictionaries to store training and testing sets for each split
     n_split_to_ftr_train = {}
     n_split_to_ftr_test = {}
@@ -67,10 +67,10 @@ def get_train_test_splits(
         tscv = TimeSeriesSplit(n_splits=N_SPLITS, test_size=TEST_SIZE[freq])
         # Get the train and test indices for each split
         for n_split, (train_idx, test_idx) in enumerate(
-            tscv.split(dataframe.set_index(time_col))
+            tscv.split(dataframe.set_index("time"))
         ):
             # Filter the panel to get the rows corresponding to the current entity
-            filtered_ftr_panel = ftr_panel.filter(pl.col(merged_index_col) == entity)
+            filtered_ftr_panel = ftr_panel.filter(pl.col("entity") == entity)
             # Get the training and testing sets for the current split and entity
             ftr_train = filtered_ftr_panel.slice(
                 offset=train_idx[0], length=len(train_idx)
@@ -97,9 +97,6 @@ def get_train_test_splits(
 def _fit_model(
     ftr_train: pd.DataFrame,
     quantile: float,
-    time_col: str,
-    merged_index_col: str,
-    target_col: str,
     static_cols: List[str],
     freq_cols: List[str],
     freq: str,
@@ -120,10 +117,10 @@ def _fit_model(
     )
 
     model.fit(
-        data=ftr_train.set_index(merged_index_col),
+        data=ftr_train.set_index("entity"),
         id_col="index",
-        time_col=time_col,
-        target_col=f"{target_col}:actual",
+        time_col="time",
+        target_col="target:actual",
         static_features=static_cols,
     )
 
@@ -139,7 +136,6 @@ def run_backtest(
 ) -> pl.LazyFrame:
     # Unpack fit_kwargs
     freq = fit_kwargs["freq"]
-    time_col = fit_kwargs["time_col"]
     y_preds = []
 
     for n_split, ftr_train in n_split_to_ftr_train.items():
@@ -153,7 +149,7 @@ def run_backtest(
 
         # Create "is_holiday" dynamic df from test set
         dynamic_dfs = [
-            ftr_test.select(pl.col([time_col, "is_holiday"]))
+            ftr_test.select(pl.col(["time", "is_holiday"]))
             .unique()
             .collect()
             .to_pandas()
@@ -173,9 +169,6 @@ def run_backtest(
 def postproc(
     y_preds: List[pl.LazyFrame],
     ftr_panel_manual: pl.LazyFrame,
-    merged_index_col: str,
-    time_col: str,
-    target_col: str,
     allow_negatives: bool,
     use_manual_zeros: bool,
 ) -> pl.LazyFrame:
@@ -184,34 +177,30 @@ def postproc(
     # Average of QuantileRegressor and LGBMRegressor
     y_pred_mean = (
         y_pred.collect()
-        .select(pl.all().exclude([merged_index_col, time_col, "quantile"]))
+        .select(pl.all().exclude(["entity", "time", "quantile"]))
         .mean(axis=1)
-        .alias(f"{target_col}:forecast")
+        .alias("target:forecast")
     )
 
-    transf_y_pred = y_pred.select(
-        [pl.col([merged_index_col, time_col, "quantile"]), y_pred_mean]
-    )
+    transf_y_pred = y_pred.select([pl.col(["entity", "time", "quantile"]), y_pred_mean])
 
     if use_manual_zeros and ftr_panel_manual is not None:
         # Replace forecast to 0 according to manual forecast
         transf_y_pred = (
-            transf_y_pred.join(
-                ftr_panel_manual, on=[merged_index_col, time_col], how="left"
-            )
+            transf_y_pred.join(ftr_panel_manual, on=["entity", "time"], how="left")
             .with_column(
-                pl.when(pl.col(f"{target_col}:manual") <= 0)
+                pl.when(pl.col("target:manual") <= 0)
                 .then(0)
-                .otherwise(pl.col(f"{target_col}:forecast"))
-                .alias(f"{target_col}:forecast")
+                .otherwise(pl.col("target:forecast"))
+                .alias("target:forecast")
             )
             .select(
                 pl.col(
                     [
-                        merged_index_col,
-                        time_col,
+                        "entity",
+                        "time",
                         "quantile",
-                        f"{target_col}:forecast",
+                        "target:forecast",
                     ]
                 )
             )
@@ -220,10 +209,10 @@ def postproc(
     if not allow_negatives:
         # Replace negative forecast to 0
         transf_y_pred = transf_y_pred.with_column(
-            pl.when(pl.col(f"{target_col}:forecast") < 0)
+            pl.when(pl.col("target:forecast") < 0)
             .then(0)
-            .otherwise(pl.col(f"{target_col}:forecast"))
-            .alias(f"{target_col}:forecast")
+            .otherwise(pl.col("target:forecast"))
+            .alias("target:forecast")
         )
     return transf_y_pred
 
@@ -234,21 +223,15 @@ def compute_metrics(
     ftr_panel_manual: pl.LazyFrame,
     backtest: pl.LazyFrame,
     quantile: float,
-    time_col: str,
-    merged_index_col: str,
-    target_col: str,
 ) -> pl.LazyFrame:
     # Get backtest dates
     backtest_dates = (
-        backtest.select(pl.col(time_col).unique())
-        .collect()
-        .get_column(time_col)
-        .to_list()
+        backtest.select(pl.col("time").unique()).collect().get_column("time").to_list()
     )
     # Drop additional features
-    ftr_panel = ftr_panel.select([merged_index_col, time_col, f"{target_col}:actual"])
+    ftr_panel = ftr_panel.select(["entity", "time", "target:actual"])
     # Drop quantile column
-    backtest = backtest.select([merged_index_col, time_col, f"{target_col}:forecast"])
+    backtest = backtest.select(["entity", "time", "target:forecast"])
 
     forecast_mad = mad(y_true=ftr_panel, y_pred=backtest, suffix="forecast")
     forecast_smape = smape(y_true=ftr_panel, y_pred=backtest, suffix="forecast")
@@ -256,14 +239,12 @@ def compute_metrics(
     if ftr_panel_manual is not None:
         # Add manual mad, smape, rank, and improvement columns
         # Filter manual forecast by backtest dates
-        ftr_panel_manual = ftr_panel_manual.filter(
-            pl.col(time_col).is_in(backtest_dates)
-        )
+        ftr_panel_manual = ftr_panel_manual.filter(pl.col("time").is_in(backtest_dates))
         manual_mad = mad(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
         manual_smape = smape(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
 
         merged_mad = (
-            manual_mad.join(forecast_mad, on=merged_index_col, how="outer")
+            manual_mad.join(forecast_mad, on="entity", how="outer")
             .with_column(
                 # For kpi widget - total reduced over-forecast
                 ((pl.col("mad:forecast") - pl.col("mad:manual")) * -1).alias(
@@ -280,7 +261,7 @@ def compute_metrics(
             )
         )
         merged_smape = manual_smape.join(
-            forecast_smape, on=merged_index_col, how="outer"
+            forecast_smape, on="entity", how="outer"
         ).with_column(
             (
                 (pl.col("smape:forecast") - pl.col("smape:manual"))
@@ -289,16 +270,16 @@ def compute_metrics(
             ).alias("smape_improvement_%")
         )
 
-        metrics = merged_mad.join(merged_smape, on=merged_index_col, how="outer")
+        metrics = merged_mad.join(merged_smape, on="entity", how="outer")
     else:
-        metrics = forecast_mad.join(forecast_smape, on=merged_index_col, how="outer")
+        metrics = forecast_mad.join(forecast_smape, on="entity", how="outer")
 
     metrics = (
         metrics
         # Reorder columns sequence - index col, quantile, others
         .select(
             [
-                pl.col(merged_index_col),
+                pl.col("entity"),
                 pl.lit(quantile).alias("quantile"),
                 pl.col([col for col in metrics.columns if col.startswith("mad")]),
             ]
@@ -395,17 +376,12 @@ def run_forecast_flow(
     s3_data_bucket: str,
     s3_artifacts_bucket: str,
     ftr_data_paths: Mapping[str, str],
-    time_col: str,
-    index_cols: List[str],
-    target_col: str,
     freq_cols: List[str],
     freq: str,
     lags: List[int],
     allow_negatives: bool = False,
     use_manual_zeros: bool = False,
 ):
-    merged_index_col = ":".join(index_cols)
-
     # 1. Load ftr tables
     ftr_panel = load_ftr_panel(
         s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"]
@@ -423,28 +399,18 @@ def run_forecast_flow(
         if "is_holiday" not in col
     ]
 
-    splits_kwargs = {
-        "time_col": time_col,
-        "merged_index_col": merged_index_col,
-        "freq": freq,
-    }
+    splits_kwargs = {"freq": freq}
     n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
         ftr_panel=ftr_panel, **splits_kwargs
     )
 
     fit_kwargs = {
-        "time_col": time_col,
-        "merged_index_col": merged_index_col,
-        "target_col": target_col,
         "static_cols": static_cols,
         "freq_cols": freq_cols,
         "freq": freq,
         "lags": lags,
     }
     postproc_kwargs = {
-        "time_col": time_col,
-        "merged_index_col": merged_index_col,
-        "target_col": target_col,
         "allow_negatives": allow_negatives,
         "use_manual_zeros": use_manual_zeros,
     }
@@ -477,11 +443,6 @@ def run_forecast_flow(
     }
 
     # 5. Compute backtest metrics by quantile
-    metrics_kwargs = {
-        "time_col": time_col,
-        "merged_index_col": merged_index_col,
-        "target_col": target_col,
-    }
     metrics = []
     for quantile in QUANTILES:
         backtest_by_quantile = transf_backtests.filter(pl.col("quantile") == quantile)
@@ -490,7 +451,6 @@ def run_forecast_flow(
             ftr_panel_manual=ftr_panel_manual,
             backtest=backtest_by_quantile,
             quantile=quantile,
-            **metrics_kwargs,
         )
         metrics.append(metric)
 
