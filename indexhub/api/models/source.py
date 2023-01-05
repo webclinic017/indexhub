@@ -1,4 +1,5 @@
-from typing import Literal, Optional
+from datetime import datetime
+from typing import List, Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -8,7 +9,7 @@ class Source(SQLModel, table=True):
     name: str
     path: str
     freq: str
-    status: Literal["SUCCESS", "FAILED", "RUNNING"] = Field(default="RUNNING")
+    status: Optional[str] = Field(default="RUNNING")
     created_at: datetime
     updated_at: Optional[datetime] = None
     start_date: Optional[datetime] = None

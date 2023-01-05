@@ -94,21 +94,11 @@ def get_table(table_id: str = None, filters: dict = None):
                     time_series=ForecastRecommendationsTimeSeries(
                         time=time_sorted_df["time"].to_list(),
                         month_year=time_sorted_df["month_year"].to_list(),
-                        rpt_forecast_10=time_sorted_df[
-                            "trips_in_000s:indexhub_forecast_0.1"
-                        ].to_list(),
-                        rpt_forecast_30=time_sorted_df[
-                            "trips_in_000s:indexhub_forecast_0.3"
-                        ].to_list(),
-                        rpt_forecast_50=time_sorted_df[
-                            "trips_in_000s:indexhub_forecast_0.5"
-                        ].to_list(),
-                        rpt_forecast_70=time_sorted_df[
-                            "trips_in_000s:indexhub_forecast_0.7"
-                        ].to_list(),
-                        rpt_forecast_90=time_sorted_df[
-                            "trips_in_000s:indexhub_forecast_0.9"
-                        ].to_list(),
+                        rpt_forecast_10=time_sorted_df["target:forecast_0.1"].to_list(),
+                        rpt_forecast_30=time_sorted_df["target:forecast_0.3"].to_list(),
+                        rpt_forecast_50=time_sorted_df["target:forecast_0.5"].to_list(),
+                        rpt_forecast_70=time_sorted_df["target:forecast_0.7"].to_list(),
+                        rpt_forecast_90=time_sorted_df["target:forecast_0.9"].to_list(),
                     ),
                     title=tables[0].title,
                     readable_names=json.loads(tables[0].readable_names),

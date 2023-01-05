@@ -68,8 +68,9 @@ def get_chart(chart_id: str = None, filters: dict = None):
                                     & (pl.col("time") < datetime(max(values) + 1, 1, 1))
                                 )
                             else:
-                                filter_expr = [{filter: item} for item in values]
-                                df = df.filter(pl.struct([filter]).is_in(filter_expr))
+                                df = df.filter(
+                                    pl.col(filter).cast(pl.Utf8).is_in(values)
+                                )
 
                 # Groupby the filtered df by time
                 time_sorted_df = (
@@ -79,11 +80,9 @@ def get_chart(chart_id: str = None, filters: dict = None):
                 # Populate response
                 chart_data = ChartData(
                     time=time_sorted_df["time"].to_list(),
-                    rpt_actual=time_sorted_df["trips_in_000s:actual"].to_list(),
-                    rpt_manual=time_sorted_df["trips_in_000s:forecast"].to_list(),
-                    rpt_forecast=time_sorted_df[
-                        "trips_in_000s:indexhub_forecast"
-                    ].to_list(),
+                    rpt_actual=time_sorted_df["target:actual"].to_list(),
+                    rpt_manual=time_sorted_df["target:manual"].to_list(),
+                    rpt_forecast=time_sorted_df["target:forecast"].to_list(),
                 )
 
                 response = ChartResponse(

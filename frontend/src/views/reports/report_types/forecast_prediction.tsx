@@ -209,11 +209,11 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
                 <Thead backgroundColor="#cbcbcb">
                   <Tr>
                     <Th>{tableData?.readable_names["month_year"]}</Th>
-                    <Th>{tableData?.readable_names["trips_in_000s:indexhub_forecast_0.1"]}</Th>
-                    <Th>{tableData?.readable_names["trips_in_000s:indexhub_forecast_0.3"]}</Th>
-                    <Th>{tableData?.readable_names["trips_in_000s:indexhub_forecast_0.5"]}</Th>
-                    <Th>{tableData?.readable_names["trips_in_000s:indexhub_forecast_0.7"]}</Th>
-                    <Th>{tableData?.readable_names["trips_in_000s:indexhub_forecast_0.9"]}</Th>
+                    <Th>{tableData?.readable_names["target:forecast_0.1"]}</Th>
+                    <Th>{tableData?.readable_names["target:forecast_0.3"]}</Th>
+                    <Th>{tableData?.readable_names["target:forecast_0.5"]}</Th>
+                    <Th>{tableData?.readable_names["target:forecast_0.7"]}</Th>
+                    <Th>{tableData?.readable_names["target:forecast_0.9"]}</Th>
                   </Tr>
                 </Thead>
                 <Tbody>
