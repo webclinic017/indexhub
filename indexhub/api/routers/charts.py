@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import polars as pl
 from fastapi import APIRouter, HTTPException
@@ -30,11 +30,10 @@ class ChartResponse(BaseModel):
     axis_labels: Dict[str, str]
     readable_names: Dict[str, str]
     chart_type: str
-    entities: Optional[Dict] = None
 
 
-@router.post("/charts")
-def get_chart(chart_id: str = None, filters: dict = None, year: list[int] = None):
+@router.post("/chart")
+def get_chart(chart_id: str = None, filters: dict = None):
 
     with Session(engine) as session:
         # Throw error if chart_id is not provided
@@ -54,31 +53,28 @@ def get_chart(chart_id: str = None, filters: dict = None, year: list[int] = None
             else:
                 # Get path to the parquet file containing relevant analytics values and create df
                 path = charts[0].path
-                original_df = pl.read_parquet(path)
+                df = pl.scan_parquet(path)
 
-                # Init filtered_df
-                filtered_df = original_df
-
-                # Apply filters for all the entities that are available in this dataset if present in request body
+                # Apply all the filters that are available in this dataset if present in request body
                 if filters is not None:
-                    for entity, value in filters.items():
-                        if isinstance(value, list):
-                            dfs = []
-                            for item in value:
-                                dfs.append(filtered_df.filter(pl.col(entity) == item))
-                            filtered_df = pl.concat(dfs)
-                        else:
-                            filtered_df = filtered_df.filter(pl.col(entity) == value)
+                    for filter, values in filters.items():
+                        if not isinstance(values, Sequence):
+                            values = [values]
 
-                # Apply year filter if present in request body
-                if year is not None:
-                    filtered_df = filtered_df.filter(
-                        (pl.col("time") > datetime(min(year) - 1, 12, 31))
-                        & (pl.col("time") < datetime(max(year) + 1, 1, 1))
-                    )
+                        if len(values) > 0 and filter in df.columns:
+                            if filter == "time":
+                                df = df.filter(
+                                    (pl.col("time") > datetime(min(values) - 1, 12, 31))
+                                    & (pl.col("time") < datetime(max(values) + 1, 1, 1))
+                                )
+                            else:
+                                filter_expr = [{filter: item} for item in values]
+                                df = df.filter(pl.struct([filter]).is_in(filter_expr))
 
                 # Groupby the filtered df by time
-                time_sorted_df = filtered_df.groupby("time", maintain_order=True).mean()
+                time_sorted_df = (
+                    df.groupby("time").agg(pl.all().mean()).sort(by="time").collect()
+                )
 
                 # Populate response
                 chart_data = ChartData(
@@ -97,7 +93,6 @@ def get_chart(chart_id: str = None, filters: dict = None, year: list[int] = None
                     axis_labels=json.loads(charts[0].axis_labels),
                     readable_names=json.loads(charts[0].readable_names),
                     chart_type=charts[0].chart_type,
-                    entities=json.loads(charts[0].entities),
                 )
 
                 return response

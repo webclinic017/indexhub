@@ -28,7 +28,6 @@ export const getReport = async (user_id = "", report_id = "", access_token_index
   } else {
     get_report_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports?user_id=${user_id}`
   }
-  // const get_report_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports?report_id=${report_id}&user_id=${user_id}`;
   const get_report_response = await fetch(get_report_url, {
     method: "GET",
     headers: {
@@ -42,10 +41,10 @@ export const getReport = async (user_id = "", report_id = "", access_token_index
   return response_json
 }
 
-export const getChart = async (chart_id:string, access_token_indexhub_api:string) => {
+export const getChart = async (chart_id:string, access_token_indexhub_api:string, filters: any) => {
   let get_chart_url = ""
 
-  get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts?chart_id=${chart_id}`;
+  get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/chart?chart_id=${chart_id}`;
 
   const get_chart_response = await fetch(get_chart_url, {
     method: "POST",
@@ -53,7 +52,25 @@ export const getChart = async (chart_id:string, access_token_indexhub_api:string
       'Content-Type': 'application/json',
       Authorization: `Bearer ${access_token_indexhub_api}`,
     },
+    body: JSON.stringify(filters)
+  });
 
+  const response_json = await get_chart_response.json();
+  return response_json
+}
+
+export const getTable = async (table_id:string, access_token_indexhub_api:string, filters: any = {}) => {
+  let get_table_url = ""
+
+  get_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/table?table_id=${table_id}`;
+
+  const get_chart_response = await fetch(get_table_url, {
+    method: "POST",
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+    body: JSON.stringify(filters)
   });
 
   const response_json = await get_chart_response.json();

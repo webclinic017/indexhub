@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlmodel import Field, SQLModel
 
 
@@ -10,4 +8,3 @@ class Chart(SQLModel, table=True):
     axis_labels: str
     readable_names: str  # dict
     chart_type: str
-    entities: Optional[str] = None

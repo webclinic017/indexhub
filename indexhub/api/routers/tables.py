@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Dict, List, Union
+from typing import Dict, List, Sequence, Union
 
 import polars as pl
 from fastapi import APIRouter, HTTPException
@@ -65,26 +65,29 @@ def get_table(table_id: str = None, filters: dict = None):
             else:
                 # Get path to the parquet file containing relevant analytics values and create df
                 path = tables[0].path
-                original_df = pl.read_parquet(path)
+                df = pl.scan_parquet(path)
 
-                # Init filtered_df
-                filtered_df = original_df
-
-                # Apply filters for all the entities that are available in this dataset if present in request body
+                # Apply all filters that are available in this dataset if present in request body
                 if filters is not None:
-                    for entity, value in filters.items():
-                        if isinstance(value, list):
-                            dfs = []
-                            for item in value:
-                                dfs.append(filtered_df.filter(pl.col(entity) == item))
-                            filtered_df = pl.concat(dfs)
-                        else:
-                            filtered_df = filtered_df.filter(pl.col(entity) == value)
+                    for filter, values in filters.items():
+                        if not isinstance(values, Sequence):
+                            values = [values]
+
+                        if (
+                            len(values) > 0
+                            and filter in df.columns
+                            and filter != "time"
+                        ):
+                            filter_expr = [{filter: item} for item in values]
+                            df = df.filter(pl.struct([filter]).is_in(filter_expr))
 
                 # Groupby the filtered df by time
-                time_sorted_df = filtered_df.groupby(
-                    ["time", "month_year"], maintain_order=True
-                ).mean()
+                time_sorted_df = (
+                    df.groupby(["time", "month_year"])
+                    .agg(pl.all().mean())
+                    .sort(by="time")
+                    .collect()
+                )
 
                 # Populate response
                 forecast_recommendations_table = ForecastRecommendationsTable(

@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime
 
@@ -57,5 +58,8 @@ def get_report(report_id: str = None, user_id: str = None):
                 raise HTTPException(
                     status_code=400, detail="No records found for this report_id"
                 )
+
+        for report in reports:
+            report.filters = json.loads(report.filters)
 
         return {"reports": reports}

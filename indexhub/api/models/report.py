@@ -13,3 +13,4 @@ class Report(SQLModel, table=True):
     created_at: str
     chart_id: Optional[str] = None
     table_id: Optional[str] = None
+    filters: Optional[str] = None

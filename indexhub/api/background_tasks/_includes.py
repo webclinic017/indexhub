@@ -30,25 +30,6 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     )
     chart.chart_type = "line"
 
-    # Populate chart entities
-    df = pl.read_parquet(chart.path)
-    chart.entities = json.dumps(
-        {
-            "year": {
-                "title": "Year",
-                "values": df["time"].dt.year().unique().to_list(),
-            },
-            "region": {
-                "title": "Region",
-                "values": df["territory"].unique().to_list(),
-            },
-            "risk_metric": {
-                "title": "Risk Metric (Indexhub Forecast)",
-                "values": df["quantile"].unique().to_list(),
-            },
-        }
-    )
-
     session.add(chart)
     session.commit()
     session.refresh(chart)
@@ -81,6 +62,32 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
 
     # Update report with the relevant table_id
     report.table_id = table.table_id
+    report.status = "RUNNING"
+    session.add(report)
+    session.commit()
+    session.refresh(report)
+
+    # Populate report filters
+    df = pl.read_parquet(chart.path)
+    report.filters = json.dumps(
+        {
+            "time": {
+                "title": "Year",
+                "values": df["time"].dt.year().unique().to_list(),
+                "multiple_choice": True,
+            },
+            "entity": {
+                "title": "Region",
+                "values": df["territory"].unique().to_list(),
+                "multiple_choice": True,
+            },
+            "quantile": {
+                "title": "Risk Metric (Indexhub Forecast)",
+                "values": df["quantile"].unique().to_list(),
+                "multiple_choice": False,
+            },
+        }
+    )
     report.status = "COMPLETE"
     session.add(report)
     session.commit()

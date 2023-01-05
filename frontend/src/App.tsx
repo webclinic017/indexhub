@@ -3,7 +3,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ChakraProvider } from "@chakra-ui/react";
 import Home from "./views/home";
-import Reports from "./views/reports";
+import Reports from "./views/reports/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import themes from "./theme/theme";
