@@ -119,8 +119,8 @@ def add_entity_effects(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
 def export_fct_panel(
     df: pl.LazyFrame, s3_bucket: str, raw_data_path: str, suffix: Optional[str] = None
 ):
-    # Use hash of raw data path as ID
-    identifer = md5(raw_data_path.encode("utf-8")).hexdigest()
+    # Use the first 7 characters of the hash of raw data path as ID
+    identifer = md5(raw_data_path.encode("utf-8")).hexdigest()[:7]
     ts = int(datetime.now().timestamp())
     s3_path = f"processed/{identifer}/{ts}"
     if suffix:
@@ -139,39 +139,59 @@ def preprocess_panel(
     entity_cols: List[str],
     freq: str,
     raw_data_path: str,
+    report_id: str,
     manual_forecast_path: Optional[str] = None,
     filters: Optional[Mapping[str, List[str]]] = None,
 ):
-
-    raw_panel = load_raw_panel(s3_bucket, raw_data_path)
-    raw_panel = select_rows(raw_panel, filters) if filters is not None else raw_panel
-    fct_panel = clean_raw_panel(
-        df=raw_panel,
-        time_col=time_col,
-        target_col=target_col,
-        entity_cols=entity_cols,
-        freq=freq,
-    )
-    paths = {"actual": export_fct_panel(fct_panel, s3_bucket, raw_data_path)}
-
-    if manual_forecast_path is not None:
-        manual_forecasts = load_raw_panel(s3_bucket, manual_forecast_path)
-        manual_forecasts = (
-            select_rows(manual_forecasts, filters)
-            if filters is not None
-            else manual_forecasts
+    try:
+        raw_panel = load_raw_panel(s3_bucket, raw_data_path)
+        raw_panel = (
+            select_rows(raw_panel, filters) if filters is not None else raw_panel
         )
-        fct_manual_forecast = clean_raw_panel(
-            df=manual_forecasts,
+        fct_panel = clean_raw_panel(
+            df=raw_panel,
             time_col=time_col,
             target_col=target_col,
             entity_cols=entity_cols,
             freq=freq,
         )
-        paths["manual"] = export_fct_panel(
-            fct_manual_forecast, s3_bucket, raw_data_path, suffix="manual"
-        )
+        paths = {"actual": export_fct_panel(fct_panel, s3_bucket, raw_data_path)}
 
+        if manual_forecast_path is not None:
+            manual_forecasts = load_raw_panel(s3_bucket, manual_forecast_path)
+            manual_forecasts = (
+                select_rows(manual_forecasts, filters)
+                if filters is not None
+                else manual_forecasts
+            )
+            fct_manual_forecast = clean_raw_panel(
+                df=manual_forecasts,
+                time_col=time_col,
+                target_col=target_col,
+                entity_cols=entity_cols,
+                freq=freq,
+            )
+            paths["manual"] = export_fct_panel(
+                fct_manual_forecast, s3_bucket, raw_data_path, suffix="manual"
+            )
+
+        paths["metadata"] = {
+            "report_id": report_id,
+            "freq": freq,
+            "start_date": fct_panel.collect().select(pl.min("time"))[0, 0],
+            "end_date": fct_panel.collect().select(pl.max("time"))[0, 0],
+            "status": "SUCCESS",
+        }
+
+    except Exception as exc:
+        paths = {
+            "metadata": {
+                "report_id": report_id,
+                "freq": freq,
+                "status": "FAILED",
+                "msg": str(repr(exc)),
+            }
+        }
     return paths
 
 
