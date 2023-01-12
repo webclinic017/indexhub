@@ -98,7 +98,7 @@ def _fit_model(
     ftr_train: pd.DataFrame,
     quantile: float,
     static_cols: List[str],
-    freq_cols: List[str],
+    date_features: List[str],
     freq: str,
     lags: List[int],
 ):
@@ -112,7 +112,7 @@ def _fit_model(
         freq=freq,
         lags=lags,
         lag_transforms={1: [expanding_mean], 2: [(rolling_mean, 4)]},
-        date_features=freq_cols,
+        date_features=date_features,
         num_threads=NUM_THREADS,
     )
 
@@ -376,7 +376,7 @@ def run_forecast_flow(
     s3_data_bucket: str,
     s3_artifacts_bucket: str,
     ftr_data_paths: Mapping[str, str],
-    freq_cols: List[str],
+    date_features: List[str],
     freq: str,
     lags: List[int],
     allow_negatives: bool = False,
@@ -406,7 +406,7 @@ def run_forecast_flow(
 
     fit_kwargs = {
         "static_cols": static_cols,
-        "freq_cols": freq_cols,
+        "date_features": date_features,
         "freq": freq,
         "lags": lags,
     }

@@ -308,7 +308,9 @@ def prepare_hierarchical_panel(
     agg_method: Literal["sum", "mean"],
     fct_panel_path: str,
     target_col: str,
+    date_features: List[str],
     freq: str,
+    lags: List[int],
     manual_forecasts_path: Optional[str] = None,
     allow_negatives: Optional[bool] = False,
 ):
