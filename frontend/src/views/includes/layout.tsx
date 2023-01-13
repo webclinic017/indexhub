@@ -1,18 +1,16 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import { Grid, GridItem, VStack, Container } from "@chakra-ui/react";
-import { Button } from '@chakra-ui/react'
+import { Grid, GridItem, VStack, Container, Text } from "@chakra-ui/react";
 import { ReactComponent as IndexHubLogo } from "../../assets/images/svg/indexhub_icon.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBell,
   faBook,
-  faChevronRight,
+  faChartLine,
   faDatabase,
-  faFile,
   faGear,
-  faMagnifyingGlass,
-  faUser,
+  faRightFromBracket,
+  faRightToBracket,
 } from "@fortawesome/free-solid-svg-icons";
 import { Link, useLocation } from "react-router-dom"
 import { useAuth0 } from "@auth0/auth0-react";
@@ -46,20 +44,14 @@ export default function Layout() {
           alignItems="center"
           display="flex"
         >
-          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset">
-            Header
-          </Container>
+          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset"/>
           <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto">
             {user?.sub ? (
-              <Button colorScheme="teal" size="sm" onClick={() => logout({ returnTo: window.location.origin })}>
-                Logout
-              </Button>
+              <FontAwesomeIcon cursor="pointer" icon={faRightFromBracket} onClick={() => logout({ returnTo: window.location.origin })}/>
             ) : (
-              <Button colorScheme="teal" size="sm" onClick={() => loginWithRedirect({
+              <FontAwesomeIcon cursor="pointer" icon={faRightToBracket} onClick={() => loginWithRedirect({
                 redirectUri: `http://localhost:3000${current_path}`
-              })}>
-                Login
-              </Button>
+              })}/>
             )}
           </Container>
         </GridItem>
@@ -77,8 +69,9 @@ export default function Layout() {
           >
             <VStack
               padding="30px 0"
-              height="50%"
+              height="70%"
               justifyContent="space-between"
+              width="100%"
             >
               <VStack>
                 <Link to="/">
@@ -86,66 +79,47 @@ export default function Layout() {
                   <IndexHubLogo width="3rem" height="100%" />
                 </Container>
                 </Link>
-                <Container
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  backgroundColor="#333333"
-                  width="3rem"
-                  height="2rem"
-                  borderRadius="5px"
-                >
-                  <FontAwesomeIcon icon={faMagnifyingGlass} />
-                </Container>
               </VStack>
-              <VStack>
-                <Link to="/models">
+              <VStack width="100%">
+                <Link style={{width:"100%"}} to="/models">
                   <Container
                     display="flex"
                     justifyContent="center"
                     alignItems="center"
-                    width="3rem"
-                    height="3rem"
+                    flexDirection="column"
+                    width="100%"
+                    padding="1rem"
                   >
                     <FontAwesomeIcon icon={faDatabase} size="2x" color={getIconColor("models")}/>
+                    <Text color={getIconColor("models")} fontSize="14px" marginTop="1rem">Models</Text>
                   </Container>
                 </Link>
-                <Link to="/reports">
+                <Link style={{width:"100%"}} to="/reports">
                 <Container
                   display="flex"
                   justifyContent="center"
                   alignItems="center"
-                  width="3rem"
-                  height="3rem"
+                  flexDirection="column"
+                  width="100%"
+                  padding="1rem"
                 >
-                  <FontAwesomeIcon icon={faFile} size="2x" color={getIconColor("reports")}/>
+                  <FontAwesomeIcon icon={faChartLine} size="2x" color={getIconColor("reports")}/>
+                  <Text color={getIconColor("reports")} fontSize="14px" marginTop="1rem">Reports</Text>
                 </Container>
                 </Link>
-                <Link to="/notifications">
+                <Link style={{width:"100%"}} to="/alerts">
                 <Container
                   display="flex"
                   justifyContent="center"
                   alignItems="center"
-                  width="3rem"
-                  height="3rem"
+                  flexDirection="column"
+                  width="100%"
+                  padding="1rem"
                 >
-                  <FontAwesomeIcon icon={faBell} size="2x" color={getIconColor("notifications")}/>
+                  <FontAwesomeIcon icon={faBell} size="2x" color={getIconColor("alerts")}/>
+                  <Text color={getIconColor("alerts")} fontSize="14px" marginTop="1rem">Alerts</Text>
                 </Container>
                 </Link>
-              </VStack>
-              <VStack>
-                <Container
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  width="3rem"
-                  height="3rem"
-                >
-                  <FontAwesomeIcon
-                    icon={faChevronRight}
-                    overlineThickness="bold"
-                  />
-                </Container>
               </VStack>
             </VStack>
             <VStack padding="30px" height="50%" justifyContent="flex-end">
@@ -154,8 +128,9 @@ export default function Layout() {
                 display="flex"
                 justifyContent="center"
                 alignItems="center"
-                width="3rem"
-                height="3rem"
+                width="100%"
+                padding="1rem"
+                flexDirection="column"
               >
                 <FontAwesomeIcon
                   icon={faGear}
@@ -163,6 +138,7 @@ export default function Layout() {
                   size="2x"
                   color={getIconColor("settings")}
                 />
+                <Text color={getIconColor("settings")} fontSize="14px" marginTop="1rem">Settings</Text>
               </Container>
               </Link>
               <Link to="/docs">
@@ -170,8 +146,9 @@ export default function Layout() {
                 display="flex"
                 justifyContent="center"
                 alignItems="center"
-                width="3rem"
-                height="3rem"
+                width="100%"
+                padding="1rem"
+                flexDirection="column"
               >
                 <FontAwesomeIcon
                   icon={faBook}
@@ -179,22 +156,7 @@ export default function Layout() {
                   size="2x"
                   color={getIconColor("docs")}
                 />
-              </Container>
-              </Link>
-              <Link to="/profile">
-              <Container
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                width="3rem"
-                height="3rem"
-              >
-                <FontAwesomeIcon
-                  icon={faUser}
-                  overlineThickness="bold"
-                  size="2x"
-                  color={getIconColor("profile")}
-                />
+                <Text color={getIconColor("docs")} fontSize="14px" marginTop="1rem">Docs</Text>
               </Container>
               </Link>
             </VStack>

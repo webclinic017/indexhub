@@ -11,11 +11,11 @@ const default_theme = extendTheme({
       status_busy: "#9e2b2b",
     },
     header: {
-      background: "#FFFFFF",
+      background: "#e2e2e2",
       text: "#0a0a0a",
     },
     body: {
-      background: "#e2e2e2",
+      background: "#ffffff",
       header: "#0a0a0a",
     },
   },

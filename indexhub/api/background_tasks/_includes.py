@@ -1,5 +1,6 @@
 import json
 import uuid
+from datetime import datetime
 
 import polars as pl
 from sqlmodel import Session
@@ -48,11 +49,11 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     table.readable_names = json.dumps(
         {
             "month_year": "Month",
-            "target:forecast_0.1": "AI Forecast (10%)",
-            "target:forecast_0.3": "AI Forecast (30%)",
-            "target:forecast_0.5": "AI Forecast (50%)",
-            "target:forecast_0.7": "AI Forecast (70%)",
-            "target:forecast_0.9": "AI Forecast (90%)",
+            "rpt_forecast_10": "AI Forecast (10%)",
+            "rpt_forecast_30": "AI Forecast (30%)",
+            "rpt_forecast_50": "AI Forecast (50%)",
+            "rpt_forecast_70": "AI Forecast (70%)",
+            "rpt_forecast_90": "AI Forecast (90%)",
         }
     )
     session.add(table)
@@ -66,33 +67,22 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.commit()
     session.refresh(report)
 
-    # Populate report filters
+    # Populate report entities specific for forecast recommendations
     df = pl.read_parquet(chart.path)
-    entity_columns = [item for item in df.columns if "entity" in item]
+    entity_keys = [item for item in df.columns if "entity" in item]
 
-    filters = {
-        "time": {
-            "title": "Year",
-            "values": df["time"].dt.year().unique().to_list(),
-            "multiple_choice": True,
-        },
-    }
+    entities = json.loads(report.entities)
 
-    for entity in entity_columns:
-        filters[entity] = {
-            "title": entity,
-            "values": df[entity].unique().to_list(),
+    for entity_key in entity_keys:
+        entities["forecast_recommendations"][entity_key] = {
+            "title": entity_key,
+            "values": df[entity_key].unique().to_list(),
             "multiple_choice": True,
         }
 
-    filters["quantile"] = {
-        "title": "Risk Metric (AI Forecast)",
-        "values": df["quantile"].unique().to_list(),
-        "multiple_choice": False,
-    }
-
-    report.filters = json.dumps(filters)
+    report.entities = json.dumps(entities)
     report.status = "COMPLETE"
+    report.completed_at = datetime.now()
     session.add(report)
     session.commit()
     session.refresh(report)

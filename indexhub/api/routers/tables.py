@@ -13,18 +13,18 @@ from indexhub.api.utils.init_db import engine
 router = APIRouter()
 
 
-class ForecastRecommendationsTimeSeries(BaseModel):
-    time: list[datetime]
-    month_year: list[str]
-    rpt_forecast_10: List[Union[float, None]]
-    rpt_forecast_30: List[Union[float, None]]
-    rpt_forecast_50: List[Union[float, None]]
-    rpt_forecast_70: List[Union[float, None]]
-    rpt_forecast_90: List[Union[float, None]]
+class ForecastRecommendationsData(BaseModel):
+    time: datetime
+    month_year: str
+    rpt_forecast_10: Union[float, None]
+    rpt_forecast_30: Union[float, None]
+    rpt_forecast_50: Union[float, None]
+    rpt_forecast_70: Union[float, None]
+    rpt_forecast_90: Union[float, None]
 
 
 class ForecastRecommendationsTable(BaseModel):
-    time_series: ForecastRecommendationsTimeSeries
+    data: List[ForecastRecommendationsData]
     title: str
     readable_names: Dict[str, str]
 
@@ -87,19 +87,20 @@ def get_table(table_id: str = None, filters: dict = None):
                     .agg(pl.all().mean())
                     .sort(by="time")
                     .collect()
+                    .rename(
+                        {
+                            "target:forecast_0.1": "rpt_forecast_10",
+                            "target:forecast_0.3": "rpt_forecast_30",
+                            "target:forecast_0.5": "rpt_forecast_50",
+                            "target:forecast_0.7": "rpt_forecast_70",
+                            "target:forecast_0.9": "rpt_forecast_90",
+                        }
+                    )
                 )
 
                 # Populate response
                 forecast_recommendations_table = ForecastRecommendationsTable(
-                    time_series=ForecastRecommendationsTimeSeries(
-                        time=time_sorted_df["time"].to_list(),
-                        month_year=time_sorted_df["month_year"].to_list(),
-                        rpt_forecast_10=time_sorted_df["target:forecast_0.1"].to_list(),
-                        rpt_forecast_30=time_sorted_df["target:forecast_0.3"].to_list(),
-                        rpt_forecast_50=time_sorted_df["target:forecast_0.5"].to_list(),
-                        rpt_forecast_70=time_sorted_df["target:forecast_0.7"].to_list(),
-                        rpt_forecast_90=time_sorted_df["target:forecast_0.9"].to_list(),
-                    ),
+                    data=time_sorted_df.to_dicts(),
                     title=tables[0].title,
                     readable_names=json.loads(tables[0].readable_names),
                 )

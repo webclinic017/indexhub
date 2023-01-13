@@ -8,7 +8,7 @@ import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import themes from "./theme/theme";
 import Models from "./views/models";
-import Notifications from "./views/notifications";
+import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
 import Docs from "./views/docs";
@@ -25,7 +25,7 @@ function App() {
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
               <Route path="reports" element={<Reports />} />
-              <Route path="notifications" element={<Notifications />} />
+              <Route path="alerts" element={<Alerts/>} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<Profile />} />
             </Route>
