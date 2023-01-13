@@ -12,12 +12,14 @@ from mlforecast import MLForecast
 from prefect import flow, task
 from sklearn.linear_model import QuantileRegressor
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.neighbors import KNeighborsRegressor
 from window_ops.expanding import expanding_mean
 from window_ops.rolling import rolling_mean
 
 from indexhub.metrics import mad, smape
 
 NUM_THREADS = joblib.cpu_count()
+PL_FREQ_TO_PD_FREQ = {"3mo": "Q", "1mo": "MS", "1w": "W", "1d": "D"}
 PRED_FH = {"Q": 3, "MS": 8, "W": 12, "D": 21}
 BACKTEST_FH = {"Q": 9, "MS": 12, "W": 18, "D": 30}
 TEST_SIZE = {"Q": 3, "MS": 4, "W": 6, "D": 10}
@@ -54,7 +56,7 @@ def load_ftr_panel(s3_bucket: str, s3_path: str) -> pl.LazyFrame:
 
 @task
 def get_train_test_splits(
-    ftr_panel: pl.LazyFrame, freq: str
+    ftr_panel: pl.LazyFrame, n_splits: int, freq: str
 ) -> Mapping[int, pl.LazyFrame]:
     # Create a Pandas dataframe from the panel and group by entity
     df = ftr_panel.collect().to_pandas().groupby("entity")
@@ -64,7 +66,7 @@ def get_train_test_splits(
     # Loop through each group in the dataframe
     for entity, dataframe in df:
         # Initialize TimeSeriesSplit object with specified number of splits and test size
-        tscv = TimeSeriesSplit(n_splits=N_SPLITS, test_size=TEST_SIZE[freq])
+        tscv = TimeSeriesSplit(n_splits=n_splits, test_size=TEST_SIZE[freq])
         # Get the train and test indices for each split
         for n_split, (train_idx, test_idx) in enumerate(
             tscv.split(dataframe.set_index("time"))
@@ -96,16 +98,19 @@ def get_train_test_splits(
 
 def _fit_model(
     ftr_train: pd.DataFrame,
-    quantile: float,
     static_cols: List[str],
     date_features: List[str],
     freq: str,
     lags: List[int],
+    quantile: float = None,
 ):
-    models = [
-        QuantileRegressor(solver="highs", quantile=quantile),
-        LGBMRegressor(objective="quantile", alpha=quantile),
-    ]
+    if quantile is None:  # for manual forecast
+        models = [KNeighborsRegressor()]
+    else:
+        models = [
+            QuantileRegressor(solver="highs", quantile=quantile),
+            LGBMRegressor(objective="quantile", alpha=quantile),
+        ]
 
     model = MLForecast(
         models=models,
@@ -131,8 +136,8 @@ def _fit_model(
 def run_backtest(
     n_split_to_ftr_train: Mapping[int, pl.LazyFrame],
     n_split_to_ftr_test: Mapping[int, pl.LazyFrame],
-    quantile: float,
     fit_kwargs: Mapping[str, Any],
+    quantile: float = None,
 ) -> pl.LazyFrame:
     # Unpack fit_kwargs
     freq = fit_kwargs["freq"]
@@ -161,7 +166,9 @@ def run_backtest(
 
         y_preds.append(y_pred)
 
-    y_preds = pl.concat(y_preds).with_column(pl.lit(quantile).alias("quantile"))
+    y_preds = pl.concat(y_preds)
+    if quantile is not None:
+        y_preds = y_preds.with_column(pl.lit(quantile).alias("quantile"))
     return y_preds, fitted_model
 
 
@@ -184,7 +191,7 @@ def postproc(
 
     transf_y_pred = y_pred.select([pl.col(["entity", "time", "quantile"]), y_pred_mean])
 
-    if use_manual_zeros and ftr_panel_manual is not None:
+    if use_manual_zeros:
         # Replace forecast to 0 according to manual forecast
         transf_y_pred = (
             transf_y_pred.join(ftr_panel_manual, on=["entity", "time"], how="left")
@@ -236,52 +243,47 @@ def compute_metrics(
     forecast_mad = mad(y_true=ftr_panel, y_pred=backtest, suffix="forecast")
     forecast_smape = smape(y_true=ftr_panel, y_pred=backtest, suffix="forecast")
 
-    if ftr_panel_manual is not None:
-        # Add manual mad, smape, rank, and improvement columns
-        # Filter manual forecast by backtest dates
-        ftr_panel_manual = ftr_panel_manual.filter(pl.col("time").is_in(backtest_dates))
-        manual_mad = mad(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
-        manual_smape = smape(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
+    # Add manual mad, smape, rank, and improvement columns
+    # Filter manual forecast by backtest dates
+    ftr_panel_manual = ftr_panel_manual.filter(pl.col("time").is_in(backtest_dates))
+    manual_mad = mad(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
+    manual_smape = smape(y_true=ftr_panel, y_pred=ftr_panel_manual, suffix="manual")
 
-        merged_mad = (
-            manual_mad.join(forecast_mad, on="entity", how="outer")
-            .with_column(
-                # For kpi widget - total reduced over-forecast
-                ((pl.col("mad:forecast") - pl.col("mad:manual")) * -1).alias(
-                    "mad_improvement"
-                )
-            )
-            .with_columns(
-                [
-                    (pl.col("mad_improvement") / pl.col("mad:manual") * 100).alias(
-                        "mad_improvement_%"
-                    ),
-                    pl.col("mad:manual").rank(method="min").alias("mad_rank:manual"),
-                ]
+    merged_mad = (
+        manual_mad.join(forecast_mad, on="entity", how="outer")
+        .with_column(
+            # For kpi widget - total reduced over-forecast
+            ((pl.col("mad:forecast") - pl.col("mad:manual")) * -1).alias(
+                "mad_improvement"
             )
         )
-        merged_smape = manual_smape.join(
-            forecast_smape, on="entity", how="outer"
-        ).with_column(
-            (
-                (pl.col("smape:forecast") - pl.col("smape:manual"))
-                / pl.col("smape:manual")
-                * -100
-            ).alias("smape_improvement_%")
+        .with_columns(
+            [
+                (pl.col("mad_improvement") / pl.col("mad:manual") * 100).alias(
+                    "mad_improvement_%"
+                ),
+                pl.col("mad:manual").rank(method="min").alias("mad_rank:manual"),
+            ]
         )
+    )
+    merged_smape = manual_smape.join(
+        forecast_smape, on="entity", how="outer"
+    ).with_column(
+        (
+            (pl.col("smape:forecast") - pl.col("smape:manual"))
+            / pl.col("smape:manual")
+            * -100
+        ).alias("smape_improvement_%")
+    )
 
-        metrics = merged_mad.join(merged_smape, on="entity", how="outer")
-    else:
-        metrics = forecast_mad.join(forecast_smape, on="entity", how="outer")
-
-    metrics = (
-        metrics
+    metrics = merged_mad.join(merged_smape, on="entity", how="outer").pipe(
+        lambda df: df
         # Reorder columns sequence - index col, quantile, others
         .select(
             [
                 pl.col("entity"),
                 pl.lit(quantile).alias("quantile"),
-                pl.col([col for col in metrics.columns if col.startswith("mad")]),
+                pl.col([col for col in df.columns if col.startswith("mad")]),
             ]
             +
             # Replace inf to 0 for smape columns
@@ -290,7 +292,7 @@ def compute_metrics(
                 .then(0)
                 .otherwise(pl.col(col))
                 .keep_name()
-                for col in metrics.columns
+                for col in df.columns
                 if col.startswith("smape")
             ]
         )
@@ -301,8 +303,8 @@ def compute_metrics(
 @task
 def run_forecast(
     ftr_panel: pl.LazyFrame,
-    quantile: float,
     fit_kwargs: Mapping[str, Any],
+    quantile: float = None,
 ):
     freq = fit_kwargs["freq"]
     ftr_panel = ftr_panel.collect().to_pandas()
@@ -319,13 +321,12 @@ def run_forecast(
     )
     dynamic_dfs = [is_holiday_df]
 
-    y_pred = (
-        pl.from_pandas(
-            fitted_model.predict(PRED_FH[freq], dynamic_dfs=dynamic_dfs).reset_index()
-        )
-        .lazy()
-        .with_column(pl.lit(quantile).alias("quantile"))
-    )
+    y_pred = pl.from_pandas(
+        fitted_model.predict(PRED_FH[freq], dynamic_dfs=dynamic_dfs).reset_index()
+    ).lazy()
+
+    if quantile is not None:
+        y_pred = y_pred.with_column(pl.lit(quantile).alias("quantile"))
 
     return y_pred
 
@@ -382,15 +383,18 @@ def run_forecast_flow(
     allow_negatives: bool = False,
     use_manual_zeros: bool = False,
 ):
+    try:
+        freq = PL_FREQ_TO_PD_FREQ[freq]
+    except KeyError as err:
+        raise ValueError(f"Frequency `{freq}` is not supported.") from err
+
     # 1. Load ftr tables
     ftr_panel = load_ftr_panel(
         s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"]
     )
-    ftr_panel_manual = None
-    if "manual" in list(ftr_data_paths.keys()):
-        ftr_panel_manual = load_ftr_panel(
-            s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
-        )
+    ftr_panel_manual = load_ftr_panel(
+        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+    )
 
     # 2. Time series split - return mapping of n_split to LazyFrame
     static_cols = [
@@ -401,7 +405,7 @@ def run_forecast_flow(
 
     splits_kwargs = {"freq": freq}
     n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
-        ftr_panel=ftr_panel, **splits_kwargs
+        ftr_panel=ftr_panel, n_splits=N_SPLITS, **splits_kwargs
     )
 
     fit_kwargs = {

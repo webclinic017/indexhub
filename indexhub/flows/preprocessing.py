@@ -10,6 +10,16 @@ import polars as pl
 from prefect import flow, task
 from typing_extensions import Literal
 
+from indexhub.flows.forecasts import (
+    PL_FREQ_TO_PD_FREQ,
+    TEST_SIZE,
+    get_train_test_splits,
+    run_backtest,
+    run_forecast,
+)
+
+MIN_TRAIN_SIZE = {"Q": 9, "MS": 12, "W": 18, "D": 30}
+
 
 def infer_dt_format(dt: str):
     n_chars = len(dt)
@@ -62,9 +72,7 @@ def select_rows(df: pl.LazyFrame, filters: Mapping[str, List[str]]):
 def clean_raw_panel(
     df: pl.LazyFrame,
     time_col: str,
-    target_col: str,
     entity_cols: List[str],
-    freq: str,
 ) -> pl.LazyFrame:
 
     # Infer datetime format by using the first value
@@ -135,7 +143,6 @@ def export_fct_panel(
 def preprocess_panel(
     s3_bucket: str,
     time_col: str,
-    target_col: str,
     entity_cols: List[str],
     freq: str,
     raw_data_path: str,
@@ -151,9 +158,7 @@ def preprocess_panel(
         fct_panel = clean_raw_panel(
             df=raw_panel,
             time_col=time_col,
-            target_col=target_col,
             entity_cols=entity_cols,
-            freq=freq,
         )
         paths = {"actual": export_fct_panel(fct_panel, s3_bucket, raw_data_path)}
 
@@ -167,9 +172,7 @@ def preprocess_panel(
             fct_manual_forecast = clean_raw_panel(
                 df=manual_forecasts,
                 time_col=time_col,
-                target_col=target_col,
                 entity_cols=entity_cols,
-                freq=freq,
             )
             paths["manual"] = export_fct_panel(
                 fct_manual_forecast, s3_bucket, raw_data_path, suffix="manual"
@@ -329,7 +332,46 @@ def prepare_hierarchical_panel(
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
-    if manual_forecasts_path is not None:
+    if manual_forecasts_path is None:
+        static_cols = [
+            col
+            for col in ftr_panel.select(pl.col(pl.Boolean)).columns
+            if "is_holiday" not in col
+        ]
+        try:
+            pd_freq = PL_FREQ_TO_PD_FREQ[freq]
+        except KeyError as err:
+            raise ValueError(f"Frequency `{freq}` is not supported.") from err
+        fit_kwargs = {
+            "static_cols": static_cols,
+            "date_features": date_features,
+            "freq": pd_freq,
+            "lags": lags,
+        }
+
+        # Get length of time periods by entity
+        y_len = (
+            ftr_panel.groupby("entity").agg(pl.count()).collect().get_column("count")[0]
+        )
+        # Backtest period = length of time periods - minimum train size
+        # n_splits = backtest period / test size
+        n_splits = (y_len - MIN_TRAIN_SIZE[pd_freq]) // TEST_SIZE[pd_freq]
+
+        n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
+            ftr_panel, n_splits, pd_freq
+        )
+
+        backtest, _ = run_backtest(
+            n_split_to_ftr_train=n_split_to_ftr_train,
+            n_split_to_ftr_test=n_split_to_ftr_test,
+            fit_kwargs=fit_kwargs,
+            quantile=None,
+        )
+        y_pred = run_forecast(ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None)
+        ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
+            lambda df: df.rename({df.columns[-1]: "target:manual"})
+        )
+    else:
         fct_manual_forecast = load_fct_panel(s3_bucket, manual_forecasts_path)
         ftr_manual_forecast = (
             filter_negative_values(fct_manual_forecast, target_col)
@@ -341,8 +383,8 @@ def prepare_hierarchical_panel(
             .pipe(reindex_ftr_panel, suffix="manual")
             .pipe(coerce_entity_colname, levels)
         )
-        paths["manual"] = export_ftr_panel(
-            ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
-        )
+    paths["manual"] = export_ftr_panel(
+        ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
+    )
 
     return paths

@@ -66,11 +66,9 @@ def prepare_past_review_report(
 ):
     # 1. Load ftr actual, ftr manual, and backtests
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
-    ftr_panel_manual = None
-    if "manual" in list(ftr_data_paths.keys()):
-        ftr_panel_manual = load_data(
-            s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
-        )
+    ftr_panel_manual = load_data(
+        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+    )
     backtests = load_data(
         s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["backtests"]
     )
@@ -78,10 +76,12 @@ def prepare_past_review_report(
     quantiles = get_quantiles_list(backtests)
 
     transf_ftr_panel = add_quantile_col(df=ftr_panel, quantiles=quantiles)
-    transf_ftr_panel_manual = (
-        add_quantile_col(df=ftr_panel_manual, quantiles=quantiles)
-        if ftr_panel_manual is not None
-        else None
+
+    # Filter out future forecast from manual forecast
+    transf_ftr_panel_manual = add_quantile_col(
+        df=ftr_panel_manual, quantiles=quantiles
+    ).filter(
+        pl.col("time") <= backtests.select("time").max().collect().get_column("time")
     )
 
     # 3. Merge ftr actual, ftr manual, and backtests
@@ -89,21 +89,19 @@ def prepare_past_review_report(
         transf_ftr_panel,
         on=["entity", "time", "quantile"],
         how="outer",
+    ).join(
+        transf_ftr_panel_manual,
+        on=["entity", "time", "quantile"],
+        how="outer",
     )
-    if ftr_panel_manual is not None:
-        rpt_past_review = rpt_past_review.join(
-            transf_ftr_panel_manual,
-            on=["entity", "time", "quantile"],
-            how="outer",
-        )
 
     # 4. Split merged entity cols and cast to categorical
     rpt_past_review = (
-        split_merged_entity_cols(rpt_past_review, levels).pipe(
-            cast_entity_cols_to_categorical
-        )
+        split_merged_entity_cols(rpt_past_review, levels)
+        .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
+        .sort([pl.col("^entity.*$"), "quantile", "time"])
     )
 
     paths = {
@@ -184,11 +182,9 @@ def prepare_forecast_report(
 ):
     # 1. Load ftr actual, ftr manual, backtests, y_preds
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
-    ftr_panel_manual = None
-    if "manual" in list(ftr_data_paths.keys()):
-        ftr_panel_manual = load_data(
-            s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
-        )
+    ftr_panel_manual = load_data(
+        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+    )
     backtests = load_data(
         s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["backtests"]
     )
@@ -199,35 +195,30 @@ def prepare_forecast_report(
     # 2. Add quantile column to ftr actual and ftr manual
     quantiles = get_quantiles_list(backtests)
     transf_ftr_panel = add_quantile_col(df=ftr_panel, quantiles=quantiles)
-    transf_ftr_panel_manual = (
-        add_quantile_col(df=ftr_panel_manual, quantiles=quantiles)
-        if ftr_panel_manual is not None
-        else None
-    )
+    transf_ftr_panel_manual = add_quantile_col(df=ftr_panel_manual, quantiles=quantiles)
 
     # 3. Join ftr_actual, backtests, and y_preds into single df
-    rpt_forecast = backtests.join(
-        transf_ftr_panel, on=["entity", "time", "quantile"], how="outer"
-    ).join(
-        y_preds,
-        on=["entity", "time", "quantile", "target:forecast"],
-        how="outer",
-    )
-
-    if ftr_panel_manual is not None:
-        rpt_forecast = rpt_forecast.join(
+    rpt_forecast = (
+        backtests.join(transf_ftr_panel, on=["entity", "time", "quantile"], how="outer")
+        .join(
+            y_preds,
+            on=["entity", "time", "quantile", "target:forecast"],
+            how="outer",
+        )
+        .join(
             transf_ftr_panel_manual,
             on=["entity", "time", "quantile"],
             how="outer",
         )
+    )
 
     # 4. Split entity id into list of cols, cast entity cols to categorical and drop is_holiday
     rpt_forecast = (
-        split_merged_entity_cols(rpt_forecast, levels).pipe(
-            cast_entity_cols_to_categorical
-        )
+        split_merged_entity_cols(rpt_forecast, levels)
+        .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
+        .sort([pl.col("^entity.*$"), "quantile", "time"])
     )
 
     paths = {
@@ -395,45 +386,38 @@ def prepare_volatility_report(
     forecast_data_paths: Mapping[str, str],
     levels: List[str],
 ):
-    # Skip the report if the source does not have manual forecasts
-    if "manual" in ftr_data_paths:
-        # 1. Load ftr actual and metrics panels
-        ftr_panel = load_data(
-            s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"]
-        )
-        metrics = load_data(
-            s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["metrics"]
-        )
+    # 1. Load ftr actual and metrics panels
+    ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
+    metrics = load_data(
+        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["metrics"]
+    )
 
-        # 2. Prepare tables for coefficient of volatility and join tables
-        ftr_panel_std = groupby_agg(ftr_panel, agg_by="std")
-        ftr_panel_mean = groupby_agg(ftr_panel, agg_by="mean")
-        smape_manual_metrics = filter_df_by_quantile(
-            metrics, "smape:manual", quantile=0.5
+    # 2. Prepare tables for coefficient of volatility and join tables
+    ftr_panel_std = groupby_agg(ftr_panel, agg_by="std")
+    ftr_panel_mean = groupby_agg(ftr_panel, agg_by="mean")
+    smape_manual_metrics = filter_df_by_quantile(metrics, "smape:manual", quantile=0.5)
+    rpt_volatility = (
+        # Join mean, average and manual smape cols into single df
+        ftr_panel_std.join(ftr_panel_mean, on="entity").join(
+            smape_manual_metrics, on="entity"
         )
-        rpt_volatility = (
-            # Join mean, average and manual smape cols into single df
-            ftr_panel_std.join(ftr_panel_mean, on="entity").join(
-                smape_manual_metrics, on="entity"
-            )
-        )
+    )
 
-        # 3. Assign cv and trendline columns, split merged_entity_cols and cast to categorical
-        rpt_volatility = (
-            assign_cv_column(rpt_volatility)
-            .pipe(assign_trendline_columns)
-            .pipe(split_merged_entity_cols, levels)
-            .pipe(cast_entity_cols_to_categorical)
-        )
+    # 3. Assign cv and trendline columns, split merged_entity_cols and cast to categorical
+    rpt_volatility = (
+        assign_cv_column(rpt_volatility)
+        .pipe(assign_trendline_columns)
+        .pipe(split_merged_entity_cols, levels)
+        .pipe(cast_entity_cols_to_categorical)
+    )
 
-        paths = {
-            "rpt_volatility": export_report(
-                rpt_volatility,
-                s3_artifact_bucket,
-                forecast_data_paths["metrics"],
-                suffix="rpt_volatility",
-            )
-        }
-    else:
-        paths = {}
+    paths = {
+        "rpt_volatility": export_report(
+            rpt_volatility,
+            s3_artifact_bucket,
+            forecast_data_paths["metrics"],
+            suffix="rpt_volatility",
+        )
+    }
+
     return paths
