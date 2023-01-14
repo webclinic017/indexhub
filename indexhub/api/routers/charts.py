@@ -32,7 +32,7 @@ class ChartResponse(BaseModel):
     chart_type: str
 
 
-@router.post("/chart")
+@router.post("/charts")
 def get_chart(chart_id: str = None, filters: dict = None):
 
     with Session(engine) as session:

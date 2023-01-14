@@ -11,7 +11,7 @@ export const getUserDetails = async (user_id: string, access_token: string) => {
 }
 
 export const createUser = async (user: any, access_token: string) => {
-    const create_user_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/user`;
+    const create_user_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users`;
     const create_user_response = await fetch(create_user_url, {
         method: "POST",
         headers: {

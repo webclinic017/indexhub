@@ -26,7 +26,7 @@ class UserPatch(BaseModel):
     report_ids: Optional[List[str]] = None
 
 
-@router.post("/user")
+@router.post("/users")
 def create_user(
     create_user: CreateUser,
 ):

@@ -44,7 +44,7 @@ class TableResponse(BaseModel):
     volatility_analysis: VolatilityAnalysisTable = None
 
 
-@router.post("/table")
+@router.post("/tables")
 def get_table(table_id: str = None, filters: dict = None):
 
     with Session(engine) as session:
