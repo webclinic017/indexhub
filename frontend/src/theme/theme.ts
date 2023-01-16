@@ -23,6 +23,14 @@ const default_theme = extendTheme({
     heading: `'Open Sans', sans-serif`,
     body: `'Raleway', sans-serif`,
   },
+  styles: {
+    global: (props: any) => ({
+      'html, body': {
+        fontSize: "md",
+        fontWeight: "normal"
+      },
+    }),
+  },
 });
 
 const themes = {

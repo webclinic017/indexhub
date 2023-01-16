@@ -218,15 +218,15 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
 
       return (
         <VStack padding="10px">
-          <Text width="90vw" textAlign="left" fontSize="22px">Forecast Recommendations</Text>
+          <Text width="90vw" textAlign="left" fontSize="2xl" fontWeight="bold">Forecast Recommendations</Text>
           <VStack>
             <VStack width="90vw" alignItems="flex-start" padding="4rem 0">
               <HStack width="100%" justifyContent="flex-start" overflowX="scroll">
               {Object.keys(report_filters).map((entity, idx) => {
               return(
                 <VStack key={idx} width="100%" maxWidth="35rem" minWidth="25rem" height="15rem" alignItems="flex-start" border="1px solid #ecf0f3" padding="1rem">
-                  <Text lineHeight="0.5">All {entity}s</Text>
-                  <Text width="100%" paddingBottom="0.5rem" borderBottom="1px solid #c6c9cc" fontWeight="normal" fontSize="12px">Choose your preferred {entity}s you would like to filter with (multiple choices)</Text>
+                  <Text lineHeight="0.5" fontSize="sm" fontWeight="bold">All {entity}s</Text>
+                  <Text width="100%" paddingBottom="0.5rem" borderBottom="1px solid #c6c9cc"  fontSize="xs">Choose your preferred {entity}s you would like to filter with (multiple choices)</Text>
                   <TableContainer width="100%" backgroundColor="white" overflowY="scroll">
                     <Table>
                       <Thead backgroundColor="#f7fafc">
@@ -235,8 +235,8 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
                           {report_filters[entity]["values"].map((value: string, idx: number) => {
                             return (
                               <Tr cursor="pointer" key={idx} onClick={() => {updateFilter(entity, value)}}>
-                                <Td padding="unset" height="33px" fontSize="0.9rem" fontWeight="normal">{idx + 1}</Td>
-                                <Td padding="unset" height="33px" fontSize="0.9rem" textAlign="center" fontWeight="normal">{value}</Td>
+                                <Td padding="unset" height="33px" fontSize="sm" >{idx + 1}</Td>
+                                <Td padding="unset" height="33px" fontSize="sm" textAlign="center" >{value}</Td>
                                 {filters[entity].includes(value) ?
                                 <Td height="33px" padding="unset"><FontAwesomeIcon icon={faCheck}/></Td>
                                 :
@@ -251,8 +251,8 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
               )})}
               </HStack>
               <VStack marginTop="4.5rem !important" width="100%" maxWidth="35rem" alignItems="flex-start" paddingInline="20px" padding="unset">
-                <Text textAlign="left">AI Forecast Adjustment:</Text>
-                <Text textAlign="left" fontSize="12px" fontWeight="normal">Subtitle for the quantile slider here</Text>
+                <Text textAlign="left" fontSize="lg" fontWeight="bold">AI Forecast Adjustment:</Text>
+                <Text textAlign="left" fontSize="sm" >Subtitle for the quantile slider here</Text>
                 <Container marginTop="3rem !important" justifyContent="center" alignItems="center" display="flex" height="100%" flexDirection="column" maxWidth="unset">
                   <Slider defaultValue={0.1} min={0.1} max={0.9} step={0.05} aria-label='slider-ex-6' onChange={(val) => updateFilter("quantile", val, false)}>
                     <SliderMark value={0.1} {...sliderLabelStyles}>
@@ -283,8 +283,8 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
               </VStack>
             </VStack>
 
-            <Text width="90vw" textAlign="left" fontSize="20px">Title for Chart</Text>
-            <Text width="90vw" textAlign="left" fontSize="16px" fontWeight="normal">Placeholder for a more descriptive subtitle for the chart here</Text>
+            <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">Title for Chart</Text>
+            <Text width="90vw" textAlign="left" fontSize="sm" >Placeholder for a more descriptive subtitle for the chart here</Text>
             <ReactEcharts option={option} style={{
                     height: '35rem',
                     width: '100%',
@@ -293,8 +293,8 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
 
           </VStack>
           <VStack alignItems="flex-start" width="90vw">
-            <Text width="95%" textAlign="left" fontSize="20px">Title for Table</Text>
-            <Text width="95%" textAlign="left" fontSize="16px" fontWeight="normal" marginBottom="1rem !important">Placeholder for a more descriptive subtitle for the table here</Text>
+            <Text width="95%" textAlign="left" fontSize="xl" fontWeight="bold">Title for Table</Text>
+            <Text width="95%" textAlign="left" fontSize="sm"  marginBottom="1rem !important">Placeholder for a more descriptive subtitle for the table here</Text>
             <DataTable columns={columns} data={table_data} />
           </VStack>
         </VStack>

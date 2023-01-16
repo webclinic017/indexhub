@@ -83,7 +83,7 @@ export default function Reports() {
     (state: AppState) => state.reducer?.user
   );
 
-  const reports_per_page = 7
+  const reports_per_page = 5
   const start_index = (current_pagination - 1) * reports_per_page
   const pages_required = Math.ceil(reports.reports?.length/reports_per_page)
 
@@ -104,7 +104,7 @@ export default function Reports() {
   } else {
     return (
       <VStack padding="10px">
-        <Text fontSize="22px" width="98%" textAlign="left">Reports</Text>
+        <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">Reports</Text>
         {reports?.reports?.length > 0 ? (
           <>
             <VStack backgroundColor="white" width="100%" borderRadius="8px" box-shadow="0px 0px 1px rgba(48, 49, 51, 0.05),0px 2px 4px rgba(48, 49, 51, 0.1)">
@@ -115,12 +115,12 @@ export default function Reports() {
                       <Box key={id} bg="bg-surface" boxShadow={useColorModeValue('sm', 'sm-dark')}>
                         <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
                           <Stack>
-                            <Text fontSize="sm" color="muted">
+                            <Text fontSize="sm">
                               {stat.label}
                             </Text>
                             <Stack direction="row" align="baseline">
                               <Heading>{stat.value}</Heading>
-                              <Text aria-hidden fontWeight="semibold" color="muted">
+                              <Text aria-hidden fontWeight="semibold">
                                 / {stat.limit}
                               </Text>
                               <Box srOnly>out of {stat.limit}</Box>
@@ -136,13 +136,13 @@ export default function Reports() {
               <TableContainer width="100%" backgroundColor="white">
                 <Table>
                   <Thead backgroundColor="#f7fafc">
-                    <Tr fontSize="12px" borderTop="1px solid #E2E8F0">
-                      <Th>Source</Th>
-                      <Th>Entities</Th>
-                      <Th>Created at</Th>
-                      <Th>Completed at</Th>
-                      <Th width="200px" textAlign="center">Status</Th>
-                      <Th width="100px"></Th>
+                    <Tr borderTop="1px solid #E2E8F0">
+                      <Th fontSize="xs">Source</Th>
+                      <Th fontSize="xs">Entities</Th>
+                      <Th fontSize="xs">Created at</Th>
+                      <Th fontSize="xs">Completed at</Th>
+                      <Th fontSize="xs" width="200px" textAlign="center">Status</Th>
+                      <Th fontSize="xs" width="100px"></Th>
                     </Tr>
                   </Thead>
                   <Tbody>
@@ -154,12 +154,12 @@ export default function Reports() {
                       }
                       return (
                         <Tr height="73px" key={item.report_id}>
-                          <Td fontSize="14px" fontWeight="normal" onClick={() => setSelectedReport(item)}><Text cursor="pointer">{item.source_name}</Text></Td>
-                          <Td fontSize="14px" fontWeight="normal">{Object.keys(item.entities["forecast_recommendations"]).join(", ")}</Td>
-                          <Td fontSize="14px" fontWeight="normal">{created_at_date}</Td>
-                          <Td fontSize="14px" fontWeight="normal">{completed_at_date}</Td>
+                          <Td fontSize="sm"  onClick={() => setSelectedReport(item)}><Text cursor="pointer">{item.source_name}</Text></Td>
+                          <Td fontSize="sm" >{Object.keys(item.entities["forecast_recommendations"]).join(", ")}</Td>
+                          <Td fontSize="sm" >{created_at_date}</Td>
+                          <Td fontSize="sm" >{completed_at_date}</Td>
                           <Td textAlign="center">
-                            <Badge borderRadius="35px" paddingInline="1rem" textTransform="lowercase" fontSize="12px" colorScheme={getStatusColor(item.status)}>
+                            <Badge borderRadius="35px" paddingInline="1rem" textTransform="lowercase" fontSize="sm" colorScheme={getStatusColor(item.status)}>
                               {item.status.toLowerCase()}
                             </Badge>
                           </Td>
@@ -176,7 +176,7 @@ export default function Reports() {
                 </Table>
               </TableContainer>
               <HStack padding="0 25px" marginTop="20px !important" marginBottom="20px !important" justifyContent="space-between" width="100%">
-                <Text fontWeight="normal">Showing {current_pagination} of {pages_required} pages</Text>
+                <Text fontSize="sm" >Showing {current_pagination} of {pages_required} pages</Text>
                 <HStack>
                   <Button onClick={() => setCurrentPagination(current_pagination - 1)} isDisabled={current_pagination == 1}>Previous</Button>
                   <Button onClick={() => setCurrentPagination(current_pagination + 1)} isDisabled={current_pagination == pages_required}>Next</Button>
@@ -193,7 +193,7 @@ export default function Reports() {
               <Stack spacing={{ base: '8', md: '10' }}>
                 <Stack spacing={{ base: '4', md: '5' }} align="center">
                   <Heading>Ready to Grow?</Heading>
-                  <Text fontWeight="normal" color="muted" maxW="2xl" textAlign="center" fontSize="xl">
+                  <Text  color="muted" maxW="2xl" textAlign="center" fontSize="xl">
                     With these comprehensive reports you will be able to analyse the past with statistical context and look into the future of what you care most!
                   </Text>
                 </Stack>

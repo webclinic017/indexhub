@@ -50,7 +50,7 @@ export function DataTable<Data extends object>({
                   isNumeric={meta?.isNumeric}
                 >
                     <HStack>
-                        <Text color="#4a5568" fontSize="12px" fontWeight="semibold">
+                        <Text color="#4a5568" fontSize="xs">
                         {flexRender(
                             header.column.columnDef.header,
                             header.getContext()
@@ -81,7 +81,7 @@ export function DataTable<Data extends object>({
               const meta: any = cell.column.columnDef.meta;
               return (
                 <Td key={cell.id} isNumeric={meta?.isNumeric}>
-                    <Text color="#4a5568" fontSize="0.9rem" fontWeight="normal">{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
+                    <Text color="#4a5568" fontSize="sm" >{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
                 </Td>
               );
             })}

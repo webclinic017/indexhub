@@ -34,7 +34,6 @@ export default function Layout() {
         gridTemplateRows={"40px 1fr"}
         gridTemplateColumns={"100px 1fr"}
         h="100vh"
-        fontWeight="bold"
       >
         <GridItem
           pl="2"
@@ -61,6 +60,7 @@ export default function Layout() {
           area={"nav"}
           color="white"
           paddingLeft="unset"
+          fontWeight="bold"
         >
           <VStack
             justifyContent="space-between"
@@ -91,7 +91,7 @@ export default function Layout() {
                     padding="1rem"
                   >
                     <FontAwesomeIcon icon={faDatabase} size="2x" color={getIconColor("models")}/>
-                    <Text color={getIconColor("models")} fontSize="14px" marginTop="1rem">Models</Text>
+                    <Text color={getIconColor("models")} fontSize="sm" marginTop="1rem">Models</Text>
                   </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/reports">
@@ -104,7 +104,7 @@ export default function Layout() {
                   padding="1rem"
                 >
                   <FontAwesomeIcon icon={faChartLine} size="2x" color={getIconColor("reports")}/>
-                  <Text color={getIconColor("reports")} fontSize="14px" marginTop="1rem">Reports</Text>
+                  <Text color={getIconColor("reports")} fontSize="sm" marginTop="1rem">Reports</Text>
                 </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/alerts">
@@ -117,7 +117,7 @@ export default function Layout() {
                   padding="1rem"
                 >
                   <FontAwesomeIcon icon={faBell} size="2x" color={getIconColor("alerts")}/>
-                  <Text color={getIconColor("alerts")} fontSize="14px" marginTop="1rem">Alerts</Text>
+                  <Text color={getIconColor("alerts")} fontSize="sm" marginTop="1rem">Alerts</Text>
                 </Container>
                 </Link>
               </VStack>
@@ -138,7 +138,7 @@ export default function Layout() {
                   size="2x"
                   color={getIconColor("settings")}
                 />
-                <Text color={getIconColor("settings")} fontSize="14px" marginTop="1rem">Settings</Text>
+                <Text color={getIconColor("settings")} fontSize="sm" marginTop="1rem">Settings</Text>
               </Container>
               </Link>
               <Link to="/docs">
@@ -156,13 +156,13 @@ export default function Layout() {
                   size="2x"
                   color={getIconColor("docs")}
                 />
-                <Text color={getIconColor("docs")} fontSize="14px" marginTop="1rem">Docs</Text>
+                <Text color={getIconColor("docs")} fontSize="sm" marginTop="1rem">Docs</Text>
               </Container>
               </Link>
             </VStack>
           </VStack>
         </GridItem>
-        <GridItem pl="2" bg="body.background" area={"main"}>
+        <GridItem pl="2" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet />
         </GridItem>
       </Grid>
