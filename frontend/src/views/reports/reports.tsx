@@ -135,8 +135,8 @@ export default function Reports() {
               </Container>
               <TableContainer width="100%" backgroundColor="white">
                 <Table>
-                  <Thead backgroundColor="#f7fafc">
-                    <Tr borderTop="1px solid #E2E8F0">
+                  <Thead backgroundColor="table.header_background">
+                    <Tr borderTop="1px solid" borderTopColor="table.border">
                       <Th fontSize="xs">Source</Th>
                       <Th fontSize="xs">Entities</Th>
                       <Th fontSize="xs">Created at</Th>

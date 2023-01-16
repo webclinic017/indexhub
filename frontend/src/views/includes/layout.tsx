@@ -14,6 +14,8 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { Link, useLocation } from "react-router-dom"
 import { useAuth0 } from "@auth0/auth0-react";
+import {colors} from "../../theme/theme"
+
 
 export default function Layout() {
   const {user, logout, loginWithRedirect} = useAuth0()
@@ -21,9 +23,9 @@ export default function Layout() {
 
   const getIconColor = (icon_path: string) => {
     if (current_path.split("/")[1] == icon_path){
-      return "#4f4fff"
+      return colors.primary.brand_colors.blue_5
     }
-    else return "white"
+    else return colors.primary.brand_colors.white
   }
 
   return (
@@ -90,8 +92,8 @@ export default function Layout() {
                     width="100%"
                     padding="1rem"
                   >
-                    <FontAwesomeIcon icon={faDatabase} size="2x" color={getIconColor("models")}/>
-                    <Text color={getIconColor("models")} fontSize="sm" marginTop="1rem">Models</Text>
+                    <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faDatabase} size="2x" color={getIconColor("models")}/>
+                    <Text transition="color 0.3s ease-out" color={getIconColor("models")} fontSize="sm" marginTop="1rem">Models</Text>
                   </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/reports">
@@ -103,8 +105,8 @@ export default function Layout() {
                   width="100%"
                   padding="1rem"
                 >
-                  <FontAwesomeIcon icon={faChartLine} size="2x" color={getIconColor("reports")}/>
-                  <Text color={getIconColor("reports")} fontSize="sm" marginTop="1rem">Reports</Text>
+                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faChartLine} size="2x" color={getIconColor("reports")}/>
+                  <Text transition="color 0.3s ease-out" color={getIconColor("reports")} fontSize="sm" marginTop="1rem">Reports</Text>
                 </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/alerts">
@@ -116,8 +118,8 @@ export default function Layout() {
                   width="100%"
                   padding="1rem"
                 >
-                  <FontAwesomeIcon icon={faBell} size="2x" color={getIconColor("alerts")}/>
-                  <Text color={getIconColor("alerts")} fontSize="sm" marginTop="1rem">Alerts</Text>
+                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faBell} size="2x" color={getIconColor("alerts")}/>
+                  <Text transition="color 0.3s ease-out" color={getIconColor("alerts")} fontSize="sm" marginTop="1rem">Alerts</Text>
                 </Container>
                 </Link>
               </VStack>
@@ -137,8 +139,9 @@ export default function Layout() {
                   overlineThickness="bold"
                   size="2x"
                   color={getIconColor("settings")}
+                  style={{transition:"color 0.3s ease-out"}}
                 />
-                <Text color={getIconColor("settings")} fontSize="sm" marginTop="1rem">Settings</Text>
+                <Text transition="color 0.3s ease-out" color={getIconColor("settings")} fontSize="sm" marginTop="1rem">Settings</Text>
               </Container>
               </Link>
               <Link to="/docs">
@@ -155,8 +158,9 @@ export default function Layout() {
                   overlineThickness="bold"
                   size="2x"
                   color={getIconColor("docs")}
+                  style={{transition:"color 0.3s ease-out"}}
                 />
-                <Text color={getIconColor("docs")} fontSize="sm" marginTop="1rem">Docs</Text>
+                <Text transition="color 0.3s ease-out" color={getIconColor("docs")} fontSize="sm" marginTop="1rem">Docs</Text>
               </Container>
               </Link>
             </VStack>

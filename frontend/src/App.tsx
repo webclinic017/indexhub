@@ -6,7 +6,7 @@ import Home from "./views/home";
 import Reports from "./views/reports/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
-import themes from "./theme/theme";
+import {themes} from "./theme/theme";
 import Models from "./views/models";
 import Alerts from "./views/alerts";
 import Settings from "./views/settings";

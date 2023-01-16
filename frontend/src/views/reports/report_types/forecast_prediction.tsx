@@ -229,7 +229,7 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
                   <Text width="100%" paddingBottom="0.5rem" borderBottom="1px solid #c6c9cc"  fontSize="xs">Choose your preferred {entity}s you would like to filter with (multiple choices)</Text>
                   <TableContainer width="100%" backgroundColor="white" overflowY="scroll">
                     <Table>
-                      <Thead backgroundColor="#f7fafc">
+                      <Thead backgroundColor="table.header_background">
                       </Thead>
                       <Tbody>
                           {report_filters[entity]["values"].map((value: string, idx: number) => {
@@ -267,15 +267,15 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
                     <SliderMark
                       value={filters["quantile"][0]}
                       textAlign='center'
-                      color={filters["quantile"][0] < 0.5 ? "#9E2B2B" : "#44AA7E"}
+                      color={filters["quantile"][0] < 0.5 ? "indicator.main_red" : "indicator.main_green"}
                       mt='-10'
                       ml='-5'
                       w='12'
                     >
                       {Math.floor(((filters["quantile"][0] - 0.5) / 0.4) * 100)}%
                     </SliderMark>
-                    <SliderTrack backgroundColor="#44AA7E">
-                      <SliderFilledTrack backgroundColor="#9E2B2B"/>
+                    <SliderTrack backgroundColor="indicator.main_green">
+                      <SliderFilledTrack backgroundColor="indicator.main_red"/>
                     </SliderTrack>
                     <SliderThumb />
                   </Slider>

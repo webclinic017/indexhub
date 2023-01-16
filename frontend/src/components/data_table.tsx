@@ -39,7 +39,7 @@ export function DataTable<Data extends object>({
     <Table>
       <Thead>
         {table.getHeaderGroups().map((headerGroup) => (
-          <Tr backgroundColor="#f7fafc" key={headerGroup.id}>
+          <Tr backgroundColor="table.header_background" key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
               // see https://tanstack.com/table/v8/docs/api/core/column-def#meta to type this correctly
               const meta: any = header.column.columnDef.meta;
@@ -50,7 +50,7 @@ export function DataTable<Data extends object>({
                   isNumeric={meta?.isNumeric}
                 >
                     <HStack>
-                        <Text color="#4a5568" fontSize="xs">
+                        <Text color="table.font" fontSize="xs">
                         {flexRender(
                             header.column.columnDef.header,
                             header.getContext()
@@ -81,7 +81,7 @@ export function DataTable<Data extends object>({
               const meta: any = cell.column.columnDef.meta;
               return (
                 <Td key={cell.id} isNumeric={meta?.isNumeric}>
-                    <Text color="#4a5568" fontSize="sm" >{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
+                    <Text color="table.font" fontSize="sm" >{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
                 </Td>
               );
             })}
