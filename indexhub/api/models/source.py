@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from sqlmodel import Field, SQLModel
 
+from indexhub.api.models.user import User  # noqa
+
 
 class StatusTypes(str, enum.Enum):
     SUCCESS = "SUCCESS"
@@ -13,6 +15,7 @@ class StatusTypes(str, enum.Enum):
 
 class Source(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True, unique=True)
+    user_id: Optional[str] = Field(default=None, foreign_key="user.user_id")
     name: str
     path: str
     freq: str
