@@ -10,7 +10,7 @@ import polars as pl
 from prefect import flow, task
 from typing_extensions import Literal
 
-from indexhub.flows.forecasts import (
+from indexhub.flows.forecasting import (
     PL_FREQ_TO_PD_FREQ,
     TEST_SIZE,
     get_train_test_splits,
@@ -178,11 +178,14 @@ def preprocess_panel(
                 fct_manual_forecast, s3_bucket, raw_data_path, suffix="manual"
             )
 
+        start_date = fct_panel.collect().select(pl.min("time"))[0, 0]
+        end_date = fct_panel.collect().select(pl.max("time"))[0, 0]
+
         paths["metadata"] = {
             "report_id": report_id,
             "freq": freq,
-            "start_date": fct_panel.collect().select(pl.min("time"))[0, 0],
-            "end_date": fct_panel.collect().select(pl.max("time"))[0, 0],
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
             "status": "SUCCESS",
         }
 
