@@ -26,6 +26,7 @@ import {
 
 import ReactEcharts from "echarts-for-react"
 import { Report } from "../reports";
+import List from "../../../components/list";
 
 export type chartData = {
     chart_id: string,
@@ -222,33 +223,19 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
           <VStack>
             <VStack width="90vw" alignItems="flex-start" padding="4rem 0">
               <HStack width="100%" justifyContent="flex-start" overflowX="scroll">
-              {Object.keys(report_filters).map((entity, idx) => {
-              return(
-                <VStack key={idx} width="100%" maxWidth="35rem" minWidth="25rem" height="15rem" alignItems="flex-start" border="1px solid #ecf0f3" padding="1rem">
-                  <Text lineHeight="0.5" fontSize="sm" fontWeight="bold">All {entity}s</Text>
-                  <Text width="100%" paddingBottom="0.5rem" borderBottom="1px solid #c6c9cc"  fontSize="xs">Choose your preferred {entity}s you would like to filter with (multiple choices)</Text>
-                  <TableContainer width="100%" backgroundColor="white" overflowY="scroll">
-                    <Table>
-                      <Thead backgroundColor="table.header_background">
-                      </Thead>
-                      <Tbody>
-                          {report_filters[entity]["values"].map((value: string, idx: number) => {
-                            return (
-                              <Tr cursor="pointer" key={idx} onClick={() => {updateFilter(entity, value)}}>
-                                <Td padding="unset" height="33px" fontSize="sm" >{idx + 1}</Td>
-                                <Td padding="unset" height="33px" fontSize="sm" textAlign="center" >{value}</Td>
-                                {filters[entity].includes(value) ?
-                                <Td height="33px" padding="unset"><FontAwesomeIcon icon={faCheck}/></Td>
-                                :
-                                <Td></Td>}
-                              </Tr>
-                            )
-                          })}
-                      </Tbody>
-                    </Table>
-                  </TableContainer>
-                </VStack>
-              )})}
+                {Object.keys(report_filters).map((entity, idx) => {
+                return(
+                  <List
+                    data={report_filters[entity]["values"]}
+                    title={`All ${entity}s`}
+                    subtitle={`Choose your preferred ${entity}s you would like to filter with (multiple choices)`}
+                    entity={entity}
+                    state={filters}
+                    stateSetter={updateFilter}
+                    minWidth="25rem"
+                    maxWidth="35rem"
+                    key={idx}></List>
+                )})}
               </HStack>
               <VStack marginTop="4.5rem !important" width="100%" maxWidth="35rem" alignItems="flex-start" paddingInline="20px" padding="unset">
                 <Text textAlign="left" fontSize="lg" fontWeight="bold">AI Forecast Adjustment:</Text>
