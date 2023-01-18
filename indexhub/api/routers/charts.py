@@ -91,7 +91,7 @@ def get_chart(chart_id: str = None, filters: dict = None):
                     title=charts[0].title,
                     axis_labels=json.loads(charts[0].axis_labels),
                     readable_names=json.loads(charts[0].readable_names),
-                    chart_type=charts[0].chart_type,
+                    chart_type=charts[0].type,
                 )
 
                 return response

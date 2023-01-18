@@ -26,7 +26,7 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
             "rpt_forecast": "AI Forecast",
         }
     )
-    chart.chart_type = "line"
+    chart.type = "line"
 
     session.add(chart)
     session.commit()

@@ -15,6 +15,4 @@ class Report(SQLModel, table=True):
     status: Optional[StatusTypes] = Field(default="RUNNING")
     created_at: datetime
     completed_at: Optional[datetime] = None
-    chart_id: Optional[str] = None
-    table_id: Optional[str] = None
     entities: Optional[str] = json.dumps({"forecast_recommendations": {}})
