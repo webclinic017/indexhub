@@ -1,16 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { AppState } from "../../index";
 import { useDispatch,useSelector } from "react-redux";
 import { createReport, getReport, deleteReport} from "../../utilities/backend_calls/report";
 import {
   Button,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
   TableContainer,
   VStack,
   HStack,
@@ -21,8 +15,7 @@ import {
   Stack,
   Text,
   useColorModeValue,
-  SimpleGrid,
-  Badge
+  SimpleGrid
 } from "@chakra-ui/react"
 import Forecast_Recommendations from "./report_types/forecast_prediction";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -30,6 +23,8 @@ import {
   faArrowsRotate,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
+import { createColumnHelper } from "@tanstack/react-table";
+import { DataTable } from "../../components/table";
 
 export type Report = {
   report_id: string,
@@ -42,10 +37,9 @@ export type Report = {
   status: string,
   created_at: string,
   completed_at: string,
-  filters: Record<string, any>
 }
 
-const getStatusColor = (status: string) => {
+export const getStatusColor = (status: string) => {
   switch(status){
     case "COMPLETE": {
       return "green"
@@ -64,10 +58,10 @@ export default function Reports() {
   const dispatch = useDispatch()
   const [reports, setReports] = useState<{reports: Report[]}>({reports: []})
   const [current_pagination, setCurrentPagination] = useState(1)
-  const [selectedReport, setSelectedReport] = useState<Report>({report_id: "", source_id: "", source_name: "", entities: {}, user_id: "", chart_id: "", table_id: "", status: "", created_at: "",completed_at: "",  filters: {}});
+  const [selectedReportId, setSelectedReportId] = useState("")
 
   const clearSelectedReport = () => {
-    setSelectedReport({report_id: "", source_id: "", source_name: "", entities: {}, user_id: "", chart_id: "", table_id: "", status: "", created_at: "",completed_at: "",  filters: {}})
+    setSelectedReportId("")
   }
 
   const stats = [
@@ -87,7 +81,7 @@ export default function Reports() {
   const start_index = (current_pagination - 1) * reports_per_page
   const pages_required = Math.ceil(reports.reports?.length/reports_per_page)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const getReportByUserId = async () => {
       const reports_response = await getReport(user_details.user_id, "", access_token_indexhub_api)
       setReports(reports_response)
@@ -97,9 +91,59 @@ export default function Reports() {
     }
   }, [user_details, access_token_indexhub_api, report_ids])
 
-  if (selectedReport.report_id) {
+  const columnHelper = createColumnHelper<Report>();
+
+  const columns = [
+    columnHelper.accessor(row => [row.source_name, row.report_id], {
+      id: "source_name",
+      cell: (info) => <Text onClick={() => setSelectedReportId(info.getValue()[1])} cursor="pointer">{info.getValue()[0]}</Text>,
+      header: "Source"
+    }),
+    columnHelper.accessor("entities", {
+      cell: (info) => Object.keys(info.getValue()["forecast_recommendations"]).join(", "),
+      header: "Entities"
+    }),
+    columnHelper.accessor("created_at", {
+      cell: (info) => new Date(info.getValue()).toLocaleString(),
+      header: "Created at"
+    }),
+    columnHelper.accessor("completed_at", {
+      cell: (info) => {
+        if (info.getValue()){
+          return new Date(info.getValue()).toLocaleString()
+        } else return ""
+      },
+      header: "Completed at"
+    }),
+    columnHelper.accessor("status", {
+      cell: (info) => info.getValue(),
+      header: "Status",
+      meta:{
+        isBadge: true
+      }
+    }),
+    columnHelper.accessor(row => row.report_id, {
+      id: "report_id",
+      cell: (info) => {
+        return (
+          <HStack justifyContent="space-between" width="60px">
+              <FontAwesomeIcon cursor="pointer" icon={faArrowsRotate} onClick={() => createReport(user_details.user_id, access_token_indexhub_api, dispatch, info.getValue())}/>
+              <FontAwesomeIcon cursor="pointer" icon={faTrash} onClick={async () => setReports(await deleteReport(access_token_indexhub_api, info.getValue()))}/>
+          </HStack>
+        )
+      },
+      header: "",
+      meta:{
+        isButtons: true,
+      },
+      enableSorting: false,
+    }),
+  ];
+
+
+  if (selectedReportId) {
     return (
-      <Forecast_Recommendations selectedReport={selectedReport} access_token_indexhub_api={access_token_indexhub_api} clearSelectedReport={clearSelectedReport}/>
+      <Forecast_Recommendations selectedReport={reports.reports.filter((e) => e.report_id == selectedReportId)[0]} access_token_indexhub_api={access_token_indexhub_api} clearSelectedReport={clearSelectedReport}/>
     )
   } else {
     return (
@@ -133,48 +177,11 @@ export default function Reports() {
                     })}
                 </SimpleGrid>
               </Container>
+
               <TableContainer width="100%" backgroundColor="white">
-                <Table>
-                  <Thead backgroundColor="table.header_background">
-                    <Tr borderTop="1px solid" borderTopColor="table.border">
-                      <Th fontSize="xs">Source</Th>
-                      <Th fontSize="xs">Entities</Th>
-                      <Th fontSize="xs">Created at</Th>
-                      <Th fontSize="xs">Completed at</Th>
-                      <Th fontSize="xs" width="200px" textAlign="center">Status</Th>
-                      <Th fontSize="xs" width="100px"></Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {reports.reports.slice(start_index, start_index + reports_per_page).map((item) => {
-                      const created_at_date = new Date(item.created_at).toLocaleString()
-                      let completed_at_date = ""
-                      if (item.completed_at) {
-                        completed_at_date = new Date(item.completed_at).toLocaleString()
-                      }
-                      return (
-                        <Tr height="73px" key={item.report_id}>
-                          <Td fontSize="sm"  onClick={() => setSelectedReport(item)}><Text cursor="pointer">{item.source_name}</Text></Td>
-                          <Td fontSize="sm" >{Object.keys(item.entities["forecast_recommendations"]).join(", ")}</Td>
-                          <Td fontSize="sm" >{created_at_date}</Td>
-                          <Td fontSize="sm" >{completed_at_date}</Td>
-                          <Td textAlign="center">
-                            <Badge borderRadius="35px" paddingInline="1rem" textTransform="lowercase" fontSize="sm" colorScheme={getStatusColor(item.status)}>
-                              {item.status.toLowerCase()}
-                            </Badge>
-                          </Td>
-                          <Td>
-                            <HStack justifyContent="space-between">
-                              <FontAwesomeIcon cursor="pointer" icon={faArrowsRotate} onClick={() => createReport(user_details.user_id, access_token_indexhub_api, dispatch, item.report_id)}/>
-                              <FontAwesomeIcon cursor="pointer" icon={faTrash} onClick={async () => setReports(await deleteReport(access_token_indexhub_api, item.report_id))}/>
-                            </HStack>
-                          </Td>
-                        </Tr>
-                      )
-                    })}
-                  </Tbody>
-                </Table>
+                <DataTable columns={columns} data={reports.reports.slice(start_index, start_index + reports_per_page)} body_height="73px"></DataTable>
               </TableContainer>
+
               <HStack padding="0 25px" marginTop="20px !important" marginBottom="20px !important" justifyContent="space-between" width="100%">
                 <Text fontSize="sm" >Showing {current_pagination} of {pages_required} pages</Text>
                 <HStack>

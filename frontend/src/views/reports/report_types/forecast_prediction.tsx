@@ -18,7 +18,7 @@ import {
   Container
 } from "@chakra-ui/react"
 import { createColumnHelper } from "@tanstack/react-table";
-import { DataTable } from "../../../components/data_table"
+import { DataTable } from "../../../components/table"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCheck

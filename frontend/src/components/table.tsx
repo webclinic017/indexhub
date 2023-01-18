@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Table, Thead, Tbody, Tr, Th, Td, chakra, Text, HStack } from "@chakra-ui/react";
+import { Table, Thead, Tbody, Tr, Th, Td, chakra, Text, HStack, Badge } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faSortDown,
@@ -13,15 +13,18 @@ import {
   SortingState,
   getSortedRowModel
 } from "@tanstack/react-table";
+import { getStatusColor } from "../views/reports/reports";
 
 export type DataTableProps<Data extends object> = {
   data: Data[];
   columns: ColumnDef<Data, any>[];
+  body_height?: string
 };
 
 export function DataTable<Data extends object>({
   data,
-  columns
+  columns,
+  body_height
 }: DataTableProps<Data>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const table = useReactTable({
@@ -75,13 +78,20 @@ export function DataTable<Data extends object>({
       </Thead>
       <Tbody>
         {table.getRowModel().rows.map((row) => (
-          <Tr key={row.id}>
+          <Tr height={body_height} key={row.id}>
             {row.getVisibleCells().map((cell) => {
-              // see https://tanstack.com/table/v8/docs/api/core/column-def#meta to type this correctly
               const meta: any = cell.column.columnDef.meta;
               return (
                 <Td key={cell.id} isNumeric={meta?.isNumeric}>
-                    <Text color="table.font" fontSize="sm" >{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
+                    {meta?.isBadge ?
+                      <Badge borderRadius="35px" paddingInline="1rem" textTransform="lowercase" fontSize="sm" colorScheme={getStatusColor(String(cell.getValue()))}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </Badge>
+                    : meta?.isButtons ?
+                      flexRender(cell.column.columnDef.cell, cell.getContext())
+                    :
+                      <Text color="table.font" fontSize="sm" >{flexRender(cell.column.columnDef.cell, cell.getContext())}</Text>
+                    }
                 </Td>
               );
             })}
