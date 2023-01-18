@@ -41,7 +41,7 @@ def get_chart(chart_id: str = None, filters: dict = None):
             raise HTTPException(status_code=400, detail="Chart id is required")
         else:
             # Get chart metadata
-            filter_chart_query = select(Chart).where(Chart.chart_id == chart_id)
+            filter_chart_query = select(Chart).where(Chart.id == chart_id)
             charts = session.exec(filter_chart_query).all()
 
             # Throw error if chart_id is not found in database

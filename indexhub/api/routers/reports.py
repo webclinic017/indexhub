@@ -1,5 +1,4 @@
 import json
-import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -25,14 +24,12 @@ def create_report(create_report: CreateReport, background_tasks: BackgroundTasks
     with Session(engine) as session:
 
         if create_report.report_id:
-            report_filter = select(Report).where(
-                Report.report_id == create_report.report_id
-            )
+            report_filter = select(Report).where(Report.id == create_report.report_id)
             results = session.exec(report_filter)
             report = results.one()
         else:
             report = Report()
-            report.report_id = create_report.report_id or uuid.uuid4().hex
+            report.id = create_report.report_id
             report.user_id = create_report.user_id
 
         report.status = "RUNNING"
@@ -47,7 +44,7 @@ def create_report(create_report: CreateReport, background_tasks: BackgroundTasks
 
         background_tasks.add_task(populate_report_data, report)
 
-        return {"user_id": create_report.user_id, "report_id": report.report_id}
+        return {"user_id": create_report.user_id, "report_id": report.id}
 
 
 @router.get("/reports")
@@ -66,7 +63,7 @@ def get_report(report_id: str = None, user_id: str = None):
                         status_code=400, detail="No records found for this user_id"
                     )
         else:
-            query = select(Report).where(Report.report_id == report_id)
+            query = select(Report).where(Report.id == report_id)
             reports = session.exec(query).all()
             if len(reports) == 0:
                 raise HTTPException(
@@ -85,7 +82,7 @@ def delete_report(report_id: str):
         if report_id is None:
             raise HTTPException(status_code=400, detail="report_id is required")
         else:
-            query = select(Report).where(Report.report_id == report_id)
+            query = select(Report).where(Report.id == report_id)
             report = session.exec(query).first()
             if report is None:
                 raise HTTPException(

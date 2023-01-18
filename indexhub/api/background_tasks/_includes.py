@@ -1,5 +1,4 @@
 import json
-import uuid
 from datetime import datetime
 
 import polars as pl
@@ -13,7 +12,6 @@ from indexhub.api.models.table import Table
 async def populate_forecast_recommendations_data(report: Report, session: Session):
     # Populate chart related data
     chart = Chart()
-    chart.chart_id = uuid.uuid4().hex
 
     # Needs to be dynamically set based on the parquet file generated
     chart.path = "rpt_forecast_sales.parquet"
@@ -35,7 +33,7 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.refresh(chart)
 
     # Update report with the relevant chart_id
-    report.chart_id = chart.chart_id
+    report.chart_id = chart.id
     report.status = "RUNNING"
     session.add(report)
     session.commit()
@@ -43,7 +41,6 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
 
     # Populate table related data
     table = Table()
-    table.table_id = uuid.uuid4().hex
     table.path = "rpt_forecast_scenario_sales.parquet"
     table.title = "Forecasting Scenarios"
     table.readable_names = json.dumps(
@@ -61,7 +58,7 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.refresh(table)
 
     # Update report with the relevant table_id
-    report.table_id = table.table_id
+    report.table_id = table.id
     report.status = "RUNNING"
     session.add(report)
     session.commit()

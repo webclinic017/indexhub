@@ -53,7 +53,7 @@ def get_table(table_id: str = None, filters: dict = None):
             raise HTTPException(status_code=400, detail="Table id is required")
         else:
             # Get table metadata
-            filter_table_query = select(Table).where(Table.table_id == table_id)
+            filter_table_query = select(Table).where(Table.id == table_id)
             tables = session.exec(filter_table_query).all()
 
             # Throw error if table_id is not found in database
@@ -106,7 +106,7 @@ def get_table(table_id: str = None, filters: dict = None):
                 )
 
                 response = TableResponse(
-                    table_id=tables[0].table_id,
+                    table_id=tables[0].id,
                     forecast_recommendations=forecast_recommendations_table,
                 )
 
