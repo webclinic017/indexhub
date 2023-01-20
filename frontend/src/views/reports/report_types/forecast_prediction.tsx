@@ -77,12 +77,12 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
     }
 
     const getChartByChartId = async () => {
-        const chart_response = await getChart(selectedReport?.chart_id, access_token_indexhub_api, filters)
+        const chart_response = await getChart(selectedReport?.id, "forecast_recommendation", access_token_indexhub_api, filters)
         setChartData(chart_response)
     }
 
     const getTableByTableId = async () => {
-        const table_response = await getTable(selectedReport?.table_id, access_token_indexhub_api, filters)
+        const table_response = await getTable(selectedReport?.id, "forecast_recommendation", access_token_indexhub_api, filters)
         setTableData(table_response.forecast_recommendations)
     }
 
@@ -105,7 +105,7 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
     }
 
     React.useEffect(() => {
-        if (access_token_indexhub_api && selectedReport.report_id){
+        if (access_token_indexhub_api && selectedReport.id){
             const filters_init: Record<string, any[]> = {}
             Object.keys(report_filters).forEach(key => {
               filters_init[key] = []

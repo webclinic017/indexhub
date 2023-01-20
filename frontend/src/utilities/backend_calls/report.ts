@@ -56,10 +56,10 @@ export const getReport = async (user_id = "", report_id = "", access_token_index
   return response_json
 }
 
-export const getChart = async (chart_id:string, access_token_indexhub_api:string, filters: any) => {
+export const getChart = async (report_id:string, tag: string, access_token_indexhub_api:string, filters: any) => {
   let get_chart_url = ""
 
-  get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts?chart_id=${chart_id}`;
+  get_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts?report_id=${report_id}&tag=${tag}`;
 
   const get_chart_response = await fetch(get_chart_url, {
     method: "POST",
@@ -74,10 +74,10 @@ export const getChart = async (chart_id:string, access_token_indexhub_api:string
   return response_json
 }
 
-export const getTable = async (table_id:string, access_token_indexhub_api:string, filters: any = {}) => {
+export const getTable = async (report_id:string, tag: string, access_token_indexhub_api:string, filters: any = {}) => {
   let get_table_url = ""
 
-  get_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/tables?table_id=${table_id}`;
+  get_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/tables?report_id=${report_id}&tag=${tag}`;
 
   const get_chart_response = await fetch(get_table_url, {
     method: "POST",

@@ -12,6 +12,8 @@ from indexhub.api.models.table import Table
 async def populate_forecast_recommendations_data(report: Report, session: Session):
     # Populate chart related data
     chart = Chart()
+    chart.report_id = report.id
+    chart.tag = "forecast_recommendation"
 
     # Needs to be dynamically set based on the parquet file generated
     chart.path = "rpt_forecast_sales.parquet"
@@ -32,15 +34,12 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.commit()
     session.refresh(chart)
 
-    # Update report with the relevant chart_id
-    report.chart_id = chart.id
-    report.status = "RUNNING"
-    session.add(report)
-    session.commit()
-    session.refresh(report)
-
     # Populate table related data
     table = Table()
+    table.report_id = report.id
+    table.tag = "forecast_recommendation"
+
+    # Needs to be dynamically set based on the parquet file generated
     table.path = "rpt_forecast_scenario_sales.parquet"
     table.title = "Forecasting Scenarios"
     table.readable_names = json.dumps(
@@ -56,13 +55,6 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.add(table)
     session.commit()
     session.refresh(table)
-
-    # Update report with the relevant table_id
-    report.table_id = table.id
-    report.status = "RUNNING"
-    session.add(report)
-    session.commit()
-    session.refresh(report)
 
     # Populate report entities specific for forecast recommendations
     df = pl.read_parquet(chart.path)
@@ -80,6 +72,7 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     report.entities = json.dumps(entities)
     report.status = "COMPLETE"
     report.completed_at = datetime.now()
+    print(report)
     session.add(report)
     session.commit()
     session.refresh(report)

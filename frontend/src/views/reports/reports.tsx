@@ -27,7 +27,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
 
 export type Report = {
-  report_id: string,
+  id: string,
   source_id: string,
   source_name: string,
   entities: Record<string, any>,
@@ -94,7 +94,7 @@ export default function Reports() {
   const columnHelper = createColumnHelper<Report>();
 
   const columns = [
-    columnHelper.accessor(row => [row.source_name, row.report_id], {
+    columnHelper.accessor(row => [row.source_name, row.id], {
       id: "source_name",
       cell: (info) => <Text onClick={() => setSelectedReportId(info.getValue()[1])} cursor="pointer">{info.getValue()[0]}</Text>,
       header: "Source"
@@ -122,8 +122,8 @@ export default function Reports() {
         isBadge: true
       }
     }),
-    columnHelper.accessor(row => row.report_id, {
-      id: "report_id",
+    columnHelper.accessor(row => row.id, {
+      id: "id",
       cell: (info) => {
         return (
           <HStack justifyContent="space-between" width="60px">
@@ -143,7 +143,7 @@ export default function Reports() {
 
   if (selectedReportId) {
     return (
-      <Forecast_Recommendations selectedReport={reports.reports.filter((e) => e.report_id == selectedReportId)[0]} access_token_indexhub_api={access_token_indexhub_api} clearSelectedReport={clearSelectedReport}/>
+      <Forecast_Recommendations selectedReport={reports.reports.filter((e) => e.id == selectedReportId)[0]} access_token_indexhub_api={access_token_indexhub_api} clearSelectedReport={clearSelectedReport}/>
     )
   } else {
     return (

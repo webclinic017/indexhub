@@ -33,22 +33,26 @@ class ChartResponse(BaseModel):
 
 
 @router.post("/charts")
-def get_chart(chart_id: str = None, filters: dict = None):
+def get_chart(report_id: str = None, tag: str = None, filters: dict = None):
 
     with Session(engine) as session:
-        # Throw error if chart_id is not provided
-        if chart_id is None:
-            raise HTTPException(status_code=400, detail="Chart id is required")
+        # Throw error if report_id is not provided
+        if report_id is None or tag is None:
+            raise HTTPException(status_code=400, detail="Report id and tag is required")
         else:
             # Get chart metadata
-            filter_chart_query = select(Chart).where(Chart.id == chart_id)
+            filter_chart_query = (
+                select(Chart)
+                .where(Chart.report_id == report_id)
+                .where(Chart.tag == tag)
+            )
             charts = session.exec(filter_chart_query).all()
 
-            # Throw error if chart_id is not found in database
+            # Throw error if chart is not found in database
             if len(charts) == 0:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"No records found for this chart_id: {chart_id}",
+                    detail=f"No chart records found for this report_id and tag: {report_id}, {tag}",
                 )
             else:
                 # Get path to the parquet file containing relevant analytics values and create df
@@ -86,7 +90,7 @@ def get_chart(chart_id: str = None, filters: dict = None):
                 )
 
                 response = ChartResponse(
-                    chart_id=chart_id,
+                    chart_id=charts[0].id,
                     chart_data=chart_data,
                     title=charts[0].title,
                     axis_labels=json.loads(charts[0].axis_labels),

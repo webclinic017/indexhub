@@ -45,22 +45,26 @@ class TableResponse(BaseModel):
 
 
 @router.post("/tables")
-def get_table(table_id: str = None, filters: dict = None):
+def get_table(report_id: str = None, tag: str = None, filters: dict = None):
 
     with Session(engine) as session:
         # Throw error if table_id is not provided
-        if table_id is None:
-            raise HTTPException(status_code=400, detail="Table id is required")
+        if report_id is None or tag is None:
+            raise HTTPException(status_code=400, detail="Report id and tag is required")
         else:
             # Get table metadata
-            filter_table_query = select(Table).where(Table.id == table_id)
+            filter_table_query = (
+                select(Table)
+                .where(Table.report_id == report_id)
+                .where(Table.tag == tag)
+            )
             tables = session.exec(filter_table_query).all()
 
-            # Throw error if table_id is not found in database
+            # Throw error if table is not found in database
             if len(tables) == 0:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"No records found for this table_id: {table_id}",
+                    detail=f"No table records found for this report_id and tag: {report_id}, {tag}",
                 )
             else:
                 # Get path to the parquet file containing relevant analytics values and create df
