@@ -1,12 +1,7 @@
-import React, { useState } from "react";
-import { getChart, getTable } from "../../../utilities/backend_calls/report";
+import React, { useState, useEffect } from "react";
+import { getChart, getReport, getTable } from "../../../utilities/backend_calls/report";
+import { useAuth0AccessToken } from "../../../utilities/hooks/auth0"
 import {
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Td,
-  TableContainer,
   VStack,
   HStack,
   Text,
@@ -19,14 +14,10 @@ import {
 } from "@chakra-ui/react"
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../../components/table"
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCheck
-} from "@fortawesome/free-solid-svg-icons";
-
 import ReactEcharts from "echarts-for-react"
 import { Report } from "../reports";
 import List from "../../../components/list";
+import { useParams } from "react-router-dom";
 
 export type chartData = {
     chart_id: string,
@@ -60,30 +51,65 @@ const initFilters = (report_filters: any) => {
     return filters_init
 }
 
-export default function Forecast_Recommendations(props: {selectedReport: Report, access_token_indexhub_api: string, clearSelectedReport: () => void}) {
+export default function Forecast_Recommendations() {
 
-    const selectedReport = props.selectedReport
-    const access_token_indexhub_api = props.access_token_indexhub_api
-    const report_filters = selectedReport.entities["forecast_recommendations"]
+    const getChartByChartId = async () => {
+      const chart_response = await getChart(String(params.id), "forecast_recommendation", access_token_indexhub_api, filters)
+      setChartData(chart_response)
+    }
 
+    const getTableByTableId = async () => {
+      const table_response = await getTable(String(params.id), "forecast_recommendation", access_token_indexhub_api, filters)
+      setTableData(table_response.forecast_recommendations)
+    }
+
+    const params = useParams();
+    const [selectedReport, setSelectedReport] = useState<Report>({
+      id: "",
+      source_id: "",
+      source_name: "",
+      entities: {},
+      user_id: "",
+      chart_id: "",
+      table_id: "",
+      status: "",
+      created_at: "",
+      completed_at: "",
+    })
     const [chartData, setChartData] = useState<chartData>({chart_id: "", title : "", chart_type: "", readable_names: {}, chart_data: {}});
     const [tableData, setTableData] = useState<forecastRecommendationsTable>({readable_names: {}, data:[{month_year: "", rpt_forecast_10: "", rpt_forecast_30: "", rpt_forecast_50: "", rpt_forecast_70: "", rpt_forecast_90: ""}], title: ""})
-    const [filters, setFilters] = useState<Record<string, any[]>>(initFilters(report_filters))
+    const [filters, setFilters] = useState<Record<string, any[]>>({})
+    const access_token_indexhub_api = useAuth0AccessToken()
+
+    useEffect(() => {
+      const getReportByReportId = async () => {
+        const reports_response = await getReport("", params.id, access_token_indexhub_api)
+        setSelectedReport(reports_response.reports[0])
+        setFilters(initFilters(reports_response.reports[0].entities["forecast_recommendations"]))
+      }
+      if (access_token_indexhub_api) {
+        getReportByReportId()
+      }
+    }, [access_token_indexhub_api])
+
+    useEffect(() => {
+      if (access_token_indexhub_api && selectedReport.id){
+        const filters_init: Record<string, any[]> = {}
+        Object.keys(selectedReport?.entities["forecast_recommendations"]).forEach(key => {
+          filters_init[key] = []
+        });
+        filters_init["quantile"] = [0.1]
+        setFilters(filters_init)
+
+        getChartByChartId()
+        getTableByTableId()
+      }
+    }, [access_token_indexhub_api, selectedReport.id])
 
     const sliderLabelStyles = {
       mt: '2',
       ml: '-2.5',
       fontSize: 'sm',
-    }
-
-    const getChartByChartId = async () => {
-        const chart_response = await getChart(selectedReport?.id, "forecast_recommendation", access_token_indexhub_api, filters)
-        setChartData(chart_response)
-    }
-
-    const getTableByTableId = async () => {
-        const table_response = await getTable(selectedReport?.id, "forecast_recommendation", access_token_indexhub_api, filters)
-        setTableData(table_response.forecast_recommendations)
     }
 
     const updateFilter = (entity: string, value: any, is_multiple = true) => {
@@ -105,25 +131,11 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
     }
 
     React.useEffect(() => {
-        if (access_token_indexhub_api && selectedReport.id){
-            const filters_init: Record<string, any[]> = {}
-            Object.keys(report_filters).forEach(key => {
-              filters_init[key] = []
-            });
-            filters_init["quantile"] = [0.1]
-            setFilters(filters_init)
-
-            getChartByChartId()
-            getTableByTableId()
-        }
-    }, [selectedReport])
-
-    React.useEffect(() => {
+      if (access_token_indexhub_api) {
         getChartByChartId()
         getTableByTableId()
+      }
     }, [filters])
-
-
 
     const table_data = tableData?.data
 
@@ -217,73 +229,79 @@ export default function Forecast_Recommendations(props: {selectedReport: Report,
         ]
       };
 
-      return (
-        <VStack padding="10px">
-          <Text width="90vw" textAlign="left" fontSize="2xl" fontWeight="bold">Forecast Recommendations</Text>
-          <VStack>
-            <VStack width="90vw" alignItems="flex-start" padding="4rem 0">
-              <HStack width="100%" justifyContent="flex-start" overflowX="scroll">
-                {Object.keys(report_filters).map((entity, idx) => {
-                return(
-                  <List
-                    data={report_filters[entity]["values"]}
-                    title={`All ${entity}s`}
-                    subtitle={`Choose your preferred ${entity}s you would like to filter with (multiple choices)`}
-                    entity={entity}
-                    state={filters}
-                    stateSetter={updateFilter}
-                    minWidth="25rem"
-                    maxWidth="35rem"
-                    key={idx}></List>
-                )})}
-              </HStack>
-              <VStack marginTop="4.5rem !important" width="100%" maxWidth="35rem" alignItems="flex-start" paddingInline="20px" padding="unset">
-                <Text textAlign="left" fontSize="lg" fontWeight="bold">AI Forecast Adjustment:</Text>
-                <Text textAlign="left" fontSize="sm" >Subtitle for the quantile slider here</Text>
-                <Container marginTop="3rem !important" justifyContent="center" alignItems="center" display="flex" height="100%" flexDirection="column" maxWidth="unset">
-                  <Slider defaultValue={0.1} min={0.1} max={0.9} step={0.05} aria-label='slider-ex-6' onChange={(val) => updateFilter("quantile", val, false)}>
-                    <SliderMark value={0.1} {...sliderLabelStyles}>
-                      Under
-                    </SliderMark>
-                    <SliderMark value={0.5} {...sliderLabelStyles}>
-                      Balanced
-                    </SliderMark>
-                    <SliderMark value={0.9} {...sliderLabelStyles}>
-                      Over
-                    </SliderMark>
-                    <SliderMark
-                      value={filters["quantile"][0]}
-                      textAlign='center'
-                      color={filters["quantile"][0] < 0.5 ? "indicator.main_red" : "indicator.main_green"}
-                      mt='-10'
-                      ml='-5'
-                      w='12'
-                    >
-                      {Math.floor(((filters["quantile"][0] - 0.5) / 0.4) * 100)}%
-                    </SliderMark>
-                    <SliderTrack backgroundColor="indicator.main_green">
-                      <SliderFilledTrack backgroundColor="indicator.main_red"/>
-                    </SliderTrack>
-                    <SliderThumb />
-                  </Slider>
-                </Container>
+      if (selectedReport.id != "") {
+        return (
+          <VStack padding="10px">
+            <Text width="90vw" textAlign="left" fontSize="2xl" fontWeight="bold">Forecast Recommendations</Text>
+            <VStack>
+              <VStack width="90vw" alignItems="flex-start" padding="4rem 0">
+                <HStack width="100%" justifyContent="flex-start" overflowX="scroll">
+                  {Object.keys(selectedReport?.entities["forecast_recommendations"]).map((entity, idx) => {
+                  return(
+                    <List
+                      data={selectedReport?.entities["forecast_recommendations"][entity]["values"]}
+                      title={`All ${entity}s`}
+                      subtitle={`Choose your preferred ${entity}s you would like to filter with (multiple choices)`}
+                      entity={entity}
+                      state={filters}
+                      stateSetter={updateFilter}
+                      minWidth="25rem"
+                      maxWidth="35rem"
+                      key={idx}></List>
+                  )})}
+                </HStack>
+                <VStack marginTop="4.5rem !important" width="100%" maxWidth="35rem" alignItems="flex-start" paddingInline="20px" padding="unset">
+                  <Text textAlign="left" fontSize="lg" fontWeight="bold">AI Forecast Adjustment:</Text>
+                  <Text textAlign="left" fontSize="sm" >Subtitle for the quantile slider here</Text>
+                  <Container marginTop="3rem !important" justifyContent="center" alignItems="center" display="flex" height="100%" flexDirection="column" maxWidth="unset">
+                    <Slider defaultValue={0.1} min={0.1} max={0.9} step={0.05} aria-label='slider-ex-6' onChange={(val) => updateFilter("quantile", val, false)}>
+                      <SliderMark value={0.1} {...sliderLabelStyles}>
+                        Under
+                      </SliderMark>
+                      <SliderMark value={0.5} {...sliderLabelStyles}>
+                        Balanced
+                      </SliderMark>
+                      <SliderMark value={0.9} {...sliderLabelStyles}>
+                        Over
+                      </SliderMark>
+                      <SliderMark
+                        value={filters["quantile"][0]}
+                        textAlign='center'
+                        color={filters["quantile"][0] < 0.5 ? "indicator.main_red" : "indicator.main_green"}
+                        mt='-10'
+                        ml='-5'
+                        w='12'
+                      >
+                        {Math.floor(((filters["quantile"][0] - 0.5) / 0.4) * 100)}%
+                      </SliderMark>
+                      <SliderTrack backgroundColor="indicator.main_green">
+                        <SliderFilledTrack backgroundColor="indicator.main_red"/>
+                      </SliderTrack>
+                      <SliderThumb />
+                    </Slider>
+                  </Container>
+                </VStack>
               </VStack>
+
+              <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">Title for Chart</Text>
+              <Text width="90vw" textAlign="left" fontSize="sm" >Placeholder for a more descriptive subtitle for the chart here</Text>
+              <ReactEcharts option={option} style={{
+                      height: '35rem',
+                      width: '100%',
+                      margin: "2rem 0"
+              }}/>
+
             </VStack>
-
-            <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">Title for Chart</Text>
-            <Text width="90vw" textAlign="left" fontSize="sm" >Placeholder for a more descriptive subtitle for the chart here</Text>
-            <ReactEcharts option={option} style={{
-                    height: '35rem',
-                    width: '100%',
-                    margin: "2rem 0"
-            }}/>
-
+            <VStack alignItems="flex-start" width="90vw">
+              <Text width="95%" textAlign="left" fontSize="xl" fontWeight="bold">Title for Table</Text>
+              <Text width="95%" textAlign="left" fontSize="sm"  marginBottom="1rem !important">Placeholder for a more descriptive subtitle for the table here</Text>
+              <DataTable columns={columns} data={table_data} />
+            </VStack>
           </VStack>
-          <VStack alignItems="flex-start" width="90vw">
-            <Text width="95%" textAlign="left" fontSize="xl" fontWeight="bold">Title for Table</Text>
-            <Text width="95%" textAlign="left" fontSize="sm"  marginBottom="1rem !important">Placeholder for a more descriptive subtitle for the table here</Text>
-            <DataTable columns={columns} data={table_data} />
-          </VStack>
-        </VStack>
-      )
+        )
+      } else {
+        return (
+          <></>
+        )
+      }
 }

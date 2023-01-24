@@ -12,6 +12,7 @@ import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
 import Docs from "./views/docs";
+import Forecast_Recommendations from "./views/reports/report_types/forecast_prediction";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
               <Route path="reports" element={<Reports />} />
+              <Route path="reports/:id" element={<Forecast_Recommendations />} />
               <Route path="alerts" element={<Alerts/>} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<Profile />} />

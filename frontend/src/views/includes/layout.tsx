@@ -15,12 +15,11 @@ import {
 import { Link, useLocation } from "react-router-dom"
 import { useAuth0 } from "@auth0/auth0-react";
 import {colors} from "../../theme/theme"
-
+import Breadcrumbs from "../../components/breadcrumbs";
 
 export default function Layout() {
   const {user, logout, loginWithRedirect} = useAuth0()
   const current_path = useLocation().pathname
-
   const getIconColor = (icon_path: string) => {
     if (current_path.split("/")[1] == icon_path){
       return colors.primary.brand_colors.blue_5
@@ -45,7 +44,9 @@ export default function Layout() {
           alignItems="center"
           display="flex"
         >
-          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset"/>
+          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset">
+            <Breadcrumbs current_path={current_path}/>
+          </Container>
           <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto">
             {user?.sub ? (
               <FontAwesomeIcon cursor="pointer" icon={faRightFromBracket} onClick={() => logout({ returnTo: window.location.origin })}/>
