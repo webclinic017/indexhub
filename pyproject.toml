@@ -15,7 +15,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
-    "aiobotocore",
     "boto3==1.24.59",
     "fastapi",
     "httpx",
@@ -26,12 +25,12 @@ dependencies = [
     "requests",
     "s3fs",
     "sqlmodel",
-    "jwt",
     "PyJWT",
     "xlsx2csv",
     "pyarrow",
     "openpyxl",
     "psycopg2-binary",
+    "uvicorn==0.20.0"
 ]
 dynamic = ["version"]
 
