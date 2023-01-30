@@ -110,8 +110,8 @@ def add_holiday_effects(df: pl.LazyFrame) -> pl.LazyFrame:
 
 
 @task
-def add_entity_effects(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
-    entity_id = ":".join(levels)
+def add_entity_effects(df: pl.LazyFrame, level_cols: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(level_cols)
     fixed_effects = pl.get_dummies(df.collect().select(entity_id)).select(
         pl.all().cast(pl.Boolean).prefix("is_")
     )
@@ -146,7 +146,7 @@ def preprocess_panel(
     entity_cols: List[str],
     freq: str,
     raw_data_path: str,
-    report_id: str,
+    source_id: str,
     manual_forecast_path: Optional[str] = None,
     filters: Optional[Mapping[str, List[str]]] = None,
 ):
@@ -182,7 +182,7 @@ def preprocess_panel(
         end_date = fct_panel.collect().select(pl.max("time"))[0, 0]
 
         paths["metadata"] = {
-            "report_id": report_id,
+            "source_id": source_id,
             "freq": freq,
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d"),
@@ -192,7 +192,7 @@ def preprocess_panel(
     except Exception as exc:
         paths = {
             "metadata": {
-                "report_id": report_id,
+                "source_id": source_id,
                 "freq": freq,
                 "status": "FAILED",
                 "msg": str(repr(exc)),
@@ -229,12 +229,12 @@ def reindex_ftr_panel(df: pl.DataFrame, suffix: str) -> pl.LazyFrame:
 @task
 def groupby_aggregate(
     df: pl.DataFrame,
-    levels: List[str],
+    level_cols: List[str],
     target_col: str,
     agg_by: str,
     freq: str,
 ) -> pl.DataFrame:
-    entity_id = ":".join(levels)
+    entity_id = ":".join(level_cols)
     agg_methods = {
         "sum": pl.sum(target_col),
         "mean": pl.mean(target_col),
@@ -242,7 +242,7 @@ def groupby_aggregate(
 
     df_new = (
         # Assign new col with entity_id
-        df.with_column(pl.concat_str(levels, sep=":").alias(entity_id))
+        df.with_column(pl.concat_str(level_cols, sep=":").alias(entity_id))
         .sort("time")
         .groupby(["time", entity_id], maintain_order=True)
         .agg(agg_methods[agg_by])
@@ -272,8 +272,8 @@ def filter_negative_values(
 
 
 @task
-def coerce_entity_colname(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
-    entity_id = ":".join(levels)
+def coerce_entity_colname(df: pl.LazyFrame, level_cols: List[str]) -> pl.LazyFrame:
+    entity_id = ":".join(level_cols)
 
     # Coerce entity column name and defensive sort columns
     df_new = df.select(
@@ -310,7 +310,7 @@ def export_ftr_panel(
 @flow
 def prepare_hierarchical_panel(
     s3_bucket: str,
-    levels: List[str],
+    level_cols: List[str],
     agg_method: Literal["sum", "mean"],
     fct_panel_path: str,
     target_col: str,
@@ -327,11 +327,11 @@ def prepare_hierarchical_panel(
         else fct_panel
     )
     ftr_panel = (
-        groupby_aggregate(ftr_panel, levels, target_col, agg_method, freq)
+        groupby_aggregate(ftr_panel, level_cols, target_col, agg_method, freq)
         .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
-        .pipe(add_entity_effects, levels)
-        .pipe(coerce_entity_colname, levels)
+        .pipe(add_entity_effects, level_cols)
+        .pipe(coerce_entity_colname, level_cols)
     )
     paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
 
@@ -382,9 +382,9 @@ def prepare_hierarchical_panel(
             else fct_manual_forecast
         )
         ftr_manual_forecast = (
-            groupby_aggregate(ftr_manual_forecast, levels, target_col, agg_method, freq)
+            groupby_aggregate(ftr_manual_forecast, level_cols, target_col, agg_method, freq)
             .pipe(reindex_ftr_panel, suffix="manual")
-            .pipe(coerce_entity_colname, levels)
+            .pipe(coerce_entity_colname, level_cols)
         )
     paths["manual"] = export_ftr_panel(
         ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"

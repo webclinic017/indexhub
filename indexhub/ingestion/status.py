@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, List, Literal, Mapping, Union
+from typing import Any, Mapping, Union
 
 from sqlmodel import Session, create_engine, select
 
@@ -26,10 +26,9 @@ def update_source(
     paths: Mapping[str, Union[str, Mapping[str, Any]]], metadata: Mapping[str, Any]
 ):
     # Unpack the metadata
-    report_id = metadata["report_id"]
     source_id = metadata["source_id"]
     paths = {k: v for k, v in paths.items() if k != "metadata"}
-    freq = metadata["freq"]
+    fct_panel_paths = metadata.get("fct_panel_paths", None)
     start_date = metadata.get("start_date", None)
     end_date = metadata.get("end_date", None)
     status = metadata["status"]
@@ -42,11 +41,9 @@ def update_source(
         # Select rows with specific report_id only
         statement = select(Source).where(Source.id == source_id)
         result = session.exec(statement).one()
-        # Update the fields based on the report_id
-        result.report_id = report_id
+        # Update the fields based on the source_id
         result.status = status
-        result.freq = freq
-        result.path = json.dumps(paths)
+        result.fct_panel_paths = json.dumps(fct_panel_paths)
         result.updated_at = datetime.utcnow()
         result.start_date = start_date
         result.end_date = end_date
@@ -57,12 +54,15 @@ def update_source(
         session.refresh(result)
 
 
-def update_report(
-    report_id: str,
-    status: Literal["SUCCESS", "RUNNING", "FAILED"],
-    completed_at: datetime,
-    entities: List[str],
-):
+def update_report(metadata: Mapping[str, Any]):
+    # Unpack metadata
+    report_id = metadata["report_id"]
+    status = metadata["status"]
+    completed_at = datetime.strptime(metadata["completed_at"], "%Y-%m-%d")
+    entities = metadata["entities"]
+    msg = metadata["msg"]
+    completion_pct = metadata["completion_pct"]
+
     # Establish connection
     engine = create_engine(get_psql_conn_uri())
 
@@ -73,7 +73,9 @@ def update_report(
         # Update the fields based on the report_id
         result.status = status
         result.completed_at = completed_at
+        result.completion_pct = completion_pct
         result.entities = entities
+        result.msg = msg
         # Add, commit and refresh the updated object
         session.add(result)
         session.commit()

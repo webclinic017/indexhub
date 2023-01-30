@@ -17,7 +17,7 @@ class CreateSource(BaseModel):
     name: str
     path: str
     freq: str
-    levels: Optional[List[str]] = None
+    level_cols: Optional[List[str]] = None
 
 
 @router.post("/sources")
@@ -42,7 +42,7 @@ def create_source(create_source: CreateSource):
         source.created_at = datetime.now()
         source.freq = create_source.freq
         source.name = create_source.name
-        source.levels = create_source.levels
+        source.level_cols = create_source.level_cols
 
         session.add(source)
         session.commit()

@@ -62,7 +62,7 @@ def prepare_past_review_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    levels: List[str],
+    level_cols: List[str],
 ):
     # 1. Load ftr actual, ftr manual, and backtests
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
@@ -97,7 +97,7 @@ def prepare_past_review_report(
 
     # 4. Split merged entity cols and cast to categorical
     rpt_past_review = (
-        split_merged_entity_cols(rpt_past_review, levels)
+        split_merged_entity_cols(rpt_past_review, level_cols)
         .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
@@ -116,7 +116,7 @@ def prepare_past_review_report(
 
 
 @task
-def split_merged_entity_cols(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFrame:
+def split_merged_entity_cols(df: pl.LazyFrame, level_cols: List[str]) -> pl.LazyFrame:
     df_new = (
         df.collect()
         .with_columns(pl.col("entity").str.split(":"))
@@ -125,7 +125,7 @@ def split_merged_entity_cols(df: pl.LazyFrame, levels: List[str]) -> pl.LazyFram
             pl.struct(
                 [
                     pl.col("entity").arr.get(i).alias(f"entity_{i}")
-                    for i, col in enumerate(levels)
+                    for i, col in enumerate(level_cols)
                 ]
             ).alias("entity"),
         )
@@ -148,7 +148,7 @@ def cast_entity_cols_to_categorical(
 def prepare_metrics_report(
     s3_artifact_bucket: str,
     forecast_data_paths: Mapping[str, str],
-    levels: List[str],
+    level_cols: List[str],
 ):
     # 1. Load metrics from forecast data
     metrics = load_data(
@@ -156,7 +156,7 @@ def prepare_metrics_report(
     )
 
     # 2. Split entity id into list of cols and cast entity cols to categorical
-    rpt_metrics = split_merged_entity_cols(metrics, levels).pipe(
+    rpt_metrics = split_merged_entity_cols(metrics, level_cols).pipe(
         cast_entity_cols_to_categorical
     )
 
@@ -178,7 +178,7 @@ def prepare_forecast_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    levels: List[str],
+    level_cols: List[str],
 ):
     # 1. Load ftr actual, ftr manual, backtests, y_preds
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
@@ -214,7 +214,7 @@ def prepare_forecast_report(
 
     # 4. Split entity id into list of cols, cast entity cols to categorical and drop is_holiday
     rpt_forecast = (
-        split_merged_entity_cols(rpt_forecast, levels)
+        split_merged_entity_cols(rpt_forecast, level_cols)
         .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
@@ -274,7 +274,7 @@ def transform_target_col_to_wide_format(
 def prepare_forecast_scenario_report(
     s3_artifact_bucket: str,
     forecast_data_paths: Mapping[str, str],
-    levels: List[str],
+    level_cols: List[str],
 ):
     # 1. Load y_preds
     y_preds = load_data(
@@ -288,7 +288,7 @@ def prepare_forecast_scenario_report(
     rpt_forecast_scenario = (
         transform_target_col_to_wide_format(y_preds, quantiles)
         .pipe(assign_month_year)
-        .pipe(split_merged_entity_cols, levels)
+        .pipe(split_merged_entity_cols, level_cols)
         .pipe(cast_entity_cols_to_categorical)
     )
 
@@ -384,7 +384,7 @@ def prepare_volatility_report(
     s3_artifact_bucket: str,
     ftr_data_paths: Mapping[str, str],
     forecast_data_paths: Mapping[str, str],
-    levels: List[str],
+    level_cols: List[str],
 ):
     # 1. Load ftr actual and metrics panels
     ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
@@ -407,7 +407,7 @@ def prepare_volatility_report(
     rpt_volatility = (
         assign_cv_column(rpt_volatility)
         .pipe(assign_trendline_columns)
-        .pipe(split_merged_entity_cols, levels)
+        .pipe(split_merged_entity_cols, level_cols)
         .pipe(cast_entity_cols_to_categorical)
     )
 
