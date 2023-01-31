@@ -5,10 +5,8 @@ from typing import Any, Mapping, Union
 
 from sqlmodel import Session, create_engine, select
 
-from indexhub.api.models.chart import Chart
 from indexhub.api.models.report import Report
 from indexhub.api.models.source import Source
-from indexhub.api.models.table import Table
 
 
 def get_psql_conn_uri():
@@ -22,7 +20,7 @@ def get_psql_conn_uri():
     return uri
 
 
-def update_source(
+def update_source_row(
     paths: Mapping[str, Union[str, Mapping[str, Any]]], metadata: Mapping[str, Any]
 ):
     # Unpack the metadata
@@ -54,7 +52,7 @@ def update_source(
         session.refresh(result)
 
 
-def update_report(metadata: Mapping[str, Any]):
+def update_report_row(metadata: Mapping[str, Any]):
     # Unpack metadata
     report_id = metadata["report_id"]
     status = metadata["status"]
@@ -80,51 +78,3 @@ def update_report(metadata: Mapping[str, Any]):
         session.add(result)
         session.commit()
         session.refresh(result)
-
-
-def create_chart(
-    report_id: str,
-    tag: str,
-    path: str,
-    title: str,
-    axis_labels: str,
-    readable_names: str,
-    type: str,
-):
-    # Establish connection
-    engine = create_engine(get_psql_conn_uri())
-
-    with Session(engine) as session:
-        new_row = Chart(
-            report_id=report_id,
-            tag=tag,
-            path=path,
-            title=title,
-            axis_labels=axis_labels,
-            readable_names=readable_names,
-            type=type,
-        )
-        session.add(new_row)
-        session.commit()
-
-
-def create_data_table(
-    report_id: str,
-    tag: str,
-    path: str,
-    title: str,
-    readable_names: str,
-):
-    # Establish connection
-    engine = create_engine(get_psql_conn_uri())
-
-    with Session(engine) as session:
-        new_row = Table(
-            report_id=report_id,
-            tag=tag,
-            path=path,
-            title=title,
-            readable_names=readable_names,
-        )
-        session.add(new_row)
-        session.commit()
