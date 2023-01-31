@@ -10,6 +10,7 @@ import polars as pl
 from lightgbm import LGBMRegressor
 from mlforecast import MLForecast
 from prefect import flow, task
+from pydantic import BaseModel, validator
 from sklearn.linear_model import QuantileRegressor
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.neighbors import KNeighborsRegressor
@@ -43,6 +44,30 @@ QUANTILES = [
     0.85,
     0.9,
 ]
+
+
+class RunForecastFlowInput(BaseModel):
+    s3_data_bucket: str
+    s3_artifacts_bucket: str
+    ftr_data_paths: Mapping[str, str]
+    date_features: List[str]
+    freq: str
+    lags: List[int]
+    allow_negatives: bool = False
+    use_manual_zeros: bool = False
+
+    @validator("freq")
+    def check_freq(cls, freq):
+        if freq not in PL_FREQ_TO_PD_FREQ:
+            raise ValueError(f"Frequency `{freq}` is not supported.")
+        return freq
+
+
+class RunForecastFlowOutput(BaseModel):
+    backtests: str
+    metrics: str
+    y_preds: str
+    feature_importances: str
 
 
 @task
@@ -373,27 +398,18 @@ def export_panel(
 
 
 @flow
-def run_forecast_flow(
-    s3_data_bucket: str,
-    s3_artifacts_bucket: str,
-    ftr_data_paths: Mapping[str, str],
-    date_features: List[str],
-    freq: str,
-    lags: List[int],
-    allow_negatives: bool = False,
-    use_manual_zeros: bool = False,
-):
+def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
     try:
-        freq = PL_FREQ_TO_PD_FREQ[freq]
+        freq = PL_FREQ_TO_PD_FREQ[inputs.freq]
     except KeyError as err:
         raise ValueError(f"Frequency `{freq}` is not supported.") from err
 
     # 1. Load ftr tables
     ftr_panel = load_ftr_panel(
-        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"]
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
     )
     ftr_panel_manual = load_ftr_panel(
-        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
     )
 
     # 2. Time series split - return mapping of n_split to LazyFrame
@@ -410,13 +426,13 @@ def run_forecast_flow(
 
     fit_kwargs = {
         "static_cols": static_cols,
-        "date_features": date_features,
+        "date_features": inputs.date_features,
         "freq": freq,
-        "lags": lags,
+        "lags": inputs.lags,
     }
     postproc_kwargs = {
-        "allow_negatives": allow_negatives,
-        "use_manual_zeros": use_manual_zeros,
+        "allow_negatives": inputs.allow_negatives,
+        "use_manual_zeros": inputs.use_manual_zeros,
     }
 
     # 3. Backtest - return backtest and fitted_model by quantile
@@ -440,8 +456,8 @@ def run_forecast_flow(
     paths = {
         "backtests": export_panel(
             transf_backtests,
-            s3_artifacts_bucket,
-            ftr_data_paths["actual"],
+            inputs.s3_artifacts_bucket,
+            inputs.ftr_data_paths["actual"],
             suffix="backtests",
         )
     }
@@ -460,7 +476,10 @@ def run_forecast_flow(
 
     metrics = pl.concat(metrics)
     paths["metrics"] = export_panel(
-        metrics, s3_artifacts_bucket, ftr_data_paths["actual"], suffix="metrics"
+        metrics,
+        inputs.s3_artifacts_bucket,
+        inputs.ftr_data_paths["actual"],
+        suffix="metrics",
     )
 
     # 6. Training final model on the full dataset and predict by quantile
@@ -477,7 +496,10 @@ def run_forecast_flow(
         y_preds=y_preds, ftr_panel_manual=ftr_panel_manual, **postproc_kwargs
     )
     paths["y_preds"] = export_panel(
-        transf_y_preds, s3_artifacts_bucket, ftr_data_paths["actual"], suffix="y_preds"
+        transf_y_preds,
+        inputs.s3_artifacts_bucket,
+        inputs.ftr_data_paths["actual"],
+        suffix="y_preds",
     )
 
     # 7. Compute feature importance
@@ -491,8 +513,8 @@ def run_forecast_flow(
 
     paths["feature_importances"] = export_panel(
         feature_importances,
-        s3_artifacts_bucket,
-        ftr_data_paths["actual"],
+        inputs.s3_artifacts_bucket,
+        inputs.ftr_data_paths["actual"],
         suffix="feature_importances",
     )
 

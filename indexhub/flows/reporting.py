@@ -7,6 +7,15 @@ import boto3
 import numpy as np
 import polars as pl
 from prefect import flow, task
+from pydantic import BaseModel
+
+
+class ReportingInput(BaseModel):
+    s3_data_bucket: str
+    s3_artifacts_bucket: str
+    ftr_data_paths: Mapping[str, str]
+    forecast_data_paths: Mapping[str, str]
+    level_cols: List[str]
 
 
 @task
@@ -57,20 +66,17 @@ def get_quantiles_list(df: pl.LazyFrame) -> List[int]:
 
 
 @flow
-def prepare_past_review_report(
-    s3_data_bucket: str,
-    s3_artifact_bucket: str,
-    ftr_data_paths: Mapping[str, str],
-    forecast_data_paths: Mapping[str, str],
-    level_cols: List[str],
-):
+def prepare_past_review_report(inputs: ReportingInput):
     # 1. Load ftr actual, ftr manual, and backtests
-    ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
+    ftr_panel = load_data(
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+    )
     ftr_panel_manual = load_data(
-        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
     )
     backtests = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["backtests"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["backtests"],
     )
     # 2. Add quantile column to ftr actual and ftr manual
     quantiles = get_quantiles_list(backtests)
@@ -97,7 +103,7 @@ def prepare_past_review_report(
 
     # 4. Split merged entity cols and cast to categorical
     rpt_past_review = (
-        split_merged_entity_cols(rpt_past_review, level_cols)
+        split_merged_entity_cols(rpt_past_review, inputs.level_cols)
         .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
@@ -107,8 +113,8 @@ def prepare_past_review_report(
     paths = {
         "rpt_past_review": export_report(
             rpt_past_review,
-            s3_artifact_bucket,
-            forecast_data_paths["backtests"],
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["backtests"],
             suffix="rpt_past_review",
         )
     }
@@ -145,26 +151,23 @@ def cast_entity_cols_to_categorical(
 
 
 @flow
-def prepare_metrics_report(
-    s3_artifact_bucket: str,
-    forecast_data_paths: Mapping[str, str],
-    level_cols: List[str],
-):
+def prepare_metrics_report(inputs: ReportingInput):
     # 1. Load metrics from forecast data
     metrics = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["metrics"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["metrics"],
     )
 
     # 2. Split entity id into list of cols and cast entity cols to categorical
-    rpt_metrics = split_merged_entity_cols(metrics, level_cols).pipe(
+    rpt_metrics = split_merged_entity_cols(metrics, inputs.level_cols).pipe(
         cast_entity_cols_to_categorical
     )
 
     paths = {
         "rpt_metrics": export_report(
             rpt_metrics,
-            s3_artifact_bucket,
-            forecast_data_paths["metrics"],
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["metrics"],
             suffix="rpt_metrics",
         )
     }
@@ -173,23 +176,21 @@ def prepare_metrics_report(
 
 
 @flow
-def prepare_forecast_report(
-    s3_data_bucket: str,
-    s3_artifact_bucket: str,
-    ftr_data_paths: Mapping[str, str],
-    forecast_data_paths: Mapping[str, str],
-    level_cols: List[str],
-):
+def prepare_forecast_report(inputs: ReportingInput):
     # 1. Load ftr actual, ftr manual, backtests, y_preds
-    ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
+    ftr_panel = load_data(
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+    )
     ftr_panel_manual = load_data(
-        s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["manual"]
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
     )
     backtests = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["backtests"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["backtests"],
     )
     y_preds = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["y_preds"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["y_preds"],
     )
 
     # 2. Add quantile column to ftr actual and ftr manual
@@ -214,7 +215,7 @@ def prepare_forecast_report(
 
     # 4. Split entity id into list of cols, cast entity cols to categorical and drop is_holiday
     rpt_forecast = (
-        split_merged_entity_cols(rpt_forecast, level_cols)
+        split_merged_entity_cols(rpt_forecast, inputs.level_cols)
         .pipe(cast_entity_cols_to_categorical)
         # Filter columns by entity, quantile, time and target cols
         .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
@@ -224,8 +225,8 @@ def prepare_forecast_report(
     paths = {
         "rpt_forecast": export_report(
             rpt_forecast,
-            s3_artifact_bucket,
-            forecast_data_paths["y_preds"],
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["y_preds"],
             suffix="rpt_forecast",
         )
     }
@@ -271,14 +272,11 @@ def transform_target_col_to_wide_format(
 
 
 @flow
-def prepare_forecast_scenario_report(
-    s3_artifact_bucket: str,
-    forecast_data_paths: Mapping[str, str],
-    level_cols: List[str],
-):
+def prepare_forecast_scenario_report(inputs: ReportingInput):
     # 1. Load y_preds
     y_preds = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["y_preds"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["y_preds"],
     )
 
     # 2. Identify the quantiles
@@ -288,15 +286,15 @@ def prepare_forecast_scenario_report(
     rpt_forecast_scenario = (
         transform_target_col_to_wide_format(y_preds, quantiles)
         .pipe(assign_month_year)
-        .pipe(split_merged_entity_cols, level_cols)
+        .pipe(split_merged_entity_cols, inputs.level_cols)
         .pipe(cast_entity_cols_to_categorical)
     )
 
     paths = {
         "rpt_forecast_scenario": export_report(
             rpt_forecast_scenario,
-            s3_artifact_bucket,
-            forecast_data_paths["y_preds"],
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["y_preds"],
             suffix="rpt_forecast_scenario",
         )
     }
@@ -379,17 +377,14 @@ def assign_trendline_columns(df: pl.LazyFrame) -> pl.LazyFrame:
 
 
 @flow
-def prepare_volatility_report(
-    s3_data_bucket: str,
-    s3_artifact_bucket: str,
-    ftr_data_paths: Mapping[str, str],
-    forecast_data_paths: Mapping[str, str],
-    level_cols: List[str],
-):
+def prepare_volatility_report(inputs: ReportingInput):
     # 1. Load ftr actual and metrics panels
-    ftr_panel = load_data(s3_bucket=s3_data_bucket, s3_path=ftr_data_paths["actual"])
+    ftr_panel = load_data(
+        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+    )
     metrics = load_data(
-        s3_bucket=s3_artifact_bucket, s3_path=forecast_data_paths["metrics"]
+        s3_bucket=inputs.s3_artifacts_bucket,
+        s3_path=inputs.forecast_data_paths["metrics"],
     )
 
     # 2. Prepare tables for coefficient of volatility and join tables
@@ -407,15 +402,15 @@ def prepare_volatility_report(
     rpt_volatility = (
         assign_cv_column(rpt_volatility)
         .pipe(assign_trendline_columns)
-        .pipe(split_merged_entity_cols, level_cols)
+        .pipe(split_merged_entity_cols, inputs.level_cols)
         .pipe(cast_entity_cols_to_categorical)
     )
 
     paths = {
         "rpt_volatility": export_report(
             rpt_volatility,
-            s3_artifact_bucket,
-            forecast_data_paths["metrics"],
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["metrics"],
             suffix="rpt_volatility",
         )
     }

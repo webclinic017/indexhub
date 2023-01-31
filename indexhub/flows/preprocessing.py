@@ -8,6 +8,7 @@ from typing import List, Mapping, Optional
 import boto3
 import polars as pl
 from prefect import flow, task
+from pydantic import BaseModel, validator
 from typing_extensions import Literal
 
 from indexhub.flows.forecasting import (
@@ -19,6 +20,49 @@ from indexhub.flows.forecasting import (
 )
 
 MIN_TRAIN_SIZE = {"Q": 9, "MS": 12, "W": 18, "D": 30}
+
+
+class PreprocessPanelInput(BaseModel):
+    s3_bucket: str
+    time_col: str
+    entity_cols: List[str]
+    freq: str
+    raw_data_path: str
+    source_id: str
+    manual_forecast_path: Optional[str] = None
+    filters: Optional[Mapping[str, List[str]]] = None
+
+
+class PreprocessPanelOutput(BaseModel):
+    actual: str
+    manual: Optional[str] = None
+    metadata: Mapping[str, str]
+
+
+class PrepareHierarchicalPanelInput(BaseModel):
+    s3_bucket: str
+    level_cols: List[str]
+    agg_method: Literal["sum", "mean"]
+    fct_panel_path: str
+    target_col: str
+    date_features: List[str]
+    freq: str
+    lags: List[int]
+    manual_forecasts_path: Optional[str] = None
+    allow_negatives: Optional[bool] = False
+
+    @validator("manual_forecasts_path")
+    def check_manual_forecasts_path(cls, v):
+        return v or None
+
+    @validator("allow_negatives")
+    def check_allow_negatives(cls, v):
+        return v or False
+
+
+class PrepareHierarchicalPanelOutput(BaseModel):
+    actual: str
+    manual: str
 
 
 def infer_dt_format(dt: str):
@@ -140,50 +184,52 @@ def export_fct_panel(
 
 
 @flow
-def preprocess_panel(
-    s3_bucket: str,
-    time_col: str,
-    entity_cols: List[str],
-    freq: str,
-    raw_data_path: str,
-    source_id: str,
-    manual_forecast_path: Optional[str] = None,
-    filters: Optional[Mapping[str, List[str]]] = None,
-):
+def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
     try:
-        raw_panel = load_raw_panel(s3_bucket, raw_data_path)
+        raw_panel = load_raw_panel(inputs.s3_bucket, inputs.raw_data_path)
         raw_panel = (
-            select_rows(raw_panel, filters) if filters is not None else raw_panel
+            select_rows(raw_panel, inputs.filters)
+            if inputs.filters is not None
+            else raw_panel
         )
         fct_panel = clean_raw_panel(
             df=raw_panel,
-            time_col=time_col,
-            entity_cols=entity_cols,
+            time_col=inputs.time_col,
+            entity_cols=inputs.entity_cols,
         )
-        paths = {"actual": export_fct_panel(fct_panel, s3_bucket, raw_data_path)}
+        paths = {
+            "actual": export_fct_panel(
+                fct_panel, inputs.s3_bucket, inputs.raw_data_path
+            )
+        }
 
-        if manual_forecast_path is not None:
-            manual_forecasts = load_raw_panel(s3_bucket, manual_forecast_path)
+        if inputs.manual_forecast_path is not None:
+            manual_forecasts = load_raw_panel(
+                inputs.s3_bucket, inputs.manual_forecast_path
+            )
             manual_forecasts = (
-                select_rows(manual_forecasts, filters)
-                if filters is not None
+                select_rows(manual_forecasts, inputs.filters)
+                if inputs.filters is not None
                 else manual_forecasts
             )
             fct_manual_forecast = clean_raw_panel(
                 df=manual_forecasts,
-                time_col=time_col,
-                entity_cols=entity_cols,
+                time_col=inputs.time_col,
+                entity_cols=inputs.entity_cols,
             )
             paths["manual"] = export_fct_panel(
-                fct_manual_forecast, s3_bucket, raw_data_path, suffix="manual"
+                fct_manual_forecast,
+                inputs.s3_bucket,
+                inputs.raw_data_path,
+                suffix="manual",
             )
 
         start_date = fct_panel.collect().select(pl.min("time"))[0, 0]
         end_date = fct_panel.collect().select(pl.max("time"))[0, 0]
 
         paths["metadata"] = {
-            "source_id": source_id,
-            "freq": freq,
+            "source_id": inputs.source_id,
+            "freq": inputs.freq,
             "start_date": start_date.strftime("%Y-%m-%d"),
             "end_date": end_date.strftime("%Y-%m-%d"),
             "status": "SUCCESS",
@@ -192,8 +238,8 @@ def preprocess_panel(
     except Exception as exc:
         paths = {
             "metadata": {
-                "source_id": source_id,
-                "freq": freq,
+                "source_id": inputs.source_id,
+                "freq": inputs.freq,
                 "status": "FAILED",
                 "msg": str(repr(exc)),
             }
@@ -309,47 +355,47 @@ def export_ftr_panel(
 
 @flow
 def prepare_hierarchical_panel(
-    s3_bucket: str,
-    level_cols: List[str],
-    agg_method: Literal["sum", "mean"],
-    fct_panel_path: str,
-    target_col: str,
-    date_features: List[str],
-    freq: str,
-    lags: List[int],
-    manual_forecasts_path: Optional[str] = None,
-    allow_negatives: Optional[bool] = False,
-):
-    fct_panel = load_fct_panel(s3_bucket, fct_panel_path)
+    inputs: PrepareHierarchicalPanelInput,
+) -> PrepareHierarchicalPanelOutput:
+    print(inputs.manual_forecasts_path)
+    fct_panel = load_fct_panel(inputs.s3_bucket, inputs.fct_panel_path)
     ftr_panel = (
-        filter_negative_values(fct_panel, target_col)
-        if allow_negatives is False
+        filter_negative_values(fct_panel, inputs.target_col)
+        if inputs.allow_negatives is False
         else fct_panel
     )
     ftr_panel = (
-        groupby_aggregate(ftr_panel, level_cols, target_col, agg_method, freq)
+        groupby_aggregate(
+            ftr_panel,
+            inputs.level_cols,
+            inputs.target_col,
+            inputs.agg_method,
+            inputs.freq,
+        )
         .pipe(reindex_ftr_panel, suffix="actual")
         .pipe(add_holiday_effects)
-        .pipe(add_entity_effects, level_cols)
-        .pipe(coerce_entity_colname, level_cols)
+        .pipe(add_entity_effects, inputs.level_cols)
+        .pipe(coerce_entity_colname, inputs.level_cols)
     )
-    paths = {"actual": export_ftr_panel(ftr_panel, s3_bucket, fct_panel_path)}
+    paths = {
+        "actual": export_ftr_panel(ftr_panel, inputs.s3_bucket, inputs.fct_panel_path)
+    }
 
-    if manual_forecasts_path is None:
+    if inputs.manual_forecasts_path is None:
         static_cols = [
             col
             for col in ftr_panel.select(pl.col(pl.Boolean)).columns
             if "is_holiday" not in col
         ]
         try:
-            pd_freq = PL_FREQ_TO_PD_FREQ[freq]
+            pd_freq = PL_FREQ_TO_PD_FREQ[inputs.freq]
         except KeyError as err:
-            raise ValueError(f"Frequency `{freq}` is not supported.") from err
+            raise ValueError(f"Frequency `{inputs.freq}` is not supported.") from err
         fit_kwargs = {
             "static_cols": static_cols,
-            "date_features": date_features,
+            "date_features": inputs.date_features,
             "freq": pd_freq,
-            "lags": lags,
+            "lags": inputs.lags,
         }
 
         # Get length of time periods by entity
@@ -375,19 +421,27 @@ def prepare_hierarchical_panel(
             lambda df: df.rename({df.columns[-1]: "target:manual"})
         )
     else:
-        fct_manual_forecast = load_fct_panel(s3_bucket, manual_forecasts_path)
+        fct_manual_forecast = load_fct_panel(
+            inputs.s3_bucket, inputs.manual_forecasts_path
+        )
         ftr_manual_forecast = (
-            filter_negative_values(fct_manual_forecast, target_col)
-            if allow_negatives is False
+            filter_negative_values(fct_manual_forecast, inputs.target_col)
+            if inputs.allow_negatives is False
             else fct_manual_forecast
         )
         ftr_manual_forecast = (
-            groupby_aggregate(ftr_manual_forecast, level_cols, target_col, agg_method, freq)
+            groupby_aggregate(
+                ftr_manual_forecast,
+                inputs.level_cols,
+                inputs.target_col,
+                inputs.agg_method,
+                inputs.freq,
+            )
             .pipe(reindex_ftr_panel, suffix="manual")
-            .pipe(coerce_entity_colname, level_cols)
+            .pipe(coerce_entity_colname, inputs.level_cols)
         )
     paths["manual"] = export_ftr_panel(
-        ftr_manual_forecast, s3_bucket, fct_panel_path, suffix="manual"
+        ftr_manual_forecast, inputs.s3_bucket, inputs.fct_panel_path, suffix="manual"
     )
 
     return paths
