@@ -1,7 +1,7 @@
 from sqlmodel import Session
 
 from indexhub.api.models.report import Report
-from indexhub.api.models.db import engine
+from indexhub.api.db import engine
 
 from ._includes import populate_forecast_recommendations_data
 

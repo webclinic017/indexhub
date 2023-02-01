@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from indexhub.api.models.chart import Chart
-from indexhub.api.models.db import engine
+from indexhub.api.db import engine
 
 router = APIRouter()
 
