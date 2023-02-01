@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from indexhub.api.models.table import Table
+from indexhub.api.models.data_table import DataTable
 from indexhub.api.utils.init_db import engine
 
 router = APIRouter()
@@ -54,9 +54,9 @@ def get_table(report_id: str = None, tag: str = None, filters: dict = None):
         else:
             # Get table metadata
             filter_table_query = (
-                select(Table)
-                .where(Table.report_id == report_id)
-                .where(Table.tag == tag)
+                select(DataTable)
+                .where(DataTable.report_id == report_id)
+                .where(DataTable.tag == tag)
             )
             tables = session.exec(filter_table_query).all()
 

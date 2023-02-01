@@ -6,7 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from indexhub.api.models.chart import Chart
 from indexhub.api.models.source import Source, StatusTypes  # noqa
-from indexhub.api.models.table import Table
+from indexhub.api.models.data_table import DataTable
 
 class AggMethods(str, enum.Enum):
     SUM = "SUM"
@@ -26,7 +26,7 @@ class Report(SQLModel, table=True):
             "cascade": "all, delete",
         },
     )
-    tables: List[Table] = Relationship(
+    tables: List[DataTable] = Relationship(
         sa_relationship_kwargs={
             "cascade": "all, delete",
         },

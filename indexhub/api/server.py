@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .dependencies import verify_oauth_token
-from .routers import charts, reports, sources, tables, users
+from .routers import charts, data_tables, reports, sources, users
 from .utils.init_db import create_db_and_tables
 
 dependencies = None
@@ -19,7 +19,7 @@ app = FastAPI(dependencies=dependencies)
 app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(charts.router)
-app.include_router(tables.router)
+app.include_router(data_tables.router)
 app.include_router(sources.router)
 
 origins = [

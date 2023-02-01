@@ -6,7 +6,7 @@ from sqlmodel import Session
 
 from indexhub.api.models.chart import Chart
 from indexhub.api.models.report import Report
-from indexhub.api.models.table import Table
+from indexhub.api.models.data_table import DataTable
 
 
 async def populate_forecast_recommendations_data(report: Report, session: Session):
@@ -35,7 +35,7 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.refresh(chart)
 
     # Populate table related data
-    table = Table()
+    table = DataTable()
     table.report_id = report.id
     table.tag = "forecast_recommendation"
 
@@ -72,7 +72,6 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     report.entities = json.dumps(entities)
     report.status = "COMPLETE"
     report.completed_at = datetime.now()
-    print(report)
     session.add(report)
     session.commit()
     session.refresh(report)

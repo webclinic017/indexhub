@@ -1,6 +1,6 @@
 from indexhub.ingestion.status import get_psql_conn_uri
 from sqlmodel import Session, create_engine
-from indexhub.api.models.table import Table
+from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.chart import Chart
 
 def create_chart_row(
@@ -41,7 +41,7 @@ def create_data_table_row(
     engine = create_engine(get_psql_conn_uri())
     
     with Session(engine) as session:
-        new_row = Table(
+        new_row = DataTable(
             report_id=report_id,
             tag=tag,
             path=path,
