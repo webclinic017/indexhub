@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from indexhub.api.background_tasks.populate_report import populate_report_data
 from indexhub.api.models.report import Report
-from indexhub.api.utils.init_db import engine
+from indexhub.api.models.db import engine
 
 router = APIRouter()
 

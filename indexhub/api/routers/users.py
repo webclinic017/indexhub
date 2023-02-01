@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlmodel import Field, Session, select
 
 from indexhub.api.models.user import User
-from indexhub.api.utils.init_db import engine
+from indexhub.api.models.db import engine
 
 router = APIRouter()
 

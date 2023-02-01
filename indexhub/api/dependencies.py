@@ -2,7 +2,7 @@ from fastapi import Depends
 from fastapi.security import HTTPBearer
 from jwt import exceptions
 
-from .utils.auth0 import VerifyToken
+from .auth0 import VerifyToken
 
 token_auth_scheme = HTTPBearer()
 

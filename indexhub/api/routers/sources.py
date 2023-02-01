@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from indexhub.api.models.source import Source
-from indexhub.api.utils.init_db import engine
+from indexhub.api.models.db import engine
 
 router = APIRouter()
 
