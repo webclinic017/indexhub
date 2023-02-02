@@ -32,7 +32,7 @@ export default function Layout() {
       <Grid
         templateAreas={`"nav header"
                         "nav main"`}
-        gridTemplateRows={"40px 1fr"}
+        gridTemplateRows={"70px 1fr"}
         gridTemplateColumns={"100px 1fr"}
         h="100vh"
       >
@@ -41,13 +41,12 @@ export default function Layout() {
           bg="header.background"
           area={"header"}
           color="header.text"
-          alignItems="center"
+          // alignItems="center"
           display="flex"
+          flexDirection="column"
         >
-          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset">
-            <Breadcrumbs current_path={current_path}/>
-          </Container>
-          <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto">
+          {/* Upper container */}
+          <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto" py="1rem">
             {user?.sub ? (
               <FontAwesomeIcon cursor="pointer" icon={faRightFromBracket} onClick={() => logout({ returnTo: window.location.origin })}/>
             ) : (
@@ -56,6 +55,13 @@ export default function Layout() {
               })}/>
             )}
           </Container>
+
+          {/* Lower container */}
+          <Container display="flex" justifyContent="flex-start" margin="unset" padding="unset">
+            <Breadcrumbs current_path={current_path}/>
+          </Container>
+         
+          
         </GridItem>
         <GridItem
           pl="2"
