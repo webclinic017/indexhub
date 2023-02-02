@@ -1,4 +1,4 @@
-from indexhub.ingestion.status import get_psql_conn_uri
+from indexhub.api.db import get_psql_conn_uri
 from sqlmodel import Session, create_engine
 from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.chart import Chart

@@ -1,23 +1,12 @@
 import json
-import os
 from datetime import datetime
 from typing import Any, Mapping, Union
 
 from sqlmodel import Session, create_engine, select
+from indexhub.api.db import get_psql_conn_uri
 
 from indexhub.api.models.report import Report
 from indexhub.api.models.source import Source
-
-
-def get_psql_conn_uri():
-    username = os.environ["PSQL_USERNAME"]
-    password = os.environ["PSQL_PASSWORD"]
-    host = os.environ["PSQL_HOST"]
-    port = os.environ["PSQL_PORT"]
-    dbname = os.environ["PSQL_NAME"]
-    sslmode = os.environ.get("PSQL_SSLMODE", "require")
-    uri = f"postgresql://{username}:{password}@{host}:{port}/{dbname}?sslmode={sslmode}"
-    return uri
 
 
 def update_source_row(
