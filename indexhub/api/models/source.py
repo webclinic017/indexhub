@@ -21,7 +21,6 @@ class Source(SQLModel, table=True):
     time_col: str
     freq: str
     entity_cols: List[str]
-    level_cols: List[str]
     target_cols: List[str]
     raw_data_path: str
     filters: Optional[str]  # Json string of Union[str, str]

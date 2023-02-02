@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from indexhub.api.models.data_table import DataTable
 from indexhub.api.db import engine
+from indexhub.api.models.data_table import DataTable
 
 router = APIRouter()
 
