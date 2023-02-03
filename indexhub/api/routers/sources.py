@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import List, Optional
 
@@ -95,8 +96,8 @@ def create_source(create_source: CreateSource):
         source.freq = create_source.freq
         source.name = create_source.name
         source.time_col = create_source.time_col
-        source.entity_cols = create_source.entity_cols
-        source.target_cols = create_source.target_cols
+        source.entity_cols = json.dumps(create_source.entity_cols)
+        source.target_cols = json.dumps(create_source.target_cols)
 
         session.add(source)
         session.commit()
@@ -126,6 +127,9 @@ def get_source(source_id: str = None, user_id: str = None):
                 raise HTTPException(
                     status_code=400, detail="No records found for this source_id"
                 )
+        # Cast entity_cols and target_cols from json string to List[str]
+        sources[0].entity_cols = json.loads(sources[0].entity_cols)
+        sources[0].target_cols = json.loads(sources[0].target_cols)
 
         return {"sources": sources}
 
