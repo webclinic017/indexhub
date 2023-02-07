@@ -1,12 +1,11 @@
 import json
 from datetime import datetime
 
-import polars as pl
 from sqlmodel import Session
 
 from indexhub.api.models.chart import Chart
-from indexhub.api.models.report import Report
 from indexhub.api.models.data_table import DataTable
+from indexhub.api.models.report import Report
 
 
 async def populate_forecast_recommendations_data(report: Report, session: Session):
@@ -56,20 +55,6 @@ async def populate_forecast_recommendations_data(report: Report, session: Sessio
     session.commit()
     session.refresh(table)
 
-    # Populate report entities specific for forecast recommendations
-    df = pl.read_parquet(chart.path)
-    entity_keys = [item for item in df.columns if "entity" in item]
-
-    entities = json.loads(report.entities)
-
-    for entity_key in entity_keys:
-        entities["forecast_recommendations"][entity_key] = {
-            "title": entity_key,
-            "values": df[entity_key].unique().to_list(),
-            "multiple_choice": True,
-        }
-
-    report.entities = json.dumps(entities)
     report.status = "COMPLETE"
     report.completed_at = datetime.now()
     session.add(report)
