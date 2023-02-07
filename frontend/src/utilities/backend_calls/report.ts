@@ -1,6 +1,6 @@
 import { addReportId } from "../../actions/actions";
 
-export const createReport = async (user_id: string, access_token_indexhub_api:string, dispatch: any, report_id: string | null = null) => {
+export const createReport = async (user_id: string, source_name: string, level_cols: string[], target_col: string, source_id: string, access_token_indexhub_api:string) => {
     const create_report_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports`;
     const create_report_response = await fetch(create_report_url, {
       method: "POST",
@@ -10,15 +10,16 @@ export const createReport = async (user_id: string, access_token_indexhub_api:st
       },
       body: JSON.stringify({
         "user_id": user_id,
-        "report_id": report_id
+        "source_name": source_name,
+        "level_cols": level_cols,
+        "target_col": target_col,
+        "source_id": source_id
       })
     });
 
     const response_json = await create_report_response.json();
 
-    if((Object.prototype.hasOwnProperty.call(response_json, "report_id")) && (Object.prototype.hasOwnProperty.call(response_json, "user_id"))){
-      dispatch(addReportId(response_json["report_id"], response_json["user_id"]));
-    }
+    return response_json
   }
 
 export const deleteReport = async (access_token_indexhub_api:string, report_id: string) => {

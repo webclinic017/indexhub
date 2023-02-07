@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { AppState } from "../../index";
 import { useDispatch,useSelector } from "react-redux";
-import { createReport, getReport, deleteReport} from "../../utilities/backend_calls/report";
+import { getReport, deleteReport} from "../../utilities/backend_calls/report";
 import {
   Button,
   TableContainer,
@@ -15,42 +15,28 @@ import {
   Stack,
   Text,
   useColorModeValue,
-  SimpleGrid
+  SimpleGrid,
 } from "@chakra-ui/react"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faArrowsRotate,
   faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export type Report = {
   id: string,
   source_id: string,
   source_name: string,
   entities: Record<string, any>,
+  level_cols: string[],
   user_id: string,
   chart_id: string,
   table_id: string,
   status: string,
   created_at: string,
   completed_at: string,
-}
-
-export const getStatusColor = (status: string) => {
-  switch(status){
-    case "COMPLETE": {
-      return "green"
-    }
-    case "RUNNING": {
-      return "yellow"
-    }
-    case "ERROR": {
-      return "red"
-    }
-  }
 }
 
 export default function Reports() {
@@ -95,9 +81,9 @@ export default function Reports() {
       cell: (info) => <Text onClick={() => navigate(`/reports/${info.getValue()[1]}`)} cursor="pointer">{info.getValue()[0]}</Text>,
       header: "Source"
     }),
-    columnHelper.accessor("entities", {
-      cell: (info) => Object.keys(info.getValue()["forecast_recommendations"]).join(", "),
-      header: "Entities"
+    columnHelper.accessor("level_cols", {
+      cell: (info) => info.getValue().join(", "),
+      header: "Levels"
     }),
     columnHelper.accessor("created_at", {
       cell: (info) => new Date(info.getValue()).toLocaleString(),
@@ -123,7 +109,6 @@ export default function Reports() {
       cell: (info) => {
         return (
           <HStack justifyContent="space-between" width="60px">
-              <FontAwesomeIcon cursor="pointer" icon={faArrowsRotate} onClick={() => createReport(user_details.user_id, access_token_indexhub_api, dispatch, info.getValue())}/>
               <FontAwesomeIcon cursor="pointer" icon={faTrash} onClick={async () => setReports(await deleteReport(access_token_indexhub_api, info.getValue()))}/>
           </HStack>
         )
@@ -180,9 +165,6 @@ export default function Reports() {
               </HStack>
             </HStack>
           </VStack>
-          <Button colorScheme="facebook" size="sm" onClick={() => createReport(user_details.user_id, access_token_indexhub_api, dispatch)}>
-            Create Report
-          </Button>
         </>
       ): (
         <Box width="100%" as="section" bg="bg-surface">
@@ -195,7 +177,7 @@ export default function Reports() {
                 </Text>
               </Stack>
               <Stack spacing="3" direction={{ base: 'column', sm: 'row' }} justify="center">
-                <Button colorScheme="facebook" size="lg" onClick={() => createReport(user_details.user_id, access_token_indexhub_api, dispatch)}>
+                <Button as={Link} colorScheme="facebook" size="lg" to="/sources">
                   Create Report
                 </Button>
               </Stack>

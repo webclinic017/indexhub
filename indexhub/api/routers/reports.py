@@ -40,6 +40,7 @@ def create_report(create_report: CreateReport, background_tasks: BackgroundTasks
             sources = select(Source).where(Source.id == create_report.source_id)
             source_name = session.exec(sources).one().name
 
+        report.source_id = create_report.source_id or None
         report.user_id = create_report.user_id
         report.status = "RUNNING"
         report.created_at = datetime.now()

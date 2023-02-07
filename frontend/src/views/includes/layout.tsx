@@ -90,7 +90,7 @@ export default function Layout() {
                 </Link>
               </VStack>
               <VStack width="100%">
-                <Link style={{width:"100%"}} to="/models">
+                <Link style={{width:"100%"}} to="/sources">
                   <Container
                     display="flex"
                     justifyContent="center"
@@ -99,8 +99,8 @@ export default function Layout() {
                     width="100%"
                     padding="1rem"
                   >
-                    <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faDatabase} size="2x" color={getIconColor("models")}/>
-                    <Text transition="color 0.3s ease-out" color={getIconColor("models")} fontSize="sm" marginTop="1rem">Models</Text>
+                    <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faDatabase} size="2x" color={getIconColor("sources")}/>
+                    <Text transition="color 0.3s ease-out" color={getIconColor("sources")} fontSize="sm" marginTop="1rem">Sources</Text>
                   </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/reports">

@@ -13,7 +13,20 @@ import {
   SortingState,
   getSortedRowModel
 } from "@tanstack/react-table";
-import { getStatusColor } from "../views/reports/reports";
+
+const getStatusColor = (status: string) => {
+  switch(status){
+    case "COMPLETE": {
+      return "green"
+    }
+    case "RUNNING": {
+      return "yellow"
+    }
+    case "ERROR": {
+      return "red"
+    }
+  }
+}
 
 export type DataTableProps<Data extends object> = {
   data: Data[];

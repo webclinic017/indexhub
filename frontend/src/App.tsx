@@ -7,12 +7,14 @@ import Reports from "./views/reports/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import {themes} from "./theme/theme";
-import Models from "./views/models";
+import Sources from "./views/sources/sources";
 import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
 import Docs from "./views/docs";
 import Forecast_Recommendations from "./views/reports/report_types/forecast_prediction";
+import NewSource from "./views/sources/new_source";
+import SourcesTable from "./views/sources/sources_table";
 
 function App() {
   return (
@@ -21,10 +23,13 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="models" element={<Models />} />
             <Route path="docs" element={<Docs />} />
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
+              <Route path="sources" element={<Sources />}>
+                <Route index element={<SourcesTable />} />
+                <Route path="new_source" element={<NewSource />} />
+              </Route>
               <Route path="reports" element={<Reports />} />
               <Route path="reports/:id" element={<Forecast_Recommendations />} />
               <Route path="alerts" element={<Alerts/>} />

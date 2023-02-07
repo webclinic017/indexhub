@@ -128,8 +128,9 @@ def get_source(source_id: str = None, user_id: str = None):
                     status_code=400, detail="No records found for this source_id"
                 )
         # Cast entity_cols and target_cols from json string to List[str]
-        sources[0].entity_cols = json.loads(sources[0].entity_cols)
-        sources[0].target_cols = json.loads(sources[0].target_cols)
+        for source in sources:
+            source.entity_cols = json.loads(source.entity_cols)
+            source.target_cols = json.loads(source.target_cols)
 
         return {"sources": sources}
 
@@ -146,13 +147,11 @@ def delete_source(source_id: str):
                 raise HTTPException(
                     status_code=400, detail="No record found for this source_id"
                 )
+            user_id = source.user_id
             session.delete(source)
             session.commit()
 
-            return {
-                "source_id": source_id,
-                "message": "Record with source id is deleted",
-            }
+            return get_source(user_id=user_id)
 
 
 @router.get("/sources/columns")
@@ -161,6 +160,9 @@ def read_source_cols(s3_data_bucket: str, path: str):
         raw_panel = read_source_file(s3_bucket=s3_data_bucket, s3_path=path)
     except botocore.exceptions.ClientError as err:
         raise HTTPException(status_code=400, detail="Invalid S3 path") from err
+    except Exception as e:
+        print (e)
     columns = [col for col in raw_panel.columns if col]
+
 
     return {"columns": columns}

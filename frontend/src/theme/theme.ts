@@ -1,4 +1,5 @@
 import { extendTheme } from "@chakra-ui/react";
+import { color } from "echarts";
 
 export const colors = {
   primary:{
@@ -68,6 +69,21 @@ const default_theme = extendTheme({
       header_background: "#f7fafc",
       font:"#4a5568",
       border: "#edf2f8"
+    },
+    steps: {
+      active: colors.primary.brand_colors.blue_3,
+      title: "#2d3748",
+      subtitle: "#4a5568"
+    },
+    forms: {
+      border: "#ecf0f3",
+      bg_grey: "#f7fafc"
+    },
+    toasts: {
+      success_bg: colors.supplementary.indicators.main_green,
+      error_bg: colors.supplementary.indicators.main_red,
+      info_bg: "#2b6cb0",
+      subtitle: "#4a5568"
     }
   },
   fonts: {

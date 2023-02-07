@@ -69,6 +69,7 @@ export default function Forecast_Recommendations() {
       source_id: "",
       source_name: "",
       entities: {},
+      level_cols: [],
       user_id: "",
       chart_id: "",
       table_id: "",
