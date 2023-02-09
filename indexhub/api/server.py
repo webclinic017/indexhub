@@ -5,9 +5,9 @@ import os
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .db import create_db_and_tables
 from .dependencies import verify_oauth_token
 from .routers import charts, data_tables, reports, sources, users
-from .db import create_db_and_tables
 
 dependencies = None
 

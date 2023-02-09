@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import botocore
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -160,9 +160,25 @@ def read_source_cols(s3_data_bucket: str, path: str):
         raw_panel = read_source_file(s3_bucket=s3_data_bucket, s3_path=path)
     except botocore.exceptions.ClientError as err:
         raise HTTPException(status_code=400, detail="Invalid S3 path") from err
-    except Exception as e:
-        print (e)
     columns = [col for col in raw_panel.columns if col]
 
-
     return {"columns": columns}
+
+
+@router.websocket("/sources/ws")
+async def ws_get_sources(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_json()
+        source_id = data.get("source_id")
+        user_id = data.get("user_id")
+        results = get_source(source_id=source_id, user_id=user_id)
+
+        response = []
+        for result in results["sources"]:
+            values = {
+                k: v for k, v in vars(result).items() if k != "_sa_instance_state"
+            }
+            response.append(values)
+        response = {"sources": response}
+        await websocket.send_json(str(response))

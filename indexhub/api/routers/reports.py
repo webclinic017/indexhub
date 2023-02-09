@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -112,3 +112,22 @@ def delete_report(report_id: str):
                     "message": f"Record for report_id ({report_id}) is deleted. No other records found for the user_id ({user_id})",
                 }
             return response
+
+
+@router.websocket("/reports/ws")
+async def ws_get_reports(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_json()
+        report_id = data.get("report_id")
+        user_id = data.get("user_id")
+        results = get_report(report_id=report_id, user_id=user_id)
+
+        response = []
+        for result in results["reports"]:
+            values = {
+                k: v for k, v in vars(result).items() if k != "_sa_instance_state"
+            }
+            response.append(values)
+        response = {"reports": response}
+        await websocket.send_json(str(response))
