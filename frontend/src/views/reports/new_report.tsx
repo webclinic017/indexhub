@@ -1,6 +1,7 @@
 import React from "react"
 import { Box, Divider, FormControl, FormLabel, Stack, Text } from "@chakra-ui/react"
 import { Select, MultiValue } from "chakra-react-select"
+import { SelectedSource, Source } from "../sources/sources_table"
 
 const setColumnValue = (values: MultiValue<Record<any, string>>, set_func: any) => {
     const columns: string[] = []
@@ -23,12 +24,35 @@ const setColumnValue = (values: MultiValue<Record<any, string>>, set_func: any) 
     return result
   }
 
+  const getOptionsSource = (sources: Source[]) => {
+    const result: Record<any, any>[] = []
+    sources.forEach((source) => {
+      if (source.status == "COMPLETE") {
+        result.push(
+          {
+            value: {
+              id: source.id,
+              name: source.name,
+              entity_cols: source.entity_cols,
+              target_cols: source.target_cols
+            },
+            label: source.name
+          }
+        )
+      }
+    })
+    return result
+  }
+
 
 const NewReport = (
     props: {
         source_name: string,
         entity_cols: string[],
         target_cols: string[],
+        sources: Source[],
+        new_report: boolean,
+        setSelectedSource: React.Dispatch<React.SetStateAction<SelectedSource>>
         setSelectedLevelCols: React.Dispatch<React.SetStateAction<never[]>>
         setSelectedTargetCol: React.Dispatch<React.SetStateAction<string>>
     }
@@ -38,7 +62,15 @@ const NewReport = (
     return (
         <Box as="form" borderColor="forms.border" borderWidth="1px" borderStyle="solid" borderRadius="lg">
           <Stack spacing="5" px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
-            <Text>Source name: <b>{props.source_name}</b></Text>
+            {props.new_report ? (
+              <FormControl isRequired>
+                <FormLabel>Source: </FormLabel>
+                <Select onChange={(value) => props.setSelectedSource(value ? value.value : {})} options={getOptionsSource(props.sources)}/>
+              </FormControl>
+              
+            ):(
+              <Text>Source name: <b>{props.source_name}</b></Text>
+            )}
             <FormControl isRequired>
                 <FormLabel>Target column</FormLabel>
                 <Select onChange={(value) => props.setSelectedTargetCol(value ? value.value : "")} options={getOptions(props.target_cols)}/>

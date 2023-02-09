@@ -4,7 +4,7 @@ import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { useSelector } from "react-redux";
 import { AppState } from "../../index";
 import { deleteSource, getSource } from "../../utilities/backend_calls/source";
-import { Link } from "react-router-dom"
+import { Link, useOutletContext, useParams } from "react-router-dom"
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
 import { useNavigate } from 'react-router-dom';
@@ -38,16 +38,20 @@ export type Source = {
     msg: string,
 }
 
-type SelectedSource = {
+export type SelectedSource = {
   id: string
   name: string,
   entity_cols: string[],
   target_cols: string[],
 }
 
+type stateProps = {
+  new_report: boolean
+}
+
 
 export default function SourcesTable() {
-
+    const { new_report } = useOutletContext<stateProps>();
     const access_token_indexhub_api = useAuth0AccessToken()
     const [sources, setSources] = useState<{sources: Source[]}>({sources: []})
     const [selectedSource, setSelectedSource] = useState<SelectedSource>({id: "", name: "", entity_cols: [], target_cols: []})
@@ -56,6 +60,7 @@ export default function SourcesTable() {
     const [selectedTargetCol, setSelectedTargetCol] = useState("")
 
     const navigate = useNavigate();
+    
     const { isOpen, onOpen, onClose } = useDisclosure()
     const toast = useToast()
 
@@ -68,6 +73,9 @@ export default function SourcesTable() {
           const sources_response = await getSource(user_details.user_id, "", access_token_indexhub_api)
           if (Object.keys(sources_response).includes("sources")){
             setSources(sources_response)
+            if (new_report){
+              openNewReportModal("", "", [], [])
+            }
           }
         }
         if (access_token_indexhub_api && user_details.user_id) {
@@ -180,7 +188,7 @@ export default function SourcesTable() {
             <ModalHeader>New Report</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              <NewReport source_name={selectedSource.name} entity_cols={selectedSource.entity_cols} target_cols={selectedSource.target_cols} setSelectedLevelCols={setSelectedLevelCols} setSelectedTargetCol={setSelectedTargetCol}/>
+              <NewReport source_name={selectedSource.name} entity_cols={selectedSource.entity_cols} target_cols={selectedSource.target_cols} setSelectedLevelCols={setSelectedLevelCols} setSelectedTargetCol={setSelectedTargetCol} sources={sources.sources} new_report={new_report} setSelectedSource={setSelectedSource}/>
             </ModalBody>
             <ModalFooter>
               <Button colorScheme='blue' mr={3} onClick={createReport}>Create Report</Button>

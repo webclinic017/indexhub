@@ -1,6 +1,6 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import { Grid, GridItem, VStack, Container, Text } from "@chakra-ui/react";
+import { Grid, GridItem, VStack, Container, Text, useDisclosure, Popover, PopoverTrigger, Button, PopoverContent, Stack, Link as ChakraLink } from "@chakra-ui/react";
 import { ReactComponent as IndexHubLogo } from "../../assets/images/svg/indexhub_icon.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -9,6 +9,7 @@ import {
   faChartLine,
   faDatabase,
   faGear,
+  faPlusCircle,
   faRightFromBracket,
   faRightToBracket,
 } from "@fortawesome/free-solid-svg-icons";
@@ -16,10 +17,42 @@ import { Link, useLocation } from "react-router-dom"
 import { useAuth0 } from "@auth0/auth0-react";
 import {colors} from "../../theme/theme"
 import Breadcrumbs from "../../components/breadcrumbs";
+import { useNavigate } from 'react-router-dom';
+
+
+export const PopoverIcon = (props: {isOpen: boolean}) => {
+  const iconStyles = {
+    color: props.isOpen ? colors.primary.brand_colors.main_blue : colors.primary.brand_colors.blue_3,
+    transition: 'color 0.2s',
+  }
+  return <FontAwesomeIcon size="2x" cursor="pointer" icon={faPlusCircle} style={iconStyles}/>
+
+}
+
+export const add_source_reports_items = [
+  {
+    title: 'Add Source',
+    description: 'Add and configure a new Source to generate reports from',
+    to: '/sources/new_source',
+    props: {},
+    icon: faDatabase,
+  },
+  {
+    title: 'Add Report',
+    description: 'Add and configure a new Source to generate reports from',
+    to: '/sources',
+    props: {new_report: true},
+    icon: faChartLine,
+  },
+]
 
 export default function Layout() {
   const {user, logout, loginWithRedirect} = useAuth0()
   const current_path = useLocation().pathname
+  const { isOpen, onClose, onOpen } = useDisclosure({ defaultIsOpen: false })
+  const navigate = useNavigate();
+
+
   const getIconColor = (icon_path: string) => {
     if (current_path.split("/")[1] == icon_path){
       return colors.primary.brand_colors.blue_5
@@ -32,7 +65,7 @@ export default function Layout() {
       <Grid
         templateAreas={`"nav header"
                         "nav main"`}
-        gridTemplateRows={"70px 1fr"}
+        gridTemplateRows={"100px 1fr"}
         gridTemplateColumns={"100px 1fr"}
         h="100vh"
       >
@@ -46,7 +79,40 @@ export default function Layout() {
           flexDirection="column"
         >
           {/* Upper container */}
-          <Container display="flex" justifyContent="flex-end" margin="0 0 0 auto" py="1rem">
+          <Container display="flex" alignItems="center" justifyContent="flex-end" margin="0 0 0 auto" py="1rem">
+              <Popover
+                trigger="hover"
+                onClose={onClose}
+                onOpen={onOpen}
+                isOpen={isOpen}
+                placement="bottom"
+                gutter={12}
+              >
+                {({ isOpen }) => (
+                  <>
+                    <PopoverTrigger>
+                      <Button _hover={{textDecoration:"none"}} variant="link" rightIcon={<PopoverIcon isOpen={isOpen}/>} marginRight="1rem"/>
+                    </PopoverTrigger>
+                    <PopoverContent width="sm" p="5">
+                      <Stack textDecoration="none">
+                        {add_source_reports_items.map((item, id) => (
+                          <ChakraLink _hover={{textDecoration:"none", backgroundColor:"#f8fafc"}} variant="menu" key={id} borderRadius="0.5rem" onClick={() => navigate(item.to, {state: item.props})}>
+                            <Stack spacing="4" direction="row" p="3">
+                              <FontAwesomeIcon size="lg" cursor="pointer" icon={item.icon}/>
+                              <Stack spacing="1">
+                                <Text fontWeight="bold">{item.title}</Text>
+                                <Text fontSize="sm" color="muted">
+                                  {item.description}
+                                </Text>
+                              </Stack>
+                            </Stack>
+                          </ChakraLink>
+                        ))}
+                      </Stack>
+                    </PopoverContent>
+                  </>
+                )}
+              </Popover>
             {user?.sub ? (
               <FontAwesomeIcon cursor="pointer" icon={faRightFromBracket} onClick={() => logout({ returnTo: window.location.origin })}/>
             ) : (
