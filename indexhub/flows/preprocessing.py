@@ -97,6 +97,39 @@ def load_raw_panel(s3_bucket: str, s3_path: str) -> pl.LazyFrame:
 
 
 @task
+def load_batch_raw_panel(
+    s3_bucket: str, s3_dir: str, time_col: str, entity_cols: List[str]
+) -> pl.LazyFrame:
+    s3_client = boto3.client("s3")
+    # Get mapping of the all the keys with their last modified date
+    key_to_last_modified = {
+        obj["Key"]: obj["LastModified"]
+        for obj in s3_client.list_objects(Bucket=s3_bucket, Prefix=s3_dir)["Contents"]
+    }
+    # Get mapping date_uploaded to objects based on the list of keys
+    date_to_objects = {
+        date.strftime("%Y-%m-%d %H:%M:%S"): s3_client.get_object(
+            Bucket=s3_bucket, Key=key
+        )["Body"].read()
+        for key, date in key_to_last_modified.items()
+    }
+    # Read all files and append 'upload_date' column
+    raw_panels = [
+        pl.read_excel(
+            io.BytesIO(obj),
+            xlsx2csv_options={"ignore_formats": "float"},
+            read_csv_options={"infer_schema_length": None},
+        ).with_column(pl.lit(date).alias("upload_date"))
+        for date, obj in date_to_objects.items()
+    ]
+    # Concat and drop duplicates based on time_col and entity_cols
+    raw_panel = pl.concat(raw_panels).unique(
+        subset=[time_col, *entity_cols], keep="last"
+    )
+    return raw_panel.lazy()
+
+
+@task
 def load_fct_panel(s3_bucket: str, s3_path: str):
     s3_client = boto3.resource("s3")
     s3_object = s3_client.Object(s3_bucket, s3_path)
@@ -186,7 +219,16 @@ def export_fct_panel(
 @flow
 def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
     try:
-        raw_panel = load_raw_panel(inputs.s3_bucket, inputs.raw_data_path)
+
+        if inputs.raw_data_path.endswith(".xlsx"):
+            raw_panel = load_raw_panel(inputs.s3_bucket, inputs.raw_data_path)
+        else:
+            raw_panel = load_batch_raw_panel(
+                inputs.s3_bucket,
+                inputs.raw_data_path,
+                inputs.time_col,
+                inputs.entity_cols,
+            )
         raw_panel = (
             select_rows(raw_panel, inputs.filters)
             if inputs.filters is not None
@@ -204,9 +246,17 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
         }
 
         if inputs.manual_forecast_path is not None:
-            manual_forecasts = load_raw_panel(
-                inputs.s3_bucket, inputs.manual_forecast_path
-            )
+            if inputs.manual_forecast_path.endswith(".xlsx"):
+                manual_forecasts = load_raw_panel(
+                    inputs.s3_bucket, inputs.manual_forecast_path
+                )
+            else:
+                manual_forecasts = load_batch_raw_panel(
+                    inputs.s3_bucket,
+                    inputs.manual_forecast_path,
+                    inputs.time_col,
+                    inputs.entity_cols,
+                )
             manual_forecasts = (
                 select_rows(manual_forecasts, inputs.filters)
                 if inputs.filters is not None
@@ -357,7 +407,6 @@ def export_ftr_panel(
 def prepare_hierarchical_panel(
     inputs: PrepareHierarchicalPanelInput,
 ) -> PrepareHierarchicalPanelOutput:
-    print(inputs.manual_forecasts_path)
     fct_panel = load_fct_panel(inputs.s3_bucket, inputs.fct_panel_path)
     ftr_panel = (
         filter_negative_values(fct_panel, inputs.target_col)
