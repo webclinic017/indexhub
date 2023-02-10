@@ -130,4 +130,4 @@ async def ws_get_reports(websocket: WebSocket):
             }
             response.append(values)
         response = {"reports": response}
-        await websocket.send_json(str(response))
+        await websocket.send_text(json.dumps(response, default=str))

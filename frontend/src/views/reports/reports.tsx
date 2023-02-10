@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { AppState } from "../../index";
 import { useDispatch,useSelector } from "react-redux";
+import useWebSocket, { ReadyState } from "react-use-websocket";
 import { getReport, deleteReport} from "../../utilities/backend_calls/report";
 import {
   Button,
@@ -41,9 +42,11 @@ export type Report = {
 
 export default function Reports() {
   const access_token_indexhub_api = useAuth0AccessToken()
+  const { sendMessage, lastMessage, readyState } = useWebSocket("ws://localhost:8000/reports/ws");
   const dispatch = useDispatch()
   const [reports, setReports] = useState<{reports: Report[]}>({reports: []})
   const [current_pagination, setCurrentPagination] = useState(1)
+  const [wsCallStarted, setWsCallStarted] = useState(false)
   const navigate = useNavigate();
 
   const stats = [
@@ -59,19 +62,37 @@ export default function Reports() {
     (state: AppState) => state.reducer?.user
   );
 
+  const getReportsByUserId = () => {
+    sendMessage(JSON.stringify({user_id: user_details.user_id}))
+  }
+
   const reports_per_page = 5
   const start_index = (current_pagination - 1) * reports_per_page
   const pages_required = Math.ceil(reports.reports?.length/reports_per_page)
 
   useEffect(() => {
-    const getReportByUserId = async () => {
-      const reports_response = await getReport(user_details.user_id, "", access_token_indexhub_api)
-      setReports(reports_response)
+    if (user_details.user_id && readyState == ReadyState.OPEN && !wsCallStarted) {
+      getReportsByUserId()
+      setWsCallStarted(true)
     }
-    if (access_token_indexhub_api && user_details.user_id) {
-      getReportByUserId()
+  }, [user_details, readyState, wsCallStarted])
+
+  useEffect(() => {
+    if (lastMessage?.data) {
+      setReports(JSON.parse(lastMessage.data))
+
+      if (Object.keys(JSON.parse(lastMessage.data)).includes('reports')){
+        const statuses: string[] = []
+        const reports: Report[] = JSON.parse(lastMessage.data).reports
+        reports.forEach(report => {
+          statuses.push(report.status) 
+        });
+        if (statuses.includes("RUNNING")){
+          setTimeout(getReportsByUserId, 5000)
+        }
+      }
     }
-  }, [user_details, access_token_indexhub_api, report_ids])
+  }, [lastMessage])
 
   const columnHelper = createColumnHelper<Report>();
 

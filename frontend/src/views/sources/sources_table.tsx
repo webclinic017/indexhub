@@ -2,9 +2,10 @@ import React, { useEffect, useState} from "react";
 import { Container, Text, VStack, Box, Stack, Heading, Button, HStack, TableContainer, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useToast } from '@chakra-ui/react'
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { useSelector } from "react-redux";
+import useWebSocket, { ReadyState } from "react-use-websocket";
 import { AppState } from "../../index";
-import { deleteSource, getSource } from "../../utilities/backend_calls/source";
-import { Link, useOutletContext, useParams } from "react-router-dom"
+import { deleteSource } from "../../utilities/backend_calls/source";
+import { Link, useOutletContext } from "react-router-dom"
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
 import { useNavigate } from 'react-router-dom';
@@ -53,11 +54,14 @@ type stateProps = {
 export default function SourcesTable() {
     const { new_report } = useOutletContext<stateProps>();
     const access_token_indexhub_api = useAuth0AccessToken()
+    const { sendMessage, lastMessage, readyState } = useWebSocket("ws://localhost:8000/sources/ws");
     const [sources, setSources] = useState<{sources: Source[]}>({sources: []})
     const [selectedSource, setSelectedSource] = useState<SelectedSource>({id: "", name: "", entity_cols: [], target_cols: []})
 
     const [selectedLevelCols, setSelectedLevelCols] = useState([])
     const [selectedTargetCol, setSelectedTargetCol] = useState("")
+
+    const [wsCallStarted, setWsCallStarted] = useState(false)
 
     const navigate = useNavigate();
     
@@ -68,20 +72,38 @@ export default function SourcesTable() {
         (state: AppState) => state.reducer?.user
     );
 
+    const getSourcesByUserId = () => {
+      sendMessage(JSON.stringify({user_id: user_details.user_id}))
+    }
+
     useEffect(() => {
-        const getReportByUserId = async () => {
-          const sources_response = await getSource(user_details.user_id, "", access_token_indexhub_api)
-          if (Object.keys(sources_response).includes("sources")){
-            setSources(sources_response)
-            if (new_report){
-              openNewReportModal("", "", [], [])
-            }
+        if (user_details.user_id && readyState == ReadyState.OPEN && !wsCallStarted) {
+          getSourcesByUserId()
+          setWsCallStarted(true)
+          if (new_report){
+            openNewReportModal("", "", [], [])
           }
         }
-        if (access_token_indexhub_api && user_details.user_id) {
-          getReportByUserId()
+    }, [user_details, readyState, wsCallStarted])
+
+    
+    useEffect(() => {
+      
+      if (lastMessage?.data) {
+        setSources(JSON.parse(lastMessage.data))
+
+        if (Object.keys(JSON.parse(lastMessage.data)).includes('sources')){
+          const statuses: string[] = []
+          const sources: Source[] = JSON.parse(lastMessage.data).sources
+          sources.forEach(source => {
+            statuses.push(source.status) 
+          });
+          if (statuses.includes("RUNNING")){
+            setTimeout(getSourcesByUserId, 5000)
+          }
         }
-    }, [user_details, access_token_indexhub_api])
+      }
+    }, [lastMessage])
 
     const openNewReportModal = (source_id: string, source_name: string, entity_cols: string[], target_cols: string[]) => {
       setSelectedSource({id: source_id, name: source_name, entity_cols, target_cols})
