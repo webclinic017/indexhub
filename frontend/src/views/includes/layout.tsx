@@ -57,7 +57,7 @@ export default function Layout() {
     if (current_path.split("/")[1] == icon_path){
       return colors.primary.brand_colors.blue_5
     }
-    else return colors.primary.brand_colors.white
+    else return colors.primary.brand_colors.not_black_black
   }
 
   return (
@@ -165,8 +165,8 @@ export default function Layout() {
                     width="100%"
                     padding="1rem"
                   >
-                    <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faDatabase} size="2x" color={getIconColor("sources")}/>
-                    <Text transition="color 0.3s ease-out" color={getIconColor("sources")} fontSize="sm" marginTop="1rem">Sources</Text>
+                    <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faDatabase} size="lg" color={getIconColor("sources")}/>
+                    <Text transition="color 0.3s ease-out" color={getIconColor("sources")} fontSize="sm" marginTop="0.5rem">Sources</Text>
                   </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/reports">
@@ -178,8 +178,8 @@ export default function Layout() {
                   width="100%"
                   padding="1rem"
                 >
-                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faChartLine} size="2x" color={getIconColor("reports")}/>
-                  <Text transition="color 0.3s ease-out" color={getIconColor("reports")} fontSize="sm" marginTop="1rem">Reports</Text>
+                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faChartLine} size="lg" color={getIconColor("reports")}/>
+                  <Text transition="color 0.3s ease-out" color={getIconColor("reports")} fontSize="sm" marginTop="0.5rem">Reports</Text>
                 </Container>
                 </Link>
                 <Link style={{width:"100%"}} to="/alerts">
@@ -191,8 +191,8 @@ export default function Layout() {
                   width="100%"
                   padding="1rem"
                 >
-                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faBell} size="2x" color={getIconColor("alerts")}/>
-                  <Text transition="color 0.3s ease-out" color={getIconColor("alerts")} fontSize="sm" marginTop="1rem">Alerts</Text>
+                  <FontAwesomeIcon style={{transition:"color 0.3s ease-out"}} icon={faBell} size="lg" color={getIconColor("alerts")}/>
+                  <Text transition="color 0.3s ease-out" color={getIconColor("alerts")} fontSize="sm" marginTop="0.5rem">Alerts</Text>
                 </Container>
                 </Link>
               </VStack>
@@ -210,11 +210,11 @@ export default function Layout() {
                 <FontAwesomeIcon
                   icon={faGear}
                   overlineThickness="bold"
-                  size="2x"
+                  size="lg"
                   color={getIconColor("settings")}
                   style={{transition:"color 0.3s ease-out"}}
                 />
-                <Text transition="color 0.3s ease-out" color={getIconColor("settings")} fontSize="sm" marginTop="1rem">Settings</Text>
+                <Text transition="color 0.3s ease-out" color={getIconColor("settings")} fontSize="sm" marginTop="0.5rem">Settings</Text>
               </Container>
               </Link>
               <Link to="/docs">
@@ -229,11 +229,11 @@ export default function Layout() {
                 <FontAwesomeIcon
                   icon={faBook}
                   overlineThickness="bold"
-                  size="2x"
+                  size="lg"
                   color={getIconColor("docs")}
                   style={{transition:"color 0.3s ease-out"}}
                 />
-                <Text transition="color 0.3s ease-out" color={getIconColor("docs")} fontSize="sm" marginTop="1rem">Docs</Text>
+                <Text transition="color 0.3s ease-out" color={getIconColor("docs")} fontSize="sm" marginTop="0.5rem">Docs</Text>
               </Container>
               </Link>
             </VStack>

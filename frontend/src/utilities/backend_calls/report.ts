@@ -92,3 +92,20 @@ export const getTable = async (report_id:string, tag: string, access_token_index
   const response_json = await get_chart_response.json();
   return response_json
 }
+
+export const getSourceProfilingHtml = async (source_id: string, access_token_indexhub_api:string) => {
+ 
+  const get_source_profiling_html_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports/profiling?source_id=${source_id}`;
+  
+  const get_report_response = await fetch(get_source_profiling_html_url, {
+    method: "GET",
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+
+  });
+
+  const response_json = await get_report_response.json();
+  return response_json
+}

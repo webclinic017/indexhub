@@ -11,11 +11,12 @@ import { DataTable } from "../../components/table";
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faPlus, faTrash,
+  faPlus, faTrash, faCircleCheck
 } from "@fortawesome/free-solid-svg-icons";
 import NewReport from "../reports/new_report";
 import { createReport as createReportApi } from "../../utilities/backend_calls/report";
 import Toast from "../../components/toast";
+import { colors } from "../../theme/theme"
 
 
 export type Source = {
@@ -207,7 +208,15 @@ export default function SourcesTable() {
         <Modal isOpen={isOpen} onClose={onClose}>
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>New Report</ModalHeader>
+            <ModalHeader>
+              <VStack>
+                <Text width="100%" textAlign="left">New Report</Text>
+                <HStack width="100%" backgroundColor="indicator.light_green" borderRadius="5px" padding="15px 10px">
+                  <FontAwesomeIcon icon={faCircleCheck} color={colors.supplementary.indicators.main_green}/>
+                  <Text fontWeight="normal" fontSize="sm"><b>No Issues</b>: Your dataset has no issues</Text>
+                </HStack>
+              </VStack>
+            </ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <NewReport source_name={selectedSource.name} entity_cols={selectedSource.entity_cols} target_cols={selectedSource.target_cols} setSelectedLevelCols={setSelectedLevelCols} setSelectedTargetCol={setSelectedTargetCol} sources={sources.sources} new_report={new_report} setSelectedSource={setSelectedSource}/>

@@ -30,7 +30,9 @@ dependencies = [
     "pyarrow",
     "openpyxl",
     "psycopg2-binary",
-    "uvicorn==0.20.0"
+    "uvicorn==0.20.0",
+    "phik==0.11.1",
+    "ydata-profiling"
 ]
 dynamic = ["version"]
 

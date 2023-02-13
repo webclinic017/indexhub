@@ -3,7 +3,7 @@ import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
 import { AppState } from "../../index";
 import { useDispatch,useSelector } from "react-redux";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import { getReport, deleteReport} from "../../utilities/backend_calls/report";
+import { deleteReport } from "../../utilities/backend_calls/report";
 import {
   Button,
   TableContainer,
@@ -125,11 +125,27 @@ export default function Reports() {
         isBadge: true
       }
     }),
+    columnHelper.accessor(row => [row.id, row.source_id], {
+      id: "reports",
+      cell: (info) => {
+        return (
+          <VStack justifyContent="space-between" width="150px">
+              <Button fontSize="small" width="150px" cursor="pointer" onClick={() => navigate(`/reports/${info.getValue()[0]}`)}>Predictions</Button>
+              <Button fontSize="small" width="150px" cursor="pointer" onClick={() => navigate(`/reports/profiling/${info.getValue()[1]}`)}>Data Quality</Button>
+          </VStack>
+        )
+      },
+      header: "Reports",
+      meta:{
+        isButtons: true,
+      },
+      enableSorting: false,
+    }),
     columnHelper.accessor(row => row.id, {
       id: "id",
       cell: (info) => {
         return (
-          <HStack justifyContent="space-between" width="60px">
+          <HStack justifyContent="space-between" width="20px">
               <FontAwesomeIcon cursor="pointer" icon={faTrash} onClick={async () => setReports(await deleteReport(access_token_indexhub_api, info.getValue()))}/>
           </HStack>
         )

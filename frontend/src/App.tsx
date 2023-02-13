@@ -15,6 +15,7 @@ import Docs from "./views/docs";
 import Forecast_Recommendations from "./views/reports/report_types/forecast_prediction";
 import NewSource from "./views/sources/new_source";
 import SourcesTable from "./views/sources/sources_table";
+import SourceProfiling from "./views/reports/profiling";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
                 <Route path="new_source" element={<NewSource />} />
               </Route>
               <Route path="reports" element={<Reports />} />
+              <Route path="reports/profiling/:source_id" element={<SourceProfiling />} />
               <Route path="reports/:id" element={<Forecast_Recommendations />} />
               <Route path="alerts" element={<Alerts/>} />
               <Route path="settings" element={<Settings />} />

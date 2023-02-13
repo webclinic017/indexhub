@@ -22,7 +22,7 @@ def infer_dt_format(dt: str):
     return fmt
 
 
-def read_source_file(s3_bucket: str, s3_path: str) -> pl.LazyFrame:
+def read_source_file(s3_bucket: str, s3_path: str) -> pl.DataFrame:
     s3_client = boto3.client("s3")
     obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_path)["Body"].read()
     raw_panel = pl.read_excel(

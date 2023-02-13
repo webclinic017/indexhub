@@ -17,6 +17,7 @@ export const colors = {
   supplementary:{
     indicators:{
       main_green: "#44aa7e",
+      light_green: "#C6f6d5",
       green_2: "#2a9162",
       green_3: "#177548",
       main_red: "#9e2b2b",
@@ -43,8 +44,8 @@ export const colors = {
 const default_theme = extendTheme({
   colors: {
     navbar: {
-      background: colors.primary.brand_colors.not_black_black,
-      icon: colors.primary.brand_colors.white,
+      background: colors.primary.brand_colors.white,
+      icon: colors.primary.brand_colors.not_black_black,
       icon_highlight: colors.primary.brand_colors.blue_5,
       status_online: colors.supplementary.indicators.main_green,
       status_busy: colors.supplementary.indicators.main_red,
@@ -59,6 +60,7 @@ const default_theme = extendTheme({
     },
     indicator:{
       main_green: colors.supplementary.indicators.main_green,
+      light_green: colors.supplementary.indicators.light_green,
       green_2: colors.supplementary.indicators.green_2,
       green_3: colors.supplementary.indicators.green_3,
       main_red: colors.supplementary.indicators.main_red,
