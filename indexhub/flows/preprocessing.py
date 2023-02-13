@@ -1,5 +1,4 @@
 import io
-import itertools
 import re
 from datetime import datetime
 from hashlib import md5
@@ -7,6 +6,11 @@ from typing import List, Mapping, Optional
 
 import boto3
 import polars as pl
+from functime.feature_extraction.calendar import (
+    add_calendar_effects,
+    add_holiday_effects,
+)
+from functime.preprocessing import reindex_panel
 from prefect import flow, task
 from pydantic import BaseModel, validator
 from typing_extensions import Literal
@@ -20,6 +24,12 @@ from indexhub.flows.forecasting import (
 )
 
 MIN_TRAIN_SIZE = {"Q": 9, "MS": 12, "W": 18, "D": 30}
+DATE_FEATURES = {
+    "1d": ["day", "week", "weekday", "month"],
+    "1mo": ["month", "year"],
+    "3mo": ["quarter", "year"],
+    "1y": ["year"],
+}
 
 
 class PreprocessPanelInput(BaseModel):
@@ -45,9 +55,10 @@ class PrepareHierarchicalPanelInput(BaseModel):
     agg_method: Literal["sum", "mean"]
     fct_panel_path: str
     target_col: str
-    date_features: List[str]
     freq: str
     lags: List[int]
+    country_codes: Optional[List[str]] = None
+    dummy_entity_cols: Optional[List[str]] = None
     manual_forecasts_path: Optional[str] = None
     allow_negatives: Optional[bool] = False
 
@@ -178,18 +189,33 @@ def clean_raw_panel(
 
 
 @task
-def add_holiday_effects(df: pl.LazyFrame) -> pl.LazyFrame:
+def add_weekend_effects(df: pl.LazyFrame) -> pl.LazyFrame:
     exprs = [
-        pl.col("time").dt.month().is_in([1, 2]).alias("is_holiday"),
+        pl.col("time").dt.weekday().is_in([6, 7]).cast(pl.Int32).alias("is_weekend"),
     ]
     df_new = df.with_columns(exprs).collect(streaming=True)
     return df_new.lazy()
 
 
 @task
-def add_entity_effects(df: pl.LazyFrame, level_cols: List[str]) -> pl.LazyFrame:
-    entity_id = ":".join(level_cols)
-    fixed_effects = pl.get_dummies(df.collect().select(entity_id)).select(
+def add_entity_effects(
+    df: pl.LazyFrame, level_cols: List[str], dummy_entity_cols: List[str]
+) -> pl.LazyFrame:
+    expanded_entity = (
+        df.collect()
+        .select("entity")
+        .with_columns(
+            [
+                pl.col("entity")
+                .cast(pl.Utf8)
+                .str.split(":")
+                .arr.get(i)
+                .alias(entity_col)
+                for i, entity_col in enumerate(level_cols)
+            ]
+        )
+    )
+    fixed_effects = pl.get_dummies(expanded_entity.select(dummy_entity_cols)).select(
         pl.all().cast(pl.Boolean).prefix("is_")
     )
     # Replace spaces and semicolons with underscores
@@ -298,31 +324,6 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
 
 
 @task
-def reindex_ftr_panel(df: pl.DataFrame, suffix: str) -> pl.LazyFrame:
-    # Create new index
-    entity_col, time_col, target_col = df.columns
-    dtypes = df.dtypes[:2]
-    entities = df.get_column(entity_col).unique()
-    timestamps = df.get_column(time_col).unique()
-    full_idx = pl.DataFrame(
-        itertools.product(entities, timestamps), columns=df.columns[:2]
-    )
-    # Defensive cast dtypes to be consistent with df
-    full_idx = full_idx.select(
-        [pl.col(col).cast(dtypes[i]) for i, col in enumerate(full_idx.columns)]
-    )
-    # Outer join
-    df_new = (
-        df.join(full_idx, on=[entity_col, time_col], how="outer")
-        # Fill nulls with 0 and rename target col (actual/manual/forecast)
-        .with_column(
-            pl.col(target_col).fill_null(pl.lit(0)).alias(f"target:{suffix}")
-        ).drop(target_col)
-    )
-    return df_new.lazy()
-
-
-@task
 def groupby_aggregate(
     df: pl.DataFrame,
     level_cols: List[str],
@@ -347,6 +348,8 @@ def groupby_aggregate(
         # Defensive resampling
         .groupby_dynamic("time", every=freq, by=entity_id)
         .agg(agg_methods[agg_by])
+        # Defensive cast datetime col to pl.Datetime
+        .with_column(pl.col("time").cast(pl.Datetime))
     )
     return df_new
 
@@ -421,15 +424,24 @@ def prepare_hierarchical_panel(
             inputs.agg_method,
             inputs.freq,
         )
-        .pipe(reindex_ftr_panel, suffix="actual")
-        .pipe(add_holiday_effects)
-        .pipe(add_entity_effects, inputs.level_cols)
+        .pipe(reindex_panel(freq=inputs.freq, sort=True))
+        .rename({inputs.target_col: "target:actual"})
+        .pipe(add_weekend_effects)
+        .pipe(add_calendar_effects(attrs=DATE_FEATURES[inputs.freq]))
         .pipe(coerce_entity_colname, inputs.level_cols)
     )
+    if inputs.dummy_entity_cols:
+        ftr_panel = ftr_panel.pipe(
+            add_entity_effects, inputs.level_cols, inputs.dummy_entity_cols
+        )
+    if inputs.country_codes:
+        ftr_panel = ftr_panel.pipe(
+            add_holiday_effects(inputs.country_codes, as_bool=True)
+        )
     paths = {
         "actual": export_ftr_panel(ftr_panel, inputs.s3_bucket, inputs.fct_panel_path)
     }
-
+    # TODO: To be updated using functime - currently breaks as `is_holiday` is hardcoded in `run_backtest`
     if inputs.manual_forecasts_path is None:
         static_cols = [
             col
@@ -442,7 +454,7 @@ def prepare_hierarchical_panel(
             raise ValueError(f"Frequency `{inputs.freq}` is not supported.") from err
         fit_kwargs = {
             "static_cols": static_cols,
-            "date_features": inputs.date_features,
+            "date_features": DATE_FEATURES[inputs.freq],
             "freq": pd_freq,
             "lags": inputs.lags,
         }
@@ -486,7 +498,8 @@ def prepare_hierarchical_panel(
                 inputs.agg_method,
                 inputs.freq,
             )
-            .pipe(reindex_ftr_panel, suffix="manual")
+            .pipe(reindex_panel(freq=inputs.freq, sort=True))
+            .rename({inputs.target_col: "target:manual"})
             .pipe(coerce_entity_colname, inputs.level_cols)
         )
     paths["manual"] = export_ftr_panel(
