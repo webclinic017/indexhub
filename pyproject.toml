@@ -20,7 +20,7 @@ dependencies = [
     "httpx",
     "numpy",
     "pandas==1.5.2",
-    "polars",
+    "polars==0.15.17",
     "prefect",
     "requests",
     "s3fs",
