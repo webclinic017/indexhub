@@ -752,8 +752,14 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
         ftr_panel = load_ftr_panel(
             s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
         )
-        ftr_panel_manual = load_ftr_panel(
-            s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
+        ftr_panel_manual = (
+            load_ftr_panel(
+                s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
+            )
+            # Defensive cast
+            .with_column(
+                pl.col("target:manual").cast(ftr_panel.select("target:actual").dtypes[0])
+            )
         )
 
         # 2. Load external data and join with ftr_panel
