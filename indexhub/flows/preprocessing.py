@@ -16,14 +16,14 @@ from pydantic import BaseModel, validator
 from typing_extensions import Literal
 
 from indexhub.flows.forecasting import (
+    DATE_FEATURES,
+    MODEL_TO_SETTINGS,
     TEST_SIZE,
+    add_weekend_effects,
     get_train_test_splits,
     run_backtest,
     run_forecast,
-    MODEL_TO_SETTINGS,
-    DATE_FEATURES,
-    add_weekend_effects,
-    transform_boolean_to_int
+    transform_boolean_to_int,
 )
 
 MIN_TRAIN_SIZE = {"3mo": 9, "1mo": 12, "1w": 18, "1d": 30}
@@ -414,6 +414,7 @@ def prepare_hierarchical_panel(
         )
         .pipe(reindex_panel(freq=inputs.freq, sort=True))
         .rename({inputs.target_col: "target:actual"})
+        .fill_null(0)
         .pipe(add_weekend_effects)
         .pipe(add_calendar_effects(attrs=DATE_FEATURES[inputs.freq]))
         .pipe(coerce_entity_colname, inputs.level_cols)
@@ -444,7 +445,10 @@ def prepare_hierarchical_panel(
 
             # Get length of time periods by entity
             y_len = (
-                ftr_panel.groupby("entity").agg(pl.count()).collect().get_column("count")[0]
+                ftr_panel.groupby("entity")
+                .agg(pl.count())
+                .collect()
+                .get_column("count")[0]
             )
             # Backtest period = length of time periods - minimum train size
             # n_splits = backtest period / test size
@@ -460,7 +464,9 @@ def prepare_hierarchical_panel(
                 fit_kwargs=fit_kwargs,
                 quantile=None,
             )
-            y_pred = run_forecast(ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None)
+            y_pred = run_forecast(
+                ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None
+            )
             ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
                 lambda df: df.rename({df.columns[-1]: "target:manual"})
             )
@@ -482,6 +488,7 @@ def prepare_hierarchical_panel(
                 inputs.freq,
             )
             .pipe(reindex_panel(freq=inputs.freq, sort=True))
+            .fill_null(0)
             .rename({inputs.target_col: "target:manual"})
             .pipe(coerce_entity_colname, inputs.level_cols)
         )
