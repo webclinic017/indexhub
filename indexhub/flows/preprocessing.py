@@ -16,20 +16,17 @@ from pydantic import BaseModel, validator
 from typing_extensions import Literal
 
 from indexhub.flows.forecasting import (
-    PL_FREQ_TO_PD_FREQ,
     TEST_SIZE,
     get_train_test_splits,
     run_backtest,
     run_forecast,
+    MODEL_TO_SETTINGS,
+    DATE_FEATURES,
+    add_weekend_effects,
+    transform_boolean_to_int
 )
 
-MIN_TRAIN_SIZE = {"Q": 9, "MS": 12, "W": 18, "D": 30}
-DATE_FEATURES = {
-    "1d": ["day", "week", "weekday", "month"],
-    "1mo": ["month", "year"],
-    "3mo": ["quarter", "year"],
-    "1y": ["year"],
-}
+MIN_TRAIN_SIZE = {"3mo": 9, "1mo": 12, "1w": 18, "1d": 30}
 
 
 class PreprocessPanelInput(BaseModel):
@@ -185,15 +182,6 @@ def clean_raw_panel(
         .sort(by=[*entity_cols, "time"])
         .collect(streaming=True)
     )
-    return df_new.lazy()
-
-
-@task
-def add_weekend_effects(df: pl.LazyFrame) -> pl.LazyFrame:
-    exprs = [
-        pl.col("time").dt.weekday().is_in([6, 7]).cast(pl.Int32).alias("is_weekend"),
-    ]
-    df_new = df.with_columns(exprs).collect(streaming=True)
     return df_new.lazy()
 
 
@@ -438,49 +426,44 @@ def prepare_hierarchical_panel(
         ftr_panel = ftr_panel.pipe(
             add_holiday_effects(inputs.country_codes, as_bool=True)
         )
+
+    # zero inflated model does not accept boolean cols
+    # pyarrow.lib.ArrowInvalid: Zero copy conversions not possible with boolean types
+    ftr_panel = ftr_panel.pipe(transform_boolean_to_int)
+
     paths = {
         "actual": export_ftr_panel(ftr_panel, inputs.s3_bucket, inputs.fct_panel_path)
     }
-    # TODO: To be updated using functime - currently breaks as `is_holiday` is hardcoded in `run_backtest`
     if inputs.manual_forecasts_path is None:
-        static_cols = [
-            col
-            for col in ftr_panel.select(pl.col(pl.Boolean)).columns
-            if "is_holiday" not in col
-        ]
-        try:
-            pd_freq = PL_FREQ_TO_PD_FREQ[inputs.freq]
-        except KeyError as err:
-            raise ValueError(f"Frequency `{inputs.freq}` is not supported.") from err
-        fit_kwargs = {
-            "static_cols": static_cols,
-            "date_features": DATE_FEATURES[inputs.freq],
-            "freq": pd_freq,
-            "lags": inputs.lags,
-        }
+        with pl.StringCache():
+            fit_kwargs = {
+                "freq": inputs.freq,
+                "lags": inputs.lags,
+                **MODEL_TO_SETTINGS["knn"],
+            }
 
-        # Get length of time periods by entity
-        y_len = (
-            ftr_panel.groupby("entity").agg(pl.count()).collect().get_column("count")[0]
-        )
-        # Backtest period = length of time periods - minimum train size
-        # n_splits = backtest period / test size
-        n_splits = (y_len - MIN_TRAIN_SIZE[pd_freq]) // TEST_SIZE[pd_freq]
+            # Get length of time periods by entity
+            y_len = (
+                ftr_panel.groupby("entity").agg(pl.count()).collect().get_column("count")[0]
+            )
+            # Backtest period = length of time periods - minimum train size
+            # n_splits = backtest period / test size
+            n_splits = (y_len - MIN_TRAIN_SIZE[inputs.freq]) // TEST_SIZE[inputs.freq]
 
-        n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
-            ftr_panel, n_splits, pd_freq
-        )
+            n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
+                ftr_panel, n_splits, inputs.freq
+            )
 
-        backtest, _ = run_backtest(
-            n_split_to_ftr_train=n_split_to_ftr_train,
-            n_split_to_ftr_test=n_split_to_ftr_test,
-            fit_kwargs=fit_kwargs,
-            quantile=None,
-        )
-        y_pred = run_forecast(ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None)
-        ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
-            lambda df: df.rename({df.columns[-1]: "target:manual"})
-        )
+            backtest = run_backtest(
+                n_split_to_ftr_train=n_split_to_ftr_train,
+                n_split_to_ftr_test=n_split_to_ftr_test,
+                fit_kwargs=fit_kwargs,
+                quantile=None,
+            )
+            y_pred = run_forecast(ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None)
+            ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
+                lambda df: df.rename({df.columns[-1]: "target:manual"})
+            )
     else:
         fct_manual_forecast = load_fct_panel(
             inputs.s3_bucket, inputs.manual_forecasts_path

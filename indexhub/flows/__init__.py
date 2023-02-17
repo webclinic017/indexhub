@@ -4,7 +4,6 @@ from indexhub.flows.reporting import (
     prepare_forecast_report,
     prepare_forecast_scenario_report,
     prepare_metrics_report,
-    prepare_past_review_report,
     prepare_volatility_report,
 )
 
@@ -15,6 +14,5 @@ __all__ = [
     prepare_forecast_report,
     prepare_forecast_scenario_report,
     prepare_metrics_report,
-    prepare_past_review_report,
     prepare_volatility_report,
 ]

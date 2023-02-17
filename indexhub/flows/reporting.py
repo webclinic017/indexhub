@@ -9,6 +9,19 @@ import polars as pl
 from prefect import flow, task
 from pydantic import BaseModel
 
+MODELS_TO_DESC = {
+    "manual":"manual forecast",
+    "lightgbm":"base AI model (no features)",
+    "zero_inflated:lgbm":"zero inflated model (no features)",
+    "ensemble":"ensemble model (no features)",
+    "ensemble_add_weekend":"+ weekend",
+    "ensemble_add_calendar":"+ calendar",
+    "ensemble_add_holiday":"+ holiday",
+    "ensemble_add_dummies":"+ dummies",
+    "ensemble+manual":"AI + manual",
+    "ensemble+manual+overrides_zero":"+ overrides zero",
+}
+
 
 class ReportingInput(BaseModel):
     s3_data_bucket: str
@@ -65,60 +78,23 @@ def get_quantiles_list(df: pl.LazyFrame) -> List[int]:
     return quantiles
 
 
-@flow
-def prepare_past_review_report(inputs: ReportingInput):
-    # 1. Load ftr actual, ftr manual, and backtests
-    ftr_panel = load_data(
-        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
-    )
-    ftr_panel_manual = load_data(
-        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
-    )
-    backtests = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["backtests"],
-    )
-    # 2. Add quantile column to ftr actual and ftr manual
-    quantiles = get_quantiles_list(backtests)
+@task
+# Cast entity cols columns to string to join and concatenate dfs
+def cast_entity_cols_to_str(
+    df: pl.LazyFrame,
+) -> pl.LazyFrame:
+    df_new = df.with_columns(pl.col("^entity.*$").cast(pl.Utf8))
 
-    transf_ftr_panel = add_quantile_col(df=ftr_panel, quantiles=quantiles)
+    return df_new
 
-    # Filter out future forecast from manual forecast
-    transf_ftr_panel_manual = add_quantile_col(
-        df=ftr_panel_manual, quantiles=quantiles
-    ).filter(
-        pl.col("time") <= backtests.select("time").max().collect().get_column("time")
-    )
 
-    # 3. Merge ftr actual, ftr manual, and backtests
-    rpt_past_review = backtests.join(
-        transf_ftr_panel,
-        on=["entity", "time", "quantile"],
-        how="outer",
-    ).join(
-        transf_ftr_panel_manual,
-        on=["entity", "time", "quantile"],
-        how="outer",
-    )
+@task
+def cast_entity_cols_to_categorical(
+    df: pl.LazyFrame,
+) -> pl.LazyFrame:
+    df_new = df.with_columns(pl.col("^entity.*$").cast(pl.Categorical))
 
-    # 4. Split merged entity cols and cast to categorical
-    rpt_past_review = (
-        split_merged_entity_cols(rpt_past_review, inputs.level_cols)
-        .pipe(cast_entity_cols_to_categorical)
-        # Filter columns by entity, quantile, time and target cols
-        .select([pl.col("^entity.*$"), "quantile", "time", pl.col("^target.*$")])
-        .sort([pl.col("^entity.*$"), "quantile", "time"])
-    )
-
-    paths = {
-        "rpt_past_review": export_report(
-            rpt_past_review,
-            inputs.s3_artifacts_bucket,
-            inputs.forecast_data_paths["backtests"],
-            suffix="rpt_past_review",
-        )
-    }
-    return paths
+    return df_new
 
 
 @task
@@ -141,21 +117,14 @@ def split_merged_entity_cols(df: pl.LazyFrame, level_cols: List[str]) -> pl.Lazy
     return df_new.lazy()
 
 
-@task
-def cast_entity_cols_to_categorical(
-    df: pl.LazyFrame,
-) -> pl.LazyFrame:
-    df_new = df.with_columns(pl.col("^entity.*$").cast(pl.Categorical))
-
-    return df_new
-
-
 @flow
 def prepare_metrics_report(inputs: ReportingInput):
     # 1. Load metrics from forecast data
-    metrics = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["metrics"],
+    metrics = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["metrics"],
+        ).pipe(cast_entity_cols_to_str)
     )
 
     # 2. Split entity id into list of cols and cast entity cols to categorical
@@ -178,19 +147,27 @@ def prepare_metrics_report(inputs: ReportingInput):
 @flow
 def prepare_forecast_report(inputs: ReportingInput):
     # 1. Load ftr actual, ftr manual, backtests, y_preds
-    ftr_panel = load_data(
-        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+    ftr_panel = (
+        load_data(
+            s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+        ).pipe(cast_entity_cols_to_str)
     )
-    ftr_panel_manual = load_data(
-        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
+    ftr_panel_manual = (
+            load_data(
+            s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["manual"]
+        ).pipe(cast_entity_cols_to_str)
     )
-    backtests = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["backtests"],
+    backtests = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["backtests"],
+        ).pipe(cast_entity_cols_to_str)
     )
-    y_preds = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["y_preds"],
+    y_preds = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["y_preds"],
+        ).pipe(cast_entity_cols_to_str)
     )
 
     # 2. Add quantile column to ftr actual and ftr manual
@@ -200,12 +177,8 @@ def prepare_forecast_report(inputs: ReportingInput):
 
     # 3. Join ftr_actual, backtests, and y_preds into single df
     rpt_forecast = (
-        backtests.join(transf_ftr_panel, on=["entity", "time", "quantile"], how="outer")
-        .join(
-            y_preds,
-            on=["entity", "time", "quantile", "target:forecast"],
-            how="outer",
-        )
+        pl.concat([backtests, y_preds])
+        .join(transf_ftr_panel, on=["entity", "time", "quantile"], how="outer")
         .join(
             transf_ftr_panel_manual,
             on=["entity", "time", "quantile"],
@@ -250,6 +223,8 @@ def transform_target_col_to_wide_format(
     y_preds: pl.LazyFrame,
     quantiles: List[int],
 ):
+    values = [col for col in y_preds.columns if col in ["target:forecast", "target:forecast_overrides_zero"]]
+    
     df_new = (
         # Filter dataframe to only specific quantiles
         y_preds.collect()
@@ -257,9 +232,14 @@ def transform_target_col_to_wide_format(
         .pivot(
             index=["entity", "time"],
             columns="quantile",
-            values="target:forecast",
+            values=values,
         )
-        .with_columns(
+    )
+
+    if len(values) == 1:
+        df_new = (
+            df_new
+             .with_columns(
             # Rename target_col with quantile as suffix
             [
                 pl.col(f"{quantile}").alias(f"target:forecast_{quantile}")
@@ -267,16 +247,18 @@ def transform_target_col_to_wide_format(
             ]
         )
         .drop([str(quantile) for quantile in quantiles])
-    )
+        )
     return df_new.lazy()
 
 
 @flow
 def prepare_forecast_scenario_report(inputs: ReportingInput):
     # 1. Load y_preds
-    y_preds = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["y_preds"],
+    y_preds = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["y_preds"],
+        ).pipe(cast_entity_cols_to_str)
     )
 
     # 2. Identify the quantiles
@@ -379,12 +361,16 @@ def assign_trendline_columns(df: pl.LazyFrame) -> pl.LazyFrame:
 @flow
 def prepare_volatility_report(inputs: ReportingInput):
     # 1. Load ftr actual and metrics panels
-    ftr_panel = load_data(
-        s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+    ftr_panel = (
+        load_data(
+            s3_bucket=inputs.s3_data_bucket, s3_path=inputs.ftr_data_paths["actual"]
+        ).pipe(cast_entity_cols_to_str)
     )
-    metrics = load_data(
-        s3_bucket=inputs.s3_artifacts_bucket,
-        s3_path=inputs.forecast_data_paths["metrics"],
+    metrics = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["metrics"],
+        ).pipe(cast_entity_cols_to_str)
     )
 
     # 2. Prepare tables for coefficient of volatility and join tables
@@ -412,6 +398,114 @@ def prepare_volatility_report(inputs: ReportingInput):
             inputs.s3_artifacts_bucket,
             inputs.forecast_data_paths["metrics"],
             suffix="rpt_volatility",
+        )
+    }
+
+    return paths
+
+
+def _get_outliers(inputs: ReportingInput) -> pl.LazyFrame:
+    metrics = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["metrics"],
+        ).pipe(cast_entity_cols_to_str)
+    )
+
+    outliers = (
+        metrics
+        .groupby(["entity", "quantile"])
+        .agg(pl.col("mae_improvement_%").sum())
+        .filter(pl.col("mae_improvement_%")<=0)
+    )
+    return outliers
+
+
+@flow
+def prepare_outliers_report(inputs: ReportingInput):
+    rpt_outliers = (
+        _get_outliers(inputs)
+        .pipe(split_merged_entity_cols, inputs.level_cols)
+        .pipe(cast_entity_cols_to_categorical)
+    )
+    paths = {
+        "rpt_outliers": export_report(
+            rpt_outliers,
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["metrics"],
+            suffix="rpt_outliers",
+        )
+    }
+    return paths
+
+
+@flow
+def prepare_uplift_report(inputs: ReportingInput):
+    metrics_by_model = (
+        load_data(
+            s3_bucket=inputs.s3_artifacts_bucket,
+            s3_path=inputs.forecast_data_paths["metrics_by_model"],
+        ).pipe(cast_entity_cols_to_str)
+    )
+
+    outliers = (
+        _get_outliers(inputs)
+        .filter(pl.col("quantile")==0.5)
+        .collect()
+        .get_column("entity").to_list()
+    )
+
+    models_to_num = {model:i+1 for i, model in enumerate(MODELS_TO_DESC.keys())}
+
+    rpt_uplift = (
+        metrics_by_model
+        .filter(~pl.col("entity").is_in(outliers))
+        .filter(pl.col("model").is_in(list(MODELS_TO_DESC.keys())))
+        .groupby("model", maintain_order=True)
+        .agg(
+            [
+                # MAE
+                pl.col("mae_improvement_%").mean().round(2).keep_name(), 
+                # Under-forecast
+                pl.col("underforecast_improvement_%").mean().round(2).keep_name(), 
+                # Over-forecast
+                pl.col("overforecast_improvement_%").mean().round(2).keep_name(), 
+            ]
+        )
+        .select(
+            [
+                pl.col("model").apply(lambda x: models_to_num[x]).alias("no."),
+                pl.col("model"),
+                pl.col("model").apply(lambda x: MODELS_TO_DESC[x]).alias("desc"),
+                pl.all().exclude("model"),
+            ]
+        )
+        .sort("no.")
+    )
+
+    mae_improvement_new = rpt_uplift.select("mae_improvement_%").shift(periods=1).rename({"mae_improvement_%":"mae_improvement%_new"})
+    underforecast_improvement_new = rpt_uplift.select("underforecast_improvement_%").shift(periods=1).rename({"underforecast_improvement_%":"underforecast_improvement%_new"})
+    overforecast_improvement_new = rpt_uplift.select("overforecast_improvement_%").shift(periods=1).rename({"overforecast_improvement_%":"overforecast_improvement%_new"})
+
+    rpt_uplift = (
+        pl.concat(pl.collect_all([rpt_uplift, mae_improvement_new, underforecast_improvement_new, overforecast_improvement_new]), how="horizontal")
+        .select(
+            [
+                pl.all().exclude(["mae_improvement%_new", "underforecast_improvement%_new", "overforecast_improvement%_new"]),
+                (pl.col("mae_improvement_%") - pl.col("mae_improvement%_new")).alias("mae_improvement%_diff"),
+                (pl.col("underforecast_improvement_%") - pl.col("underforecast_improvement%_new")).alias("underforecast_improvement%_diff"),
+                (pl.col("overforecast_improvement_%") - pl.col("overforecast_improvement%_new")).alias("overforecast_improvement%_diff"),
+            ]
+        )
+        .fill_null(0)
+    ).lazy()
+
+    paths = {
+        "rpt_uplift": export_report(
+            rpt_uplift,
+            inputs.s3_artifacts_bucket,
+            inputs.forecast_data_paths["metrics_by_model"],
+            suffix="rpt_uplift",
         )
     }
 
