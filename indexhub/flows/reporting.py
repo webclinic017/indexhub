@@ -18,6 +18,7 @@ MODELS_TO_DESC = {
     "ensemble_add_calendar":"+ calendar",
     "ensemble_add_holiday":"+ holiday",
     "ensemble_add_dummies":"+ dummies",
+    "ensemble_add_external_data":"+ external data",
     "ensemble+manual":"AI + manual",
     "ensemble+manual+overrides_zero":"+ overrides zero",
 }

@@ -112,26 +112,32 @@ FEATURES_TO_COLS = {
         "feature_cols":["is_weekend"],
         "add_dummy_entity":False,
         "add_holiday": False,
-        "append": True,
+        "add_external_data": False,
     },
     "add_calendar":{
         "feature_cols":["day", "weekday", "week", "month", "quarter", "year"],
         "add_dummy_entity":False,
         "add_holiday": False,
-        "append": True,
+        "add_external_data": False,
     },
     "add_holiday":{
         "feature_cols":[],
         "add_dummy_entity":False,
         "add_holiday": True,
-        "append": True,
+        "add_external_data": False,
     },
     "add_dummies":{
         "feature_cols":[],
         "add_dummy_entity":True,
         "add_holiday": False,
-        "append": True,
+        "add_external_data": False,
     },
+    "add_external_data":{
+        "feature_cols":[],
+        "add_dummy_entity":True,
+        "add_holiday": False,
+        "add_external_data": True,
+    }
 }
 
 
@@ -788,10 +794,12 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
         )
 
         # 2. Load external data and join with ftr_panel
+        external_cols = []
         if inputs.external_data_paths:
             for external_data_path in inputs.external_data_paths:
                 external_data = load_external_data(s3_bucket=inputs.s3_tscatalog_bucket, s3_path=external_data_path)
                 ftr_panel = join_external_data(ftr_panel=ftr_panel, X=external_data, freq=freq)
+                external_cols = external_cols + [col for col in external_data.columns if col not in ["entity", "time", "target:actual"]]
 
         # 3. Get manual model
         manual_model = inputs.ftr_data_paths["manual_model"]
@@ -948,8 +956,15 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             feature_cols = feature_settings["feature_cols"]
             add_dummy_entity = feature_settings["add_dummy_entity"]
             add_holiday = feature_settings["add_holiday"]
+            add_external_data = feature_settings["add_external_data"]
             
             feature_cols = get_feature_cols(ftr_panel ,feature_cols, add_dummy_entity, inputs.dummy_entity_cols, add_holiday)
+
+            if add_external_data:
+                if len(external_cols) > 0:
+                    feature_cols = external_cols
+                else:
+                    continue
 
             if len(feature_cols)>0:
                 append_feature_cols = append_feature_cols + feature_cols
