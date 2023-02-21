@@ -24,6 +24,8 @@ from indexhub.flows.forecasting import (
     run_backtest,
     run_forecast,
     transform_boolean_to_int,
+    postproc,
+    compute_metrics,
 )
 
 MIN_TRAIN_SIZE = {"3mo": 9, "1mo": 12, "1w": 18, "1d": 30}
@@ -437,12 +439,6 @@ def prepare_hierarchical_panel(
     }
     if inputs.manual_forecasts_path is None:
         with pl.StringCache():
-            fit_kwargs = {
-                "freq": inputs.freq,
-                "lags": inputs.lags,
-                **MODEL_TO_SETTINGS["knn"],
-            }
-
             # Get length of time periods by entity
             y_len = (
                 ftr_panel.groupby("entity")
@@ -458,18 +454,90 @@ def prepare_hierarchical_panel(
                 ftr_panel, n_splits, inputs.freq
             )
 
-            backtest = run_backtest(
-                n_split_to_ftr_train=n_split_to_ftr_train,
-                n_split_to_ftr_test=n_split_to_ftr_test,
-                fit_kwargs=fit_kwargs,
-                quantile=None,
+            benchmark_models = ["knn", "snaive"]
+            backtests_by_model = []
+            for model in benchmark_models:
+                fit_kwargs = {
+                    "freq": inputs.freq,
+                    "lags": inputs.lags,
+                    **MODEL_TO_SETTINGS[model],
+                }
+
+                backtest = (
+                    run_backtest(
+                        n_split_to_ftr_train=n_split_to_ftr_train,
+                        n_split_to_ftr_test=n_split_to_ftr_test,
+                        fit_kwargs=fit_kwargs,
+                        quantile=None,
+                    )
+                    .with_column(pl.lit(model).alias("model"))
+                    .select(["entity", "time", "model", "target:actual"])
+                )
+                backtests_by_model.append(backtest)
+
+            postproc_kwargs = {
+                "allow_negatives": inputs.allow_negatives,
+                "use_manual_zeros": False,
+            }
+
+            transf_backtests_by_model = (
+                postproc(y_preds=backtests_by_model,  ftr_panel_manual=None, ignore_zeros=False, **postproc_kwargs
+                )
             )
-            y_pred = run_forecast(
-                ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None
+
+            # Compute metrics and select the worse model
+            metrics_by_model = []
+            for model in benchmark_models:
+                backtest = (
+                    transf_backtests_by_model
+                    .filter(pl.col("model")==model)
+                    .drop("model")
+                )
+                metrics = (
+                    compute_metrics(
+                        ftr_panel=ftr_panel,
+                        ftr_panel_manual=backtest,
+                        backtest=backtest,
+                        quantile=None,
+                    )
+                    .drop("quantile")
+                    .with_column(pl.lit(model).alias("model"))
+                )
+                metrics_by_model.append(metrics)
+            metrics_by_model = pl.concat(metrics_by_model)
+
+            benchmark_model = (
+                metrics_by_model
+                .groupby("model", maintain_order=True)
+                .agg([pl.col("mae:forecast").sum().round(2).keep_name()])
+                # Select the highest mae (worst model)
+                .sort("mae:forecast", reverse=True)
+                .collect()
+                .get_column("model")[0]
+            )
+
+            backtest = (
+                transf_backtests_by_model
+                .filter(pl.col("model")==model)
+                .drop("model")
+            )
+
+            fit_kwargs = {
+                "freq": inputs.freq,
+                "lags": inputs.lags,
+                **MODEL_TO_SETTINGS[benchmark_model],
+            }
+            y_pred = (
+                run_forecast(
+                    ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None
+                )
+                .pipe(lambda df: postproc(y_preds=[df], ftr_panel_manual=None, ignore_zeros=False, **postproc_kwargs)
+                )
             )
             ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
                 lambda df: df.rename({df.columns[-1]: "target:manual"})
             )
+            paths["manual_model"] = benchmark_model
     else:
         fct_manual_forecast = load_fct_panel(
             inputs.s3_bucket, inputs.manual_forecasts_path
@@ -492,6 +560,7 @@ def prepare_hierarchical_panel(
             .rename({inputs.target_col: "target:manual"})
             .pipe(coerce_entity_colname, inputs.level_cols)
         )
+        paths["manual_model"] = "manual"
     paths["manual"] = export_ftr_panel(
         ftr_manual_forecast, inputs.s3_bucket, inputs.fct_panel_path, suffix="manual"
     )

@@ -20,7 +20,7 @@ from functime.feature_extraction import (
     add_holiday_effects
 )
 from functime.metrics import mae, overforecast, underforecast, smape
-from functime.forecasting import zero_inflated_model, knn, lightgbm
+from functime.forecasting import zero_inflated_model, knn, lightgbm, snaive
 from lightgbm import LGBMRegressor, LGBMClassifier
 
 NUM_THREADS = joblib.cpu_count()
@@ -36,6 +36,7 @@ TEST_SIZE = {"3mo": 3, "1mo": 4, "1w": 6, "1d": 10}
 # For quarter and monthly freq, takes from previous year
 # For weekly and daily freq, takes from previous month
 X_LAG = {"3mo": relativedelta(years=1), "1mo": relativedelta(years=1), "1w": relativedelta(months=1), "1d": relativedelta(months=1)}
+SP = {"3mo": 4, "1mo": 12, "1w": 52, "1d": 30}
 N_SPLITS = 3
 QUANTILES = [
     0.1,
@@ -79,6 +80,13 @@ MODEL_TO_SETTINGS = {
         "model":knn,
         "use_auto":False,
     },
+    "snaive":{
+        "use_zero_inflated": False,
+        "regressor":None,
+        "classifier":None,
+        "model":snaive,
+        "use_auto":False,
+    },
     "lightgbm":{
         "use_zero_inflated": False,
         "regressor":None,
@@ -92,6 +100,10 @@ ENSEMBLE_TO_MODELS = {
     "zero_inflated:lgbm+zero_inflated:quantile_regressor":["zero_inflated:lgbm", "zero_inflated:quantile_regressor"],
 	"zero_inflated:lgbm+knn":["zero_inflated:lgbm","knn"],
     "zero_inflated:lgbm+knn+zero_inflated:quantile_regressor":["zero_inflated:lgbm","knn", "zero_inflated:quantile_regressor"],
+	"zero_inflated:lgbm+snaive":["zero_inflated:lgbm","snaive"],
+    "zero_inflated:lgbm+snaive+zero_inflated:quantile_regressor":["zero_inflated:lgbm", "snaive", "zero_inflated:quantile_regressor"],
+	"zero_inflated:lgbm+knn+snaive":["zero_inflated:lgbm", "knn", "snaive"],
+    "zero_inflated:lgbm+knn+snaive+zero_inflated:quantile_regressor":["zero_inflated:lgbm", "knn" ,"snaive", "zero_inflated:quantile_regressor"],
 }
 
 # Select columns from X if column = feature_cols
@@ -289,16 +301,23 @@ def _fit_and_predict(
             n_models=fh
         )(y=y, X=X, X_future=X_future, fh=fh, freq=freq)
     else:
-        if use_auto:
-            forecaster = model(min_lags=min_lags, max_lags=max_lags, n_models=fh, **kwargs)
+        if model == snaive:
+            forecaster = model(sp=SP[freq], fh=fh, **kwargs)
+            y_pred = (
+                forecaster
+                .fit(y=y)
+                .predict(fh=fh, freq=freq)
+            )
         else:
-            forecaster = model(lags=max_lags, n_models=fh, **kwargs)
-
-        y_pred = (
-            forecaster
-            .fit(y=y, X=X)
-            .predict(fh=fh, freq=freq, X=X_future)
-        )
+            if use_auto:
+                forecaster = model(min_lags=min_lags, max_lags=max_lags, n_models=fh, **kwargs)
+            else:
+                forecaster = model(lags=max_lags, n_models=fh, **kwargs)
+            y_pred = (
+                forecaster
+                .fit(y=y, X=X)
+                .predict(fh=fh, freq=freq, X=X_future)
+            )
 
     # Defensive cast
     y_pred = (
@@ -448,17 +467,14 @@ def run_backtest(
     return y_preds #, fitted_model
 
 
-@task
-def run_ensemble(
-    y_preds: List[pl.LazyFrame],
-    ignore_zeros: bool = True,
+def _run_ensemble(
+    y_pred: pl.LazyFrame,
+    idx_cols: List[str],
+    ignore_zeros: bool, # Ignore zeros when averaging forecast columns
 ) -> pl.LazyFrame:
-    y_pred = pl.concat(y_preds)
-    idx_cols = [col for col in y_pred.columns if col in ["model", "entity", "time", "quantile"]]
     target_cols = [col for col in y_pred.columns if col.startswith("target")]
     # Get the dtype
     target_dtype = y_pred.select(target_cols).dtypes[0]
-
     y_pred_mean = y_pred.select(pl.all().exclude(idx_cols))
 
     if ignore_zeros:
@@ -478,7 +494,7 @@ def run_ensemble(
         # Cast target column to actual dtype
         .cast(target_dtype)
         .fill_null(0)
-        .alias("target:forecast")
+        .alias("target:actual")
     )
 
     transf_y_pred = y_pred.select([pl.col(idx_cols), y_pred_mean])
@@ -487,12 +503,21 @@ def run_ensemble(
 
 @task
 def postproc(
-    y_pred: pl.LazyFrame,
+    y_preds: List[pl.LazyFrame],
     ftr_panel_manual: pl.LazyFrame,
     allow_negatives: bool,
     use_manual_zeros: bool,
+    ignore_zeros: bool, # Ignore zeros when averaging forecast columns
 ) -> pl.LazyFrame:
+    y_pred = pl.concat(y_preds)
     idx_cols = [col for col in y_pred.columns if col in ["model", "entity", "time", "quantile"]]
+
+    y_pred = (
+        # Ensemble if there are multiple forecast columns
+        _run_ensemble(y_pred, idx_cols, ignore_zeros)
+        .rename({"target:actual":"target:forecast"})
+    )
+
     if use_manual_zeros:
         # Replace forecast to 0 according to manual forecast
         y_pred = (
@@ -768,14 +793,16 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                 external_data = load_external_data(s3_bucket=inputs.s3_tscatalog_bucket, s3_path=external_data_path)
                 ftr_panel = join_external_data(ftr_panel=ftr_panel, X=external_data, freq=freq)
 
+        # 3. Get manual model
+        manual_model = inputs.ftr_data_paths["manual_model"]
 
-        # 3. Time series split - return mapping of n_split to LazyFrame
+        # 4. Time series split - return mapping of n_split to LazyFrame
         splits_kwargs = {"freq": freq}
         n_split_to_ftr_train, n_split_to_ftr_test = get_train_test_splits(
             ftr_panel=ftr_panel, n_splits=N_SPLITS, **splits_kwargs
         )
 
-        # 4. Train all individual models without external features - for uplift
+        # 5. Train all individual models without external features - for uplift
         fit_kwargs = {
             "freq": freq,
             "lags": inputs.lags,
@@ -783,9 +810,14 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
         uplift_postproc_kwargs = {
             "allow_negatives": inputs.allow_negatives,
             "use_manual_zeros": False,
+            "ftr_panel_manual": ftr_panel_manual,
         }
         backtests_by_model = []
         for model, settings in MODEL_TO_SETTINGS.items():
+            # Skip if model = manual/benchmark model
+            if model == manual_model:
+                continue
+
             fit_kwargs_by_model = {
                 **fit_kwargs,
                 **settings
@@ -803,14 +835,17 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             backtests_by_model.append(backtest_by_model)
 
         transf_backtests_by_model = (
-            run_ensemble(y_preds=backtests_by_model, ignore_zeros=False)
-            .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+            postproc(y_preds=backtests_by_model, ignore_zeros=False, **uplift_postproc_kwargs
             )
         )
 
-        # 5. Ensemble models
+        # 6. Ensemble models
         backtests_by_ensemble = []
         for ensemble, models in ENSEMBLE_TO_MODELS.items():
+            # Skip if ensemble contains manual/benchmark model
+            if manual_model in models:
+                continue
+
             ensemble_backtest = None
             for model in models:
                 backtest = (
@@ -827,8 +862,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                         ensemble_backtest.join(backtest, on=["entity", "time"])
                     )
             transf_ensemble_backtest = (
-                run_ensemble(y_preds=[ensemble_backtest], ignore_zeros=False)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+                postproc(y_preds=[ensemble_backtest], ignore_zeros=False, **uplift_postproc_kwargs
                 ).with_column(pl.lit(ensemble).alias("model"))
             )
             backtests_by_ensemble.append(transf_ensemble_backtest)
@@ -843,9 +877,12 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             )
         }
 
-        # 6. Compute metrics for ensemble
+        # 7. Compute metrics for ensemble
         metrics_by_ensemble = []
         for ensemble, models in ENSEMBLE_TO_MODELS.items():
+            # Skip if ensemble contains manual/benchmark model
+            if manual_model in models:
+                continue
             backtest = (
                 backtests_by_ensemble
                 .filter(pl.col("model")==ensemble)
@@ -871,7 +908,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             suffix="metrics_by_ensemble",
         )
 
-        # 7. Select best ensemble model by lowest sum of MAE
+        # 8. Select best ensemble model by lowest sum of MAE
         best_ensemble_model = (
             metrics_by_ensemble
             .groupby("model")
@@ -901,7 +938,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             )
         )
 
-        # 8. Add features sequantially to ensemble
+        # 9. Add features sequantially to ensemble
         ensemble_models = ENSEMBLE_TO_MODELS[best_ensemble_model]
         
         backtests_by_feature = []
@@ -955,8 +992,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
 
         for feature, backtest in ensemble_backtests_by_feature.items():
             transf_ensemble_backtest = (
-                run_ensemble(y_preds=[backtest], ignore_zeros=False)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+                postproc(y_preds=[backtest], ignore_zeros=False, **uplift_postproc_kwargs
                 ).with_column(pl.lit(f"ensemble_{feature}").alias("model"))
                 .select(["entity", "time", "model", "target:forecast"])
             )
@@ -977,10 +1013,9 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                     ))
                 )
                 transf_ensemble_backtest = (
-                    run_ensemble(y_preds=[
-                            backtest.join(manual_backtest.select(pl.all().exclude("model")), on=["entity", "time"])
-                            ], ignore_zeros=False)
-                    .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+                    postproc(y_preds=[
+                        backtest.join(manual_backtest.select(pl.all().exclude("model")), on=["entity", "time"])
+                        ], ignore_zeros=False, **uplift_postproc_kwargs
                     ).with_column(pl.lit(f"ensemble+manual").alias("model"))
                     .select(["entity", "time", "model", "target:forecast"])
                 )
@@ -997,15 +1032,15 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             )
         )
 
-        # 9. Overrides zero
+        # 10. Overrides zero
         postproc_kwargs = {
             "allow_negatives": inputs.allow_negatives,
             "use_manual_zeros": inputs.use_manual_zeros,
+            "ftr_panel_manual": ftr_panel_manual,
         }
         if inputs.use_manual_zeros:
             ensemble_overrides_zero_backtest = (
-                run_ensemble(y_preds=[backtests_by_feature[-1], manual_backtest], ignore_zeros=False)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **postproc_kwargs
+                postproc(y_preds=[backtests_by_feature[-1], manual_backtest], ignore_zeros=False, **postproc_kwargs
                 ).with_column(pl.lit(f"ensemble+manual+overrides_zero").alias("model"))
             )
             transf_backtests_by_model = (
@@ -1017,7 +1052,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                 )
             )
 
-        # 10. Export backtests for uplift models
+        # 11. Export backtests for uplift models
         paths["backtests_by_model"] = export_panel(
             transf_backtests_by_model,
             inputs.s3_artifacts_bucket,
@@ -1025,7 +1060,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             suffix="backtests_by_model",
         )
 
-        # 11. Compute metrics for uplift models
+        # 12. Compute metrics for uplift models
         metrics_by_model = []
         uplift_models = (
             transf_backtests_by_model
@@ -1057,7 +1092,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             suffix="metrics_by_model",
         )
 
-        # 12. Backtest - return backtest and fitted_model by quantile using best ensemble model + manual
+        # 13. Backtest - return backtest and fitted_model by quantile using best ensemble model + manual
         backtests = []
         ensemble_models = ENSEMBLE_TO_MODELS[best_ensemble_model]
         for quantile in QUANTILES:
@@ -1089,18 +1124,16 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                     manual_backtest.drop("model").with_column(pl.lit(quantile).alias("quantile")), on=["entity", "time", "quantile"])
             )
             transf_ensemble_backtest = (
-                run_ensemble(y_preds=[joined_ensemble_backtest], ignore_zeros=False)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+                postproc(y_preds=[joined_ensemble_backtest], ignore_zeros=False, **uplift_postproc_kwargs
                 )
             )
             backtests.append(transf_ensemble_backtest)
         backtests = pl.concat(backtests)
 
-        # 13. If overrides zero, add new forecast column suffixed "overrides_zero"
+        # 14. If overrides zero, add new forecast column suffixed "overrides_zero"
         if inputs.use_manual_zeros:
             backtests_overrides_zero = (
-                run_ensemble(y_preds=[backtests], ignore_zeros=False)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **postproc_kwargs
+                postproc(y_preds=[backtests], ignore_zeros=False, **postproc_kwargs
                 ).rename({"target:forecast":"target:forecast_overrides_zero"})
             )
             backtests = backtests.join(
@@ -1114,7 +1147,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             suffix="backtests",
         )
 
-        # 14. Compute backtest metrics by quantile
+        # 15. Compute backtest metrics by quantile
         metrics = []
         for quantile in QUANTILES:
             backtest_by_quantile = backtests.filter(pl.col("quantile") == quantile)
@@ -1134,7 +1167,7 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
             suffix="metrics",
         )
 
-        # 15. Training final model on the full dataset and predict by quantile using best ensemble model + manual
+        # 16. Training final model on the full dataset and predict by quantile using best ensemble model + manual
         y_preds = []
         ensemble_models = ENSEMBLE_TO_MODELS[best_ensemble_model]
         for quantile in QUANTILES:
@@ -1167,18 +1200,16 @@ def run_forecast_flow(inputs: RunForecastFlowInput) -> RunForecastFlowOutput:
                     .with_column(pl.lit(quantile).alias("quantile")), on=["entity", "time", "quantile"])
             )
             transf_ensemble_y_pred = (
-                run_ensemble(y_preds=[joined_ensemble_y_pred], ignore_zeros=True)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **uplift_postproc_kwargs
+                postproc(y_preds=[joined_ensemble_y_pred], ignore_zeros=True, **uplift_postproc_kwargs
                 )
             )
             y_preds.append(transf_ensemble_y_pred)
         y_preds = pl.concat(y_preds)
 
-        # 16. If overrides zero, add new forecast column suffixed "overrides_zero"
+        # 17. If overrides zero, add new forecast column suffixed "overrides_zero"
         if inputs.use_manual_zeros:
             y_preds_overrides_zero = (
-                run_ensemble(y_preds=[y_preds], ignore_zeros=True)
-                .pipe(postproc, ftr_panel_manual=ftr_panel_manual, **postproc_kwargs
+                postproc(y_preds=[y_preds], ignore_zeros=True, **postproc_kwargs
                 ).rename({"target:forecast":"target:forecast_overrides_zero"})
             )
             y_preds = y_preds.join(
