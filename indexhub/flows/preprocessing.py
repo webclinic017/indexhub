@@ -29,6 +29,7 @@ from indexhub.flows.forecasting import (
 )
 
 MIN_TRAIN_SIZE = {"3mo": 9, "1mo": 12, "1w": 18, "1d": 30}
+BENCHMARK_MODELS = ["snaive"]
 
 
 class PreprocessPanelInput(BaseModel):
@@ -454,9 +455,8 @@ def prepare_hierarchical_panel(
                 ftr_panel, n_splits, inputs.freq
             )
 
-            benchmark_models = ["knn", "snaive"]
             backtests_by_model = []
-            for model in benchmark_models:
+            for model in BENCHMARK_MODELS:
                 fit_kwargs = {
                     "freq": inputs.freq,
                     "lags": inputs.lags,
@@ -486,35 +486,38 @@ def prepare_hierarchical_panel(
             )
 
             # Compute metrics and select the worse model
-            metrics_by_model = []
-            for model in benchmark_models:
-                backtest = (
-                    transf_backtests_by_model
-                    .filter(pl.col("model")==model)
-                    .drop("model")
-                )
-                metrics = (
-                    compute_metrics(
-                        ftr_panel=ftr_panel,
-                        ftr_panel_manual=backtest,
-                        backtest=backtest,
-                        quantile=None,
+            if len(BENCHMARK_MODELS) > 1:
+                metrics_by_model = []
+                for model in BENCHMARK_MODELS:
+                    backtest = (
+                        transf_backtests_by_model
+                        .filter(pl.col("model")==model)
+                        .drop("model")
                     )
-                    .drop("quantile")
-                    .with_column(pl.lit(model).alias("model"))
-                )
-                metrics_by_model.append(metrics)
-            metrics_by_model = pl.concat(metrics_by_model)
+                    metrics = (
+                        compute_metrics(
+                            ftr_panel=ftr_panel,
+                            ftr_panel_manual=backtest,
+                            backtest=backtest,
+                            quantile=None,
+                        )
+                        .drop("quantile")
+                        .with_column(pl.lit(model).alias("model"))
+                    )
+                    metrics_by_model.append(metrics)
+                metrics_by_model = pl.concat(metrics_by_model)
 
-            benchmark_model = (
-                metrics_by_model
-                .groupby("model", maintain_order=True)
-                .agg([pl.col("mae:forecast").sum().round(2).keep_name()])
-                # Select the highest mae (worst model)
-                .sort("mae:forecast", reverse=True)
-                .collect()
-                .get_column("model")[0]
-            )
+                benchmark_model = (
+                    metrics_by_model
+                    .groupby("model", maintain_order=True)
+                    .agg([pl.col("mae:forecast").sum().round(2).keep_name()])
+                    # Select the highest mae (worst model)
+                    .sort("mae:forecast", reverse=True)
+                    .collect()
+                    .get_column("model")[0]
+                )
+            else:
+                benchmark_model = BENCHMARK_MODELS[0]
 
             backtest = (
                 transf_backtests_by_model
