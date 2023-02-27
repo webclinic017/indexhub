@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getChart, getReport, getTable } from "../../../utilities/backend_calls/report";
+import { getChart, getLevelsData, getReport, getTable } from "../../../utilities/backend_calls/report";
 import { useAuth0AccessToken } from "../../../utilities/hooks/auth0"
 import {
   VStack,
@@ -10,14 +10,68 @@ import {
   SliderFilledTrack,
   SliderThumb,
   SliderMark,
-  Container
+  Container,
+  Stack,
+  Box,
+  Heading,
+  FormControl,
+  FormLabel,
+  CircularProgressLabel,
+  CircularProgress,
+  StackDivider,
+  SimpleGrid,
+  Progress,
+  useColorModeValue
 } from "@chakra-ui/react"
-import { createColumnHelper } from "@tanstack/react-table";
-import { DataTable } from "../../../components/table"
 import ReactEcharts from "echarts-for-react"
 import { Report } from "../reports";
-import List from "../../../components/list";
 import { useParams } from "react-router-dom";
+import { Select } from "chakra-react-select";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { colors } from "../../../theme/theme";
+import List from "../../../components/list";
+import { roundToTwoDecimalPlaces } from "../../../utilities/helpers";
+
+const backtest_type_readable_names: any = {
+  "mae": "MAE",
+  "overforecast": "Over-Forecast",
+  "underforecast": "Under-Forecast"
+}
+
+const backtest_type_options = [
+  {
+    value: "mae",
+    label: "MAE"
+  },
+  {
+    value: "overforecast",
+    label: "Over-Forecast"
+  },
+  {
+    value: "underforecast",
+    label: "Under-Forecast"
+  }
+]
+
+const backtest_sort_options = [
+  {
+    value: ":manual",
+    label: "Benchmark"
+  },
+  {
+    value: ":forecast",
+    label: "AI"
+  },
+  {
+    value: "_improvement",
+    label: "Uplift"
+  },
+  {
+    value: "_improvement_%",
+    label: "Uplift %"
+  }
+]
 
 export type chartData = {
     chart_id: string,
@@ -42,13 +96,16 @@ export type forecastRecommendationsTable = {
   title: string
 }
 
-const initFilters = (report_filters: any) => {
-    const filters_init: Record<string, any[]> = {}
-        Object.keys(report_filters).forEach(key => {
-          filters_init[key] = []
-        });
-    filters_init["quantile"] = [0.1]
-    return filters_init
+const initFilters = (report_filters: string[] = []) => {
+  const filters_init: Record<string, any[]> = {}
+  if (report_filters.length > 0){
+    report_filters.forEach((_, idx) => {
+      filters_init[`entity_${idx}`] = []
+    });
+  }
+  
+  filters_init["quantile"] = [0.5]
+  return filters_init
 }
 
 export default function Forecast_Recommendations() {
@@ -60,7 +117,11 @@ export default function Forecast_Recommendations() {
 
     const getTableByTableId = async () => {
       const table_response = await getTable(String(params.id), "forecast_recommendation", access_token_indexhub_api, filters)
+      console.log(table_response.forecast_recommendations)
       setTableData(table_response.forecast_recommendations)
+      const backtests_table_response = await getTable(String(params.id), "backtests", access_token_indexhub_api, filters)
+      console.log(backtests_table_response.backtests)
+      setBacktestsTableData(backtests_table_response.backtests)
     }
 
     const params = useParams();
@@ -69,6 +130,7 @@ export default function Forecast_Recommendations() {
       source_id: "",
       source_name: "",
       entities: {},
+      target_col: "",
       level_cols: [],
       user_id: "",
       chart_id: "",
@@ -79,14 +141,22 @@ export default function Forecast_Recommendations() {
     })
     const [chartData, setChartData] = useState<chartData>({chart_id: "", title : "", chart_type: "", readable_names: {}, chart_data: {}});
     const [tableData, setTableData] = useState<forecastRecommendationsTable>({readable_names: {}, data:[{month_year: "", rpt_forecast_10: "", rpt_forecast_30: "", rpt_forecast_50: "", rpt_forecast_70: "", rpt_forecast_90: ""}], title: ""})
-    const [filters, setFilters] = useState<Record<string, any[]>>({})
+    const [backtestsTableData, setBacktestsTableData] = useState<Record<string, any>>({readable_names: {}, data:[{month_year: "", rpt_forecast_10: "", rpt_forecast_30: "", rpt_forecast_50: "", rpt_forecast_70: "", rpt_forecast_90: ""}], title: ""})
+    const [filters, setFilters] = useState<Record<string, any[]>>(initFilters())
+    const [levelsData, setLevelsData] = useState<Record<string, any>>({})
+    const [backtestType, setBacktestType] = useState("mae")
+    const [backtestSortBy, setBacktestSortBy] = useState(":manual")
     const access_token_indexhub_api = useAuth0AccessToken()
 
     useEffect(() => {
       const getReportByReportId = async () => {
         const reports_response = await getReport("", params.id, access_token_indexhub_api)
         setSelectedReport(reports_response.reports[0])
-        setFilters(initFilters(reports_response.reports[0].entities["forecast_recommendations"]))
+        setFilters(initFilters(reports_response.reports[0].level_cols))
+
+        const levels_data_response = await getLevelsData(params.id, access_token_indexhub_api)
+        console.log(levels_data_response)
+        setLevelsData(levels_data_response.levels_data)
       }
       if (access_token_indexhub_api) {
         getReportByReportId()
@@ -94,12 +164,16 @@ export default function Forecast_Recommendations() {
     }, [access_token_indexhub_api])
 
     useEffect(() => {
+      console.log(levelsData)
+    }, [levelsData])
+
+    useEffect(() => {
       if (access_token_indexhub_api && selectedReport.id){
         const filters_init: Record<string, any[]> = {}
-        Object.keys(selectedReport?.entities["forecast_recommendations"]).forEach(key => {
-          filters_init[key] = []
+        selectedReport?.level_cols.forEach((_, idx) => {
+          filters_init[`entity_${idx}`] = []
         });
-        filters_init["quantile"] = [0.1]
+        filters_init["quantile"] = [0.5]
         setFilters(filters_init)
 
         getChartByChartId()
@@ -132,50 +206,20 @@ export default function Forecast_Recommendations() {
     }
 
     React.useEffect(() => {
+      console.log(filters)
       if (access_token_indexhub_api) {
         getChartByChartId()
         getTableByTableId()
       }
     }, [filters])
-
-    const table_data = tableData?.data
-
-    const columnHelper = createColumnHelper<Forecast_Recommendations_Table>();
-
-    const columns = [
-      columnHelper.accessor("month_year", {
-        cell: (info) => info.getValue(),
-        header: "Month"
-      }),
-      columnHelper.accessor("rpt_forecast_10", {
-        cell: (info) => info.getValue(),
-        header: "AI Forecast (10%)"
-      }),
-      columnHelper.accessor("rpt_forecast_30", {
-        cell: (info) => info.getValue(),
-        header: "AI Forecast (30%)"
-      }),
-      columnHelper.accessor("rpt_forecast_50", {
-        cell: (info) => info.getValue(),
-        header: "AI Forecast (50%)"
-      }),
-      columnHelper.accessor("rpt_forecast_70", {
-        cell: (info) => info.getValue(),
-        header: "AI Forecast (70%)"
-      }),
-      columnHelper.accessor("rpt_forecast_90", {
-        cell: (info) => info.getValue(),
-        header: "AI Forecast (90%)"
-      }),
-    ];
-
+    
     const option = {
         tooltip: {
           trigger: 'axis'
         },
         legend: {
           data: Object.values(chartData.readable_names),
-          left: "2%"
+          right: 2
         },
         grid: {
           left: '0',
@@ -189,7 +233,8 @@ export default function Forecast_Recommendations() {
               yAxisIndex: 'none'
             },
             saveAsImage: {}
-          }
+          },
+          left: 2
         },
         xAxis: {
           type: 'category',
@@ -230,32 +275,52 @@ export default function Forecast_Recommendations() {
         ]
       };
 
+      const rpt_forecast_key = `rpt_forecast_${Math.round(filters["quantile"][0] * 100)}`
+
+      const report_stats = {
+        forecast_horizon: 0,
+        mae_uplift_percentage: [0, 0]
+      }
+      report_stats["forecast_horizon"] = tableData.data.length
+      report_stats["mae_uplift_percentage"] = [backtestsTableData["data"].map((item: any) => item["mae_improvement"]).reduce((prev: number, next: number) => prev + next), (backtestsTableData["data"].map((item: any) => item["mae_improvement_%"]).reduce((prev: number, next: number) => prev + next)) / backtestsTableData["data"].length]
+
+      console.log(report_stats)
+
       if (selectedReport.id != "") {
         return (
           <VStack padding="10px">
             <Text width="90vw" textAlign="left" fontSize="2xl" fontWeight="bold">Forecast Recommendations</Text>
             <VStack>
-              <VStack width="90vw" alignItems="flex-start" padding="4rem 0">
-                <HStack width="100%" justifyContent="flex-start" overflowX="scroll">
-                  {Object.keys(selectedReport?.entities["forecast_recommendations"]).map((entity, idx) => {
-                  return(
-                    <List
-                      data={selectedReport?.entities["forecast_recommendations"][entity]["values"]}
-                      title={`All ${entity}s`}
-                      subtitle={`Choose your preferred ${entity}s you would like to filter with (multiple choices)`}
-                      entity={entity}
-                      state={filters}
-                      stateSetter={updateFilter}
-                      minWidth="25rem"
-                      maxWidth="35rem"
-                      key={idx}></List>
-                  )})}
-                </HStack>
-                <VStack marginTop="4.5rem !important" width="100%" maxWidth="35rem" alignItems="flex-start" paddingInline="20px" padding="unset">
+              <HStack width="90vw" justify="space-between" alignItems="center" pt="1rem">
+                <VStack width="48%" alignItems="flex-start" paddingInline="20px" padding="unset">
+                  <Container margin="1rem 0 4rem" maxWidth="unset">
+                    <SimpleGrid columns={2} gap={{ base: '5', md: '6' }}>
+                      <Box bg="bg-surface" boxShadow={useColorModeValue('sm', 'sm-dark')}>
+                        <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
+                          <Stack>
+                            <Text fontSize="lg" fontWeight="medium">
+                              Total MAE Uplift (%)
+                            </Text>
+                            <Heading color={report_stats.mae_uplift_percentage[0] > 0 ? "indicator.main_green" : "indicator.main_red"} size="lg">{roundToTwoDecimalPlaces(report_stats.mae_uplift_percentage[0])} ({roundToTwoDecimalPlaces(report_stats.mae_uplift_percentage[1])}%)</Heading>
+                          </Stack>
+                        </Box>
+                      </Box>
+                      <Box bg="bg-surface" boxShadow={useColorModeValue('sm', 'sm-dark')}>
+                        <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
+                          <Stack>
+                            <Text fontSize="lg" fontWeight="medium">
+                              Forecast Horizon
+                            </Text>
+                            <Heading size="lg">{report_stats.forecast_horizon}</Heading>
+                          </Stack>
+                        </Box>
+                      </Box>
+                    </SimpleGrid>
+                  </Container>
                   <Text textAlign="left" fontSize="lg" fontWeight="bold">AI Forecast Adjustment:</Text>
                   <Text textAlign="left" fontSize="sm" >Subtitle for the quantile slider here</Text>
                   <Container marginTop="3rem !important" justifyContent="center" alignItems="center" display="flex" height="100%" flexDirection="column" maxWidth="unset">
-                    <Slider defaultValue={0.1} min={0.1} max={0.9} step={0.05} aria-label='slider-ex-6' onChange={(val) => updateFilter("quantile", val, false)}>
+                    <Slider defaultValue={0.5} min={0.1} max={0.9} step={0.05} aria-label='slider-ex-6' onChange={(val) => updateFilter("quantile", val, false)}>
                       <SliderMark value={0.1} {...sliderLabelStyles}>
                         Under
                       </SliderMark>
@@ -282,21 +347,178 @@ export default function Forecast_Recommendations() {
                     </Slider>
                   </Container>
                 </VStack>
+                <HStack width="48%" justifyContent="flex-start" overflowX="scroll">
+                  {Object.keys(levelsData).map((level, idx) => {
+                  return(
+                    <List
+                      data={levelsData[level]}
+                      title={`All ${selectedReport.level_cols[idx]}(s)`}
+                      subtitle={`Choose your preferred ${selectedReport.level_cols[idx]}(s) you would like to filter with (multiple choices)`}
+                      entity={level}
+                      state={filters}
+                      stateSetter={updateFilter}
+                      minWidth="25rem"
+                      key={idx}></List>
+                  )})}
+                </HStack>
+              </HStack>
+
+              <VStack alignItems="flex-start" width="90vw">
+                <Container maxWidth="unset" py={{ base: '16', md: '24' }}>
+                  <Stack spacing={{ base: '12', md: '16' }}>
+                    <Stack spacing={{ base: '4', md: '6' }}>
+                      <Stack spacing={{ base: '4', md: '5' }} textAlign="center" align="center">
+                        <Heading size={{ base: 'sm', md: 'md' }}>AI Forecast</Heading>
+                        <Text fontSize={{ base: 'lg', md: 'xl' }} color="muted" maxW="3xl">
+                          Here&apos;s what the forecast looks like based on the risk metric you have chosen above.
+                        </Text>
+                      </Stack>
+                    </Stack>
+                    <Stack
+                      overflowX="scroll"
+                      direction="row"
+                      spacing={{ base: '8', md: '4' }}
+                      {...({ divider: <StackDivider /> })}
+                    >
+                      {tableData.data.map((item: any, idx) => {
+                        let prev_forecast_value = 0
+                        if (idx > 0){
+                          prev_forecast_value = (tableData.data[idx - 1] as any)[rpt_forecast_key]
+                        }
+                        const current_forecast_value = item[rpt_forecast_key]
+                        return (
+                          <Box
+                          key={idx}
+                          px={{ md: '6' }}
+                          pt={{ base: '4', md: '0' }}
+                        >
+                          <Stack spacing="5">
+                            <Stack spacing="1">
+                              <HStack>
+                                <VStack>
+                                  <Text color="muted" fontSize="lg" fontWeight="medium">
+                                    {item.month_year}
+                                  </Text>
+                                  <Heading size="lg" color={idx > 0 ? (current_forecast_value > prev_forecast_value) ? "indicator.main_green" : "indicator.main_red" : "accent"}>
+                                    {Math.round((current_forecast_value + Number.EPSILON) * 100) / 100}
+                                  </Heading>
+                                </VStack>
+                                <Stack justify="center">
+                                  {idx > 0 ? (
+                                      <HStack ml="1rem">
+                                        <FontAwesomeIcon icon={(current_forecast_value > prev_forecast_value) ? faArrowUp : faArrowDown} color={(current_forecast_value > prev_forecast_value) ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}/>
+                                        <Text color={(current_forecast_value > prev_forecast_value) ? "indicator.main_green" : "indicator.main_red"} fontSize="lg" fontWeight="medium">
+                                          {Math.round((Math.abs((current_forecast_value - prev_forecast_value) / prev_forecast_value * 100) + Number.EPSILON) * 100) / 100}%
+                                        </Text>
+                                      </HStack>
+                                    ) : (
+                                      <></>
+                                    )
+                                  }
+                                </Stack>
+                              </HStack>
+                            </Stack>
+                          </Stack>
+                        </Box>
+                        )
+                      })}
+                    </Stack>
+                  </Stack>
+                </Container>
               </VStack>
 
-              <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">Title for Chart</Text>
-              <Text width="90vw" textAlign="left" fontSize="sm" >Placeholder for a more descriptive subtitle for the chart here</Text>
+              <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">Forecast Prediction</Text>
+              <Text width="90vw" textAlign="left" fontSize="sm" >Actual, Benchmark and AI Forecast over time</Text>
               <ReactEcharts option={option} style={{
-                      height: '35rem',
+                      height: '17.5rem',
                       width: '100%',
                       margin: "2rem 0"
               }}/>
-
             </VStack>
-            <VStack alignItems="flex-start" width="90vw">
-              <Text width="95%" textAlign="left" fontSize="xl" fontWeight="bold">Title for Table</Text>
-              <Text width="95%" textAlign="left" fontSize="sm"  marginBottom="1rem !important">Placeholder for a more descriptive subtitle for the table here</Text>
-              <DataTable columns={columns} data={table_data} />
+            
+            <VStack width="100%" py={{ base: '4', md: '8' }}>
+              <Stack spacing={{ base: '4', md: '5' }} textAlign="center" align="center" mb="3rem">
+                <Heading size={{ base: 'sm', md: 'md' }}>Backtest Result</Heading>
+                <Text fontSize={{ base: 'lg', md: 'xl' }} color="muted" maxW="3xl">
+                  Here&apos;s what the backtest result looks like based on the risk metric you have chosen above.
+                </Text>
+              </Stack>
+              <Stack spacing="5" flex="1" width="full">
+                <VStack>
+                  <HStack width="60%" mb="2rem">
+                    <FormControl isRequired>
+                        <FormLabel><b>Backtest Score</b></FormLabel>
+                        <Select options={backtest_type_options} onChange={(value) => setBacktestType(value ? value.value : "")} useBasicStyles/>
+                    </FormControl>
+                    <FormControl isRequired>
+                        <FormLabel><b>Sort By</b></FormLabel>
+                        <Select options={backtest_sort_options} onChange={(value) => setBacktestSortBy(value ? value.value : "")} useBasicStyles/>
+                    </FormControl>
+                  </HStack>
+                  <Stack spacing="3" width="full">
+                    { backtestsTableData.data.sort((a: any,b: any) => a[`${backtestType}${backtestSortBy}`] - b[`${backtestType}${backtestSortBy}`]).map((item: any, idx: number) =>
+                        item ? (
+                          <Box
+                            key={idx}
+                            bg="lists.bg_grey"
+                            pl="1rem"
+                            boxShadow="sm"
+                            position="relative"
+                            borderRadius="lg"
+                          >
+                            <Stack shouldWrapChildren spacing="4">
+                              <HStack justify="space-around">
+                                <Text width="15%" fontSize="sm" fontWeight="medium" color="emphasized">
+                                  <b>{item["entity_0"]}</b>
+                                </Text>
+                                <VStack width="85%">
+                                  <HStack width="full" justify="flex-start" backgroundColor="lists.bg_light_grey" p="0.5rem 0 0.5rem 1rem" borderTopRightRadius="lg">
+                                    <Text width="20%" fontSize="xs"><b>Action:</b> {item[`${backtestType}_improvement`] > 0 ? "✅ Use AI predictions": "⏸ Use benchmark"}</Text>
+                                    <Text width="40%" fontSize="xs"><b>Explanation:</b> {item[`${backtestType}_improvement`] > 0 ? `AI has higher ${backtest_type_readable_names[backtestType]} then benchmark`: `AI has lower ${backtest_type_readable_names[backtestType]} then benchmark`}</Text>
+                                  </HStack>
+                                  <HStack width="full" justify="center">
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text fontSize="xs" color="subtle" fontWeight="medium">
+                                        {backtest_type_readable_names[backtestType]} (Benchmark)
+                                      </Text>
+                                      <Text fontSize="lg" color="subtle" fontWeight="bold">
+                                        {Math.round((item[`${backtestType}:manual`] + Number.EPSILON) * 100) / 100}
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text fontSize="xs" color="subtle" fontWeight="medium">
+                                        {backtest_type_readable_names[backtestType]} (AI)
+                                      </Text>
+                                      <Text fontSize="lg" color="subtle" fontWeight="bold">
+                                        {Math.round((item[`${backtestType}:forecast`] + Number.EPSILON) * 100) / 100}
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text fontSize="xs" color="subtle" fontWeight="medium">
+                                        {backtest_type_readable_names[backtestType]} (Uplift)
+                                      </Text>
+                                      <Text fontSize="lg" color="subtle" fontWeight="bold">
+                                        {Math.round((item[`${backtestType}_improvement`] + Number.EPSILON) * 100) / 100}
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text fontSize="xs" color="subtle" fontWeight="medium">
+                                        {backtest_type_readable_names[backtestType]} (Uplift %)
+                                      </Text>
+                                      <CircularProgress value={Math.abs(item[`${backtestType}_improvement_%`])} color={item[`${backtestType}_improvement_%`] > 0 ? "indicator.green_2" : "indicator.red_2"}>
+                                        <CircularProgressLabel>{Math.round((item[`${backtestType}_improvement_%`] + Number.EPSILON) * 100) / 100}</CircularProgressLabel>
+                                      </CircularProgress>
+                                    </VStack>
+                                  </HStack>
+                                </VStack>
+                              </HStack>
+                            </Stack>
+                          </Box>
+                        ) : null,
+                      )}
+                  </Stack>
+                </VStack>
+              </Stack>
             </VStack>
           </VStack>
         )

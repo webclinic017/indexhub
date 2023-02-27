@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Button, Divider, Flex, FormControl, FormLabel, Input, InputGroup, InputLeftAddon, Stack } from '@chakra-ui/react'
+import { Box, Button, Divider, Flex, FormControl, FormLabel, Input, InputGroup, InputLeftAddon, Stack, Text } from '@chakra-ui/react'
 
 const SourcePath = (
   props:{
@@ -14,9 +14,10 @@ const SourcePath = (
           <Stack spacing="5" px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
             <FormControl isRequired>
                 <FormLabel>S3 Data Bucket</FormLabel>
-                <InputGroup>
-                  <Input onChange={(e) => props.setS3DataBucket(e.currentTarget.value)} placeholder="Name of the S3 bucket containing your source data" />
-                  <Input onChange={(e) => props.setRawSourcePath(e.currentTarget.value)} placeholder="Path to the source data files in your S3 Bucket" />
+                <InputGroup justifyContent="space-between" alignItems="center">
+                  <Input width="49%" onChange={(e) => props.setS3DataBucket(e.currentTarget.value)} placeholder="Name of the S3 bucket containing your source data" />
+                  <Text fontSize="2xl">/</Text>
+                  <Input width="49%" onChange={(e) => props.setRawSourcePath(e.currentTarget.value)} placeholder="Path to the source data files in your S3 Bucket" />
                 </InputGroup>
             </FormControl>
             <FormControl isRequired>

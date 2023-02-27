@@ -36,6 +36,7 @@ export const colors = {
       main_brown: "#b56321",
       brown_2: "#994c17",
       brown_3: "#7f3808",
+      filter_grey: "#b7b7b7"
     }
   }
 }
@@ -86,6 +87,10 @@ const default_theme = extendTheme({
       error_bg: colors.supplementary.indicators.main_red,
       info_bg: "#2b6cb0",
       subtitle: "#4a5568"
+    },
+    lists: {
+      bg_grey: "#f7fafc",
+      bg_light_grey: "#e4f0f9"
     }
   },
   fonts: {

@@ -115,6 +115,7 @@ export default function SourcesTable() {
       if (selectedLevelCols.length > 0 && selectedTargetCol) {
         const response = await createReportApi(user_details.user_id, selectedSource.name, selectedLevelCols, selectedTargetCol, selectedSource.id, access_token_indexhub_api)
         if (Object.keys(response).includes("report_id")) {
+          Toast(toast, "Generating Report", "Your report is being generated", "info")
           navigate("/reports")
         } else {
           Toast(toast, "Error", response["detail"], "error")

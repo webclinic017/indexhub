@@ -10,9 +10,11 @@ from indexhub.api.background_tasks.populate_report import populate_report_data
 from indexhub.api.db import engine
 from indexhub.api.models.report import Report, Source
 from indexhub.api.check_source import read_source_file
+from indexhub.api.models.data_table import DataTable
 from ydata_profiling import ProfileReport
 import botocore
 import codecs
+import polars as pl
 
 router = APIRouter()
 
@@ -121,7 +123,6 @@ def delete_report(report_id: str):
 def get_source_profiling(source_id: str):
     s3_bucket = None
     s3_path = None
-    source_name = None
     with Session(engine) as session:
         if source_id is None:
             raise HTTPException(status_code=400, detail="source_id is required")
@@ -134,18 +135,50 @@ def get_source_profiling(source_id: str):
                 )
             s3_bucket = source.s3_data_bucket
             s3_path = source.raw_data_path
-            source_name = source.name
 
     try:
         df = read_source_file(s3_bucket=s3_bucket, s3_path=s3_path)
     except botocore.exceptions.ClientError as err:
         raise HTTPException(status_code=400, detail="Invalid S3 path") from err
     
-    profile = ProfileReport(df.to_pandas(), title="Profiling Report")
-    profile.to_file("your_report.html", silent=False)
+    profile = ProfileReport(df.to_pandas(), title="Profiling Report", tsmode=True)
+    profile.to_file("your_report.html")
 
     page = codecs.open("your_report.html", "rb").read()
     return {"data": page}
+
+@router.get("/reports/levels")
+def get_report_levels(report_id: str):
+    with Session(engine) as session:
+        # Throw error if table_id is not provided
+        if report_id is None:
+            raise HTTPException(status_code=400, detail="Report id and tag is required")
+        else:
+            # Get table metadata
+            filter_table_query = (
+                select(DataTable)
+                .where(DataTable.report_id == report_id)
+                .where(DataTable.tag == "backtests")
+            )
+            tables = session.exec(filter_table_query).all()
+
+            # Throw error if table is not found in database
+            if len(tables) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No levels data found for this report_id: {report_id}",
+                )
+            else:
+                # Get path to the parquet file containing relevant analytics values and create df
+                path = tables[0].path
+                df = pl.read_csv(path)
+                df_cols = df.columns
+                levels_data = {}
+                for col in df_cols:
+                    if "entity_" in col:
+                        levels_data[col] = df[col].unique().to_list()
+
+            return {"levels_data": levels_data}
 
 
 @router.websocket("/reports/ws")

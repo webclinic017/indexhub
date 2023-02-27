@@ -31,6 +31,7 @@ export type Report = {
   source_id: string,
   source_name: string,
   entities: Record<string, any>,
+  target_col: string
   level_cols: string[],
   user_id: string,
   chart_id: string,
@@ -101,6 +102,10 @@ export default function Reports() {
       id: "source_name",
       cell: (info) => <Text onClick={() => navigate(`/reports/${info.getValue()[1]}`)} cursor="pointer">{info.getValue()[0]}</Text>,
       header: "Source"
+    }),
+    columnHelper.accessor("target_col", {
+      cell: (info) => info.getValue(),
+      header: "Target"
     }),
     columnHelper.accessor("level_cols", {
       cell: (info) => info.getValue().join(", "),
@@ -179,7 +184,6 @@ export default function Reports() {
                             <Text aria-hidden fontWeight="semibold">
                               / {stat.limit}
                             </Text>
-                            <Box srOnly>out of {stat.limit}</Box>
                           </Stack>
                         </Stack>
                       </Box>

@@ -11,6 +11,7 @@ import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
 import { getSourceColumns, createSource as createSourceApi} from "../../utilities/backend_calls/source";
 import { useSelector } from "react-redux";
 import { AppState } from "../../index";
+import { useNavigate } from "react-router-dom";
 
 
 const steps = [
@@ -43,6 +44,7 @@ export default function NewSource() {
   const access_token_indexhub_api = useAuth0AccessToken()
   
   const toast = useToast()
+  const navigate = useNavigate()
 
   const user_details = useSelector(
     (state: AppState) => state.reducer?.user
@@ -93,6 +95,7 @@ export default function NewSource() {
     const create_source_response = await createSourceApi(user_details.user_id, source_name, raw_source_path, freq, s3_data_bucket, time_col, entity_cols, target_cols, access_token_indexhub_api)
     if (Object.keys(create_source_response).includes("source_id")){
       Toast(toast, "Preprocessing Source", "We will let you know when it's ready to create reports", "info")
+      navigate("/sources")
     } else {
       Toast(toast, "Error", create_source_response["detail"], "error")
     }

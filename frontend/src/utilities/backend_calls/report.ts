@@ -109,3 +109,19 @@ export const getSourceProfilingHtml = async (source_id: string, access_token_ind
   const response_json = await get_report_response.json();
   return response_json
 }
+
+export const getLevelsData = async (report_id = "", access_token_indexhub_api:string) => {
+  const get_levels_data_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/reports/levels?report_id=${report_id}`;
+  
+  const get_levels_data_response = await fetch(get_levels_data_url, {
+    method: "GET",
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+
+  });
+
+  const response_json = await get_levels_data_response.json();
+  return response_json
+}

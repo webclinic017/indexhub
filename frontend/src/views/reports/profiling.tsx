@@ -1,4 +1,4 @@
-import { Box, Container, Text } from "@chakra-ui/react"
+import { Box, Stack, Spinner, Text } from "@chakra-ui/react"
 import React, { useEffect, useState } from "react"
 import { useParams } from "react-router-dom";
 import { getSourceProfilingHtml } from "../../utilities/backend_calls/report";
@@ -25,7 +25,7 @@ const SourceProfiling = () => {
     }, [params.source_id])
 
     return (
-        <Box width="100%" height="100%" as="iframe" srcDoc={profiling_html} ></Box>
+        profiling_html ?  <Box width="100%" height="100%" as="iframe" srcDoc={profiling_html} ></Box> : <Stack alignItems="center" justifyContent="center" height="full"><Spinner/><Text>Loading...</Text></Stack>
     )
 }
 

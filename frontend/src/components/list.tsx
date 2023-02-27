@@ -28,7 +28,7 @@ export default function List ({
 
 }: ListProps){
     return (
-        <VStack width="100%" maxWidth={maxWidth} minWidth={minWidth} height="15rem" alignItems="flex-start" border="1px solid #ecf0f3" padding="1rem">
+        <VStack width="100%" maxWidth={maxWidth} minWidth={minWidth} height="19rem" alignItems="flex-start" border="1px solid #ecf0f3" padding="1rem">
             <Text lineHeight="0.5" fontSize="sm" fontWeight="bold">{title}</Text>
             <Text width="100%" paddingBottom="0.5rem" borderBottom="1px solid #c6c9cc"  fontSize="xs">{subtitle}</Text>
             <TableContainer width="100%" backgroundColor="white" overflowY="scroll">
