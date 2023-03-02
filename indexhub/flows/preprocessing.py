@@ -1,31 +1,24 @@
 import io
-import re
 from datetime import datetime
 from hashlib import md5
 from typing import List, Mapping, Optional
 
 import boto3
 import polars as pl
-from functime.feature_extraction.calendar import (
-    add_calendar_effects,
-    add_holiday_effects,
-)
 from functime.preprocessing import reindex_panel
 from prefect import flow, task
 from pydantic import BaseModel, validator
 from typing_extensions import Literal
 
 from indexhub.flows.forecasting import (
-    DATE_FEATURES,
     MODEL_TO_SETTINGS,
     TEST_SIZE,
-    add_weekend_effects,
+    compute_metrics,
     get_train_test_splits,
+    postproc,
     run_backtest,
     run_forecast,
     transform_boolean_to_int,
-    postproc,
-    compute_metrics,
 )
 
 MIN_TRAIN_SIZE = {"3mo": 9, "1mo": 12, "1w": 18, "1d": 30}
@@ -57,8 +50,6 @@ class PrepareHierarchicalPanelInput(BaseModel):
     target_col: str
     freq: str
     lags: List[int]
-    country_codes: Optional[List[str]] = None
-    dummy_entity_cols: Optional[List[str]] = None
     manual_forecasts_path: Optional[str] = None
     allow_negatives: Optional[bool] = False
 
@@ -185,35 +176,6 @@ def clean_raw_panel(
         .sort(by=[*entity_cols, "time"])
         .collect(streaming=True)
     )
-    return df_new.lazy()
-
-
-@task
-def add_entity_effects(
-    df: pl.LazyFrame, level_cols: List[str], dummy_entity_cols: List[str]
-) -> pl.LazyFrame:
-    expanded_entity = (
-        df.collect()
-        .select("entity")
-        .with_columns(
-            [
-                pl.col("entity")
-                .cast(pl.Utf8)
-                .str.split(":")
-                .arr.get(i)
-                .alias(entity_col)
-                for i, entity_col in enumerate(level_cols)
-            ]
-        )
-    )
-    fixed_effects = pl.get_dummies(expanded_entity.select(dummy_entity_cols)).select(
-        pl.all().cast(pl.Boolean).prefix("is_")
-    )
-    # Replace spaces and semicolons with underscores
-    fixed_effects.columns = [
-        re.sub(r"[\s:]", "_", str(col).lower()) for col in fixed_effects.columns
-    ]
-    df_new = pl.concat([df.collect(), fixed_effects], how="horizontal")
     return df_new.lazy()
 
 
@@ -418,18 +380,8 @@ def prepare_hierarchical_panel(
         .pipe(reindex_panel(freq=inputs.freq, sort=True))
         .rename({inputs.target_col: "target:actual"})
         .fill_null(0)
-        .pipe(add_weekend_effects)
-        .pipe(add_calendar_effects(attrs=DATE_FEATURES[inputs.freq]))
         .pipe(coerce_entity_colname, inputs.level_cols)
     )
-    if inputs.dummy_entity_cols:
-        ftr_panel = ftr_panel.pipe(
-            add_entity_effects, inputs.level_cols, inputs.dummy_entity_cols
-        )
-    if inputs.country_codes:
-        ftr_panel = ftr_panel.pipe(
-            add_holiday_effects(inputs.country_codes, as_bool=True)
-        )
 
     # zero inflated model does not accept boolean cols
     # pyarrow.lib.ArrowInvalid: Zero copy conversions not possible with boolean types
@@ -480,20 +432,20 @@ def prepare_hierarchical_panel(
                 "use_manual_zeros": False,
             }
 
-            transf_backtests_by_model = (
-                postproc(y_preds=backtests_by_model,  ftr_panel_manual=None, ignore_zeros=False, **postproc_kwargs
-                )
+            transf_backtests_by_model = postproc(
+                y_preds=backtests_by_model,
+                ftr_panel_manual=None,
+                ignore_zeros=False,
+                **postproc_kwargs,
             )
 
             # Compute metrics and select the worse model
             if len(BENCHMARK_MODELS) > 1:
                 metrics_by_model = []
                 for model in BENCHMARK_MODELS:
-                    backtest = (
-                        transf_backtests_by_model
-                        .filter(pl.col("model")==model)
-                        .drop("model")
-                    )
+                    backtest = transf_backtests_by_model.filter(
+                        pl.col("model") == model
+                    ).drop("model")
                     metrics = (
                         compute_metrics(
                             ftr_panel=ftr_panel,
@@ -508,8 +460,7 @@ def prepare_hierarchical_panel(
                 metrics_by_model = pl.concat(metrics_by_model)
 
                 benchmark_model = (
-                    metrics_by_model
-                    .groupby("model", maintain_order=True)
+                    metrics_by_model.groupby("model", maintain_order=True)
                     .agg([pl.col("mae:forecast").sum().round(2).keep_name()])
                     # Select the highest mae (worst model)
                     .sort("mae:forecast", reverse=True)
@@ -519,10 +470,8 @@ def prepare_hierarchical_panel(
             else:
                 benchmark_model = BENCHMARK_MODELS[0]
 
-            backtest = (
-                transf_backtests_by_model
-                .filter(pl.col("model")==model)
-                .drop("model")
+            backtest = transf_backtests_by_model.filter(pl.col("model") == model).drop(
+                "model"
             )
 
             fit_kwargs = {
@@ -530,11 +479,14 @@ def prepare_hierarchical_panel(
                 "lags": inputs.lags,
                 **MODEL_TO_SETTINGS[benchmark_model],
             }
-            y_pred = (
-                run_forecast(
-                    ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None
-                )
-                .pipe(lambda df: postproc(y_preds=[df], ftr_panel_manual=None, ignore_zeros=False, **postproc_kwargs)
+            y_pred = run_forecast(
+                ftr_panel=ftr_panel, fit_kwargs=fit_kwargs, quantile=None
+            ).pipe(
+                lambda df: postproc(
+                    y_preds=[df],
+                    ftr_panel_manual=None,
+                    ignore_zeros=False,
+                    **postproc_kwargs,
                 )
             )
             ftr_manual_forecast = pl.concat([backtest, y_pred]).pipe(
