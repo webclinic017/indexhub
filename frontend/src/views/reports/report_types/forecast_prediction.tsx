@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
   getChart,
-  getLevelsData,
   getReport,
   getTable,
 } from "../../../utilities/backend_calls/report";
@@ -26,6 +25,13 @@ import {
   StackDivider,
   SimpleGrid,
   useColorModeValue,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  Button,
+  Image,
 } from "@chakra-ui/react";
 import ReactEcharts from "echarts-for-react";
 import { Report } from "../reports";
@@ -34,8 +40,23 @@ import { Select } from "chakra-react-select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
 import { colors } from "../../../theme/theme";
-import List from "../../../components/list";
-import { roundToTwoDecimalPlaces } from "../../../utilities/helpers";
+import {
+  capitalizeFirstLetter,
+  roundToTwoDecimalPlaces,
+} from "../../../utilities/helpers";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getSearchOptions = (data: Record<any, any>[]) => {
+  const options: Record<any, string>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data.map((item: any) => {
+    options.push({
+      value: item["entity_0"],
+      label: `Territory:${item["entity_0"]}`,
+    });
+  });
+  return options;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const backtest_type_readable_names: any = {
@@ -44,30 +65,7 @@ const backtest_type_readable_names: any = {
   underforecast: "Under-Forecast",
 };
 
-const backtest_type_options = [
-  {
-    value: "mae",
-    label: "MAE",
-  },
-  {
-    value: "overforecast",
-    label: "Over-Forecast",
-  },
-  {
-    value: "underforecast",
-    label: "Under-Forecast",
-  },
-];
-
 const backtest_sort_options = [
-  {
-    value: ":manual",
-    label: "Benchmark",
-  },
-  {
-    value: ":forecast",
-    label: "AI",
-  },
   {
     value: "_improvement",
     label: "Uplift",
@@ -119,9 +117,19 @@ export default function Forecast_Recommendations() {
       String(params.id),
       "forecast_recommendation",
       access_token_indexhub_api,
-      filters
+      { quantile: filters["quantile"] }
     );
     setChartData(chart_response);
+  };
+
+  const getFilteredChartByChartId = async () => {
+    const chart_response = await getChart(
+      String(params.id),
+      "forecast_recommendation",
+      access_token_indexhub_api,
+      filters
+    );
+    setFilteredChartData(chart_response);
   };
 
   const getTableByTableId = async () => {
@@ -131,15 +139,13 @@ export default function Forecast_Recommendations() {
       access_token_indexhub_api,
       filters
     );
-    console.log(table_response.forecast_recommendations);
     setTableData(table_response.forecast_recommendations);
     const backtests_table_response = await getTable(
       String(params.id),
       "backtests",
       access_token_indexhub_api,
-      filters
+      { quantile: filters["quantile"] }
     );
-    console.log(backtests_table_response.backtests);
     setBacktestsTableData(backtests_table_response.backtests);
   };
 
@@ -165,6 +171,14 @@ export default function Forecast_Recommendations() {
     readable_names: {},
     chart_data: {},
   });
+  const [filteredChartData, setFilteredChartData] = useState<chartData>({
+    chart_id: "",
+    title: "",
+    chart_type: "",
+    readable_names: {},
+    chart_data: {},
+  });
+  const [showFilteredChartData, setShowFilteredChartData] = useState(false);
   const [tableData, setTableData] = useState<forecastRecommendationsTable>({
     readable_names: {},
     data: [
@@ -180,7 +194,7 @@ export default function Forecast_Recommendations() {
     title: "",
   });
   const [backtestsTableData, setBacktestsTableData] = useState<
-    Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    Record<string, any>
   >({
     readable_names: {},
     data: [
@@ -194,10 +208,10 @@ export default function Forecast_Recommendations() {
       },
     ],
     title: "",
-  });
+  }); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [filters, setFilters] = useState<Record<string, any[]>>(initFilters()); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [levelsData, setLevelsData] = useState<Record<string, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [backtestType, setBacktestType] = useState("mae");
+  // const [levelsData, setLevelsData] = useState<Record<string, any>>({}) // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [backtestType] = useState("mae");
   const [backtestSortBy, setBacktestSortBy] = useState(":manual");
   const access_token_indexhub_api = useAuth0AccessToken();
 
@@ -211,21 +225,13 @@ export default function Forecast_Recommendations() {
       setSelectedReport(reports_response.reports[0]);
       setFilters(initFilters(reports_response.reports[0].level_cols));
 
-      const levels_data_response = await getLevelsData(
-        params.id,
-        access_token_indexhub_api
-      );
-      console.log(levels_data_response);
-      setLevelsData(levels_data_response.levels_data);
+      // const levels_data_response = await getLevelsData(params.id, access_token_indexhub_api)
+      // setLevelsData(levels_data_response.levels_data)
     };
     if (access_token_indexhub_api) {
       getReportByReportId();
     }
   }, [access_token_indexhub_api]);
-
-  useEffect(() => {
-    console.log(levelsData);
-  }, [levelsData]);
 
   useEffect(() => {
     if (access_token_indexhub_api && selectedReport.id) {
@@ -268,8 +274,8 @@ export default function Forecast_Recommendations() {
   };
 
   React.useEffect(() => {
-    console.log(filters);
     if (access_token_indexhub_api) {
+      getFilteredChartByChartId();
       getChartByChartId();
       getTableByTableId();
     }
@@ -321,64 +327,166 @@ export default function Forecast_Recommendations() {
         type: chartData.chart_type,
         stack: chartData.readable_names.rpt_actual,
         data: chartData.chart_data.rpt_actual,
+        itemStyle: { color: "#194fdc" },
       },
       {
         name: chartData.readable_names.rpt_manual,
         type: chartData.chart_type,
         stack: chartData.readable_names.rpt_manual,
         data: chartData.chart_data.rpt_manual,
+        itemStyle: { color: "#B7B7B7" },
       },
       {
         name: chartData.readable_names.rpt_forecast,
         type: chartData.chart_type,
         stack: chartData.readable_names.rpt_forecast,
         data: chartData.chart_data.rpt_forecast,
+        itemStyle: { color: "#B79320" },
       },
     ],
   };
 
-  const rpt_forecast_key = `rpt_forecast_${Math.round(
-    filters["quantile"][0] * 100
-  )}`;
+  const filtered_chart_option = {
+    tooltip: {
+      trigger: "axis",
+    },
+    legend: {
+      data: Object.values(filteredChartData.readable_names),
+      right: 2,
+    },
+    grid: {
+      left: "0",
+      right: "0",
+      bottom: "3%",
+      containLabel: true,
+    },
+    toolbox: {
+      feature: {
+        dataZoom: {
+          yAxisIndex: "none",
+        },
+        saveAsImage: {},
+      },
+      left: 2,
+    },
+    xAxis: {
+      type: "category",
+      boundaryGap: false,
+      data: filteredChartData.chart_data.time,
+    },
+    yAxis: {
+      type: "value",
+    },
+    dataZoom: [
+      {
+        type: "inside",
+        start: 0,
+      },
+      {
+        start: 0,
+      },
+    ],
+    series: [
+      {
+        name: filteredChartData.readable_names.rpt_actual,
+        type: filteredChartData.chart_type,
+        stack: filteredChartData.readable_names.rpt_actual,
+        data: filteredChartData.chart_data.rpt_actual,
+        itemStyle: { color: "#194fdc" },
+      },
+      {
+        name: filteredChartData.readable_names.rpt_manual,
+        type: filteredChartData.chart_type,
+        stack: filteredChartData.readable_names.rpt_manual,
+        data: filteredChartData.chart_data.rpt_manual,
+        itemStyle: { color: "#B7B7B7" },
+      },
+      {
+        name: filteredChartData.readable_names.rpt_forecast,
+        type: filteredChartData.chart_type,
+        stack: filteredChartData.readable_names.rpt_forecast,
+        data: filteredChartData.chart_data.rpt_forecast,
+        itemStyle: { color: "#B79320" },
+      },
+    ],
+  };
+
+  // const rpt_forecast_key = `rpt_forecast_${Math.round(filters["quantile"][0] * 100)}`
 
   const report_stats = {
     forecast_horizon: 0,
     mae_uplift_percentage: [0, 0],
+    mae_forecast: 0,
+    mae_manual: 0,
   };
   report_stats["forecast_horizon"] = tableData.data.length;
   report_stats["mae_uplift_percentage"] = [
     backtestsTableData["data"]
-      .map((item: any) => item["mae_improvement"]) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .map((item: any) => item["mae_improvement"])
       .reduce((prev: number, next: number) => prev + next),
     backtestsTableData["data"]
-      .map((item: any) => item["mae_improvement_%"]) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .map((item: any) => item["mae_improvement_%"])
       .reduce((prev: number, next: number) => prev + next) /
       backtestsTableData["data"].length,
-  ];
-
-  console.log(report_stats);
+  ]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  report_stats["mae_forecast"] = backtestsTableData["data"]
+    .map((item: any) => item["mae:forecast"])
+    .reduce((prev: number, next: number) => prev + next); // eslint-disable-line @typescript-eslint/no-explicit-any
+  report_stats["mae_manual"] = backtestsTableData["data"]
+    .map((item: any) => item["mae:manual"])
+    .reduce((prev: number, next: number) => prev + next); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   if (selectedReport.id != "") {
     return (
       <VStack padding="10px">
-        <Text width="90vw" textAlign="left" fontSize="2xl" fontWeight="bold">
-          Forecast Recommendations
-        </Text>
-        <VStack>
-          <HStack
-            width="90vw"
-            justify="space-between"
-            alignItems="center"
-            pt="1rem"
-          >
-            <VStack
-              width="48%"
-              alignItems="flex-start"
-              paddingInline="20px"
-              padding="unset"
-            >
-              <Container margin="1rem 0 4rem" maxWidth="unset">
-                <SimpleGrid columns={2} gap={{ base: "5", md: "6" }}>
+        {/* THIS IS THE NEWER VERSION OF REPORTS */}
+
+        <VStack width="100%">
+          <Text fontSize="3xl" width="100%" fontWeight="bold">
+            Forecast Recommendation
+          </Text>
+          <HStack width="100%" justify="left">
+            <Button colorScheme="facebook">Export to PDF</Button>
+            <Button colorScheme="facebook">Export to Excel</Button>
+          </HStack>
+          <HStack width="100%">
+            <VStack width="100%" alignItems="left">
+              <Text fontSize="lg" fontWeight="bold">
+                Recommendation:
+              </Text>
+              <Text>
+                Using the AI forecasts is predicted to have an overall
+                improvement of{" "}
+                <b>
+                  {roundToTwoDecimalPlaces(
+                    report_stats["mae_uplift_percentage"][1]
+                  )}
+                  %
+                </b>{" "}
+                across {backtestsTableData.data.length}{" "}
+                {selectedReport.level_cols[0]}. AI forecasts outperform the
+                manual forecasts by a <b>significant</b> margin for{" "}
+                <b>
+                  3 out of {backtestsTableData.data.length}{" "}
+                  {selectedReport.level_cols[0]}
+                </b>
+                . The manual forecasts have an overall forecast error (MAE) of{" "}
+                <b>{roundToTwoDecimalPlaces(report_stats["mae_manual"])}</b>{" "}
+                while the AI forecasts have a lower forecast error (MAE) of{" "}
+                <b>{roundToTwoDecimalPlaces(report_stats["mae_forecast"])}</b>{" "}
+                for {backtestsTableData.data.length}{" "}
+                {selectedReport.level_cols[0]}. The top 5{" "}
+                {selectedReport.level_cols[0]} to investigate are
+                Tasmania(28.63% predicted uplift), Queensland(25.03% predicted
+                uplift), Canberra(19.4% predicted uplift), West Australia(13.1%
+                predicted uplift), Victoria(10.4% predicted uplift).
+              </Text>
+            </VStack>
+          </HStack>
+          <HStack width="100%" alignItems="flex-start">
+            <VStack width="60%">
+              <Container margin="1rem 0" maxWidth="unset">
+                <SimpleGrid columns={3} gap={{ base: "5", md: "6" }}>
                   <Box
                     bg="bg-surface"
                     boxShadow={useColorModeValue("sm", "sm-dark")}
@@ -392,12 +500,12 @@ export default function Forecast_Recommendations() {
                           Total MAE Uplift (%)
                         </Text>
                         <Heading
+                          size="md"
                           color={
                             report_stats.mae_uplift_percentage[0] > 0
                               ? "indicator.main_green"
                               : "indicator.main_red"
                           }
-                          size="lg"
                         >
                           {roundToTwoDecimalPlaces(
                             report_stats.mae_uplift_percentage[0]
@@ -423,258 +531,158 @@ export default function Forecast_Recommendations() {
                         <Text fontSize="lg" fontWeight="medium">
                           Forecast Horizon
                         </Text>
-                        <Heading size="lg">
+                        <Heading size="md">
                           {report_stats.forecast_horizon}
                         </Heading>
                       </Stack>
                     </Box>
                   </Box>
+                  <Box
+                    bg="bg-surface"
+                    boxShadow={useColorModeValue("sm", "sm-dark")}
+                  >
+                    <Box
+                      px={{ base: "4", md: "6" }}
+                      py={{ base: "5", md: "6" }}
+                    >
+                      <Stack>
+                        <Text fontSize="lg" fontWeight="medium">
+                          Frequency
+                        </Text>
+                        <Heading size="md">Monthly</Heading>
+                      </Stack>
+                    </Box>
+                  </Box>
                 </SimpleGrid>
               </Container>
-              <Text textAlign="left" fontSize="lg" fontWeight="bold">
-                AI Forecast Adjustment:
-              </Text>
-              <Text textAlign="left" fontSize="sm">
-                Subtitle for the quantile slider here
-              </Text>
-              <Container
-                marginTop="3rem !important"
-                justifyContent="center"
-                alignItems="center"
-                display="flex"
-                height="100%"
-                flexDirection="column"
-                maxWidth="unset"
-              >
-                <Slider
-                  defaultValue={0.5}
-                  min={0.1}
-                  max={0.9}
-                  step={0.05}
-                  aria-label="slider-ex-6"
-                  onChange={(val) => updateFilter("quantile", val, false)}
+              <VStack width="100%" alignItems="left">
+                <Text fontSize="lg" fontWeight="bold">
+                  AI Forecast Adjustment:
+                </Text>
+                <Text fontSize="sm">
+                  The AI Forecast provides{" "}
+                  {filters["quantile"][0] == 0.5
+                    ? "balanced"
+                    : filters["quantile"][0] > 0.5
+                    ? "over"
+                    : "under"}{" "}
+                  forecasts where forecast values are predicted to be higher
+                  than the actual values{" "}
+                  {roundToTwoDecimalPlaces(filters["quantile"][0] * 100)}% of
+                  the time.
+                </Text>
+                <Container
+                  marginTop="3rem !important"
+                  justifyContent="center"
+                  alignItems="center"
+                  display="flex"
+                  height="100%"
+                  flexDirection="column"
+                  maxWidth="unset"
                 >
-                  <SliderMark value={0.1} {...sliderLabelStyles}>
-                    Under
-                  </SliderMark>
-                  <SliderMark value={0.5} {...sliderLabelStyles}>
-                    Balanced
-                  </SliderMark>
-                  <SliderMark value={0.9} {...sliderLabelStyles}>
-                    Over
-                  </SliderMark>
-                  <SliderMark
-                    value={filters["quantile"][0]}
-                    textAlign="center"
-                    color={
-                      filters["quantile"][0] < 0.5
-                        ? "indicator.main_red"
-                        : "indicator.main_green"
-                    }
-                    mt="-10"
-                    ml="-5"
-                    w="12"
+                  <Slider
+                    defaultValue={0.5}
+                    min={0.1}
+                    max={0.9}
+                    step={0.05}
+                    aria-label="slider-ex-6"
+                    onChange={(val) => updateFilter("quantile", val, false)}
                   >
-                    {Math.floor(((filters["quantile"][0] - 0.5) / 0.4) * 100)}%
-                  </SliderMark>
-                  <SliderTrack backgroundColor="indicator.main_green">
-                    <SliderFilledTrack backgroundColor="indicator.main_red" />
-                  </SliderTrack>
-                  <SliderThumb />
-                </Slider>
-              </Container>
-            </VStack>
-            <HStack width="48%" justifyContent="flex-start" overflowX="scroll">
-              {Object.keys(levelsData).map((level, idx) => {
-                return (
-                  <List
-                    data={levelsData[level]}
-                    title={`All ${selectedReport.level_cols[idx]}(s)`}
-                    subtitle={`Choose your preferred ${selectedReport.level_cols[idx]}(s) you would like to filter with (multiple choices)`}
-                    entity={level}
-                    state={filters}
-                    stateSetter={updateFilter}
-                    minWidth="25rem"
-                    key={idx}
-                  ></List>
-                );
-              })}
-            </HStack>
-          </HStack>
-
-          <VStack alignItems="flex-start" width="90vw">
-            <Container maxWidth="unset" py={{ base: "16", md: "24" }}>
-              <Stack spacing={{ base: "12", md: "16" }}>
-                <Stack spacing={{ base: "4", md: "6" }}>
-                  <Stack
-                    spacing={{ base: "4", md: "5" }}
-                    textAlign="center"
-                    align="center"
-                  >
-                    <Heading size={{ base: "sm", md: "md" }}>
-                      AI Forecast
-                    </Heading>
-                    <Text
-                      fontSize={{ base: "lg", md: "xl" }}
-                      color="muted"
-                      maxW="3xl"
+                    <SliderMark value={0.1} {...sliderLabelStyles}>
+                      Under
+                    </SliderMark>
+                    <SliderMark value={0.5} {...sliderLabelStyles}>
+                      Balanced
+                    </SliderMark>
+                    <SliderMark value={0.9} {...sliderLabelStyles}>
+                      Over
+                    </SliderMark>
+                    <SliderMark
+                      value={filters["quantile"][0]}
+                      textAlign="center"
+                      color={
+                        filters["quantile"][0] < 0.5
+                          ? "indicator.main_blue"
+                          : "indicator.main_green"
+                      }
+                      mt="-10"
+                      ml="-5"
+                      w="12"
                     >
-                      Here&apos;s what the forecast looks like based on the risk
-                      metric you have chosen above.
+                      {Math.floor(((filters["quantile"][0] - 0.5) / 0.4) * 100)}
+                      %
+                    </SliderMark>
+                    <SliderTrack backgroundColor="indicator.main_green">
+                      <SliderFilledTrack backgroundColor="indicator.main_blue" />
+                    </SliderTrack>
+                    <SliderThumb />
+                  </Slider>
+                </Container>
+              </VStack>
+              <ReactEcharts
+                option={option}
+                style={{
+                  height: "17.5rem",
+                  width: "100%",
+                  margin: "6rem 0 2rem",
+                }}
+              />
+
+              <FormControl>
+                <FormLabel textAlign="left">
+                  <b>Search</b>
+                </FormLabel>
+                <Select
+                  options={getSearchOptions(backtestsTableData.data)}
+                  onChange={(value) => {
+                    if (value) {
+                      updateFilter("entity_0", value.value, false);
+                      setShowFilteredChartData(true);
+                    }
+                  }}
+                  useBasicStyles
+                />
+              </FormControl>
+              <VStack
+                justify="center"
+                height="30rem"
+                width="100%"
+                backgroundColor="#f7fafc"
+                borderRadius="8px"
+                p="1rem"
+              >
+                {showFilteredChartData ? (
+                  <>
+                    <ReactEcharts
+                      option={filtered_chart_option}
+                      style={{
+                        height: "17.5rem",
+                        width: "100%",
+                        margin: "2rem 0",
+                      }}
+                    />
+                    <Text>
+                      Territory:{filters["entity_0"][0]} is trending upwards
+                      since 2022/09/01 and is expected to increase by 20.12% for
+                      the next 8 Months. Significant variability of manual
+                      forecast is observed on 2021/01/01 where the forecast
+                      error is -606%. Backtests using AI forecast exhibits
+                      28.63% improvement over benchmarks.
                     </Text>
-                  </Stack>
-                </Stack>
-                <Stack
-                  overflowX="scroll"
-                  direction="row"
-                  spacing={{ base: "8", md: "4" }}
-                  {...{ divider: <StackDivider /> }}
+                  </>
+                ) : (
+                  <Text>Explore AI backtests and forecasts by entity</Text>
+                )}
+              </VStack>
+            </VStack>
+
+            <VStack width="40%" px="4">
+              <Box bg="bg-surface" py="4">
+                <FormControl
+                  borderBottom="1px solid #c6c9cc"
+                  pb="1rem"
+                  mb="1rem"
                 >
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {tableData.data.map((item: any, idx) => {
-                    let prev_forecast_value = 0;
-                    if (idx > 0) {
-                      prev_forecast_value = (tableData.data[idx - 1] as any)[ // eslint-disable-line @typescript-eslint/no-explicit-any
-                        rpt_forecast_key
-                      ];
-                    }
-                    const current_forecast_value = item[rpt_forecast_key];
-                    return (
-                      <Box
-                        key={idx}
-                        px={{ md: "6" }}
-                        pt={{ base: "4", md: "0" }}
-                      >
-                        <Stack spacing="5">
-                          <Stack spacing="1">
-                            <HStack>
-                              <VStack>
-                                <Text
-                                  color="muted"
-                                  fontSize="lg"
-                                  fontWeight="medium"
-                                >
-                                  {item.month_year}
-                                </Text>
-                                <Heading
-                                  size="lg"
-                                  color={
-                                    idx > 0
-                                      ? current_forecast_value >
-                                        prev_forecast_value
-                                        ? "indicator.main_green"
-                                        : "indicator.main_red"
-                                      : "accent"
-                                  }
-                                >
-                                  {Math.round(
-                                    (current_forecast_value + Number.EPSILON) *
-                                      100
-                                  ) / 100}
-                                </Heading>
-                              </VStack>
-                              <Stack justify="center">
-                                {idx > 0 ? (
-                                  <HStack ml="1rem">
-                                    <FontAwesomeIcon
-                                      icon={
-                                        current_forecast_value >
-                                        prev_forecast_value
-                                          ? faArrowUp
-                                          : faArrowDown
-                                      }
-                                      color={
-                                        current_forecast_value >
-                                        prev_forecast_value
-                                          ? colors.supplementary.indicators
-                                              .main_green
-                                          : colors.supplementary.indicators
-                                              .main_red
-                                      }
-                                    />
-                                    <Text
-                                      color={
-                                        current_forecast_value >
-                                        prev_forecast_value
-                                          ? "indicator.main_green"
-                                          : "indicator.main_red"
-                                      }
-                                      fontSize="lg"
-                                      fontWeight="medium"
-                                    >
-                                      {Math.round(
-                                        (Math.abs(
-                                          ((current_forecast_value -
-                                            prev_forecast_value) /
-                                            prev_forecast_value) *
-                                            100
-                                        ) +
-                                          Number.EPSILON) *
-                                          100
-                                      ) / 100}
-                                      %
-                                    </Text>
-                                  </HStack>
-                                ) : (
-                                  <></>
-                                )}
-                              </Stack>
-                            </HStack>
-                          </Stack>
-                        </Stack>
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              </Stack>
-            </Container>
-          </VStack>
-
-          <Text width="90vw" textAlign="left" fontSize="xl" fontWeight="bold">
-            Forecast Prediction
-          </Text>
-          <Text width="90vw" textAlign="left" fontSize="sm">
-            Actual, Benchmark and AI Forecast over time
-          </Text>
-          <ReactEcharts
-            option={option}
-            style={{
-              height: "17.5rem",
-              width: "100%",
-              margin: "2rem 0",
-            }}
-          />
-        </VStack>
-
-        <VStack width="100%" py={{ base: "4", md: "8" }}>
-          <Stack
-            spacing={{ base: "4", md: "5" }}
-            textAlign="center"
-            align="center"
-            mb="3rem"
-          >
-            <Heading size={{ base: "sm", md: "md" }}>Backtest Result</Heading>
-            <Text fontSize={{ base: "lg", md: "xl" }} color="muted" maxW="3xl">
-              Here&apos;s what the backtest result looks like based on the risk
-              metric you have chosen above.
-            </Text>
-          </Stack>
-          <Stack spacing="5" flex="1" width="full">
-            <VStack>
-              <HStack width="60%" mb="2rem">
-                <FormControl isRequired>
-                  <FormLabel>
-                    <b>Backtest Score</b>
-                  </FormLabel>
-                  <Select
-                    options={backtest_type_options}
-                    onChange={(value) =>
-                      setBacktestType(value ? value.value : "")
-                    }
-                    useBasicStyles
-                  />
-                </FormControl>
-                <FormControl isRequired>
                   <FormLabel>
                     <b>Sort By</b>
                   </FormLabel>
@@ -686,19 +694,145 @@ export default function Forecast_Recommendations() {
                     useBasicStyles
                   />
                 </FormControl>
-              </HStack>
-              <Stack spacing="3" width="full">
-                {backtestsTableData.data
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .sort((a: any, b: any) => {
-                    a[`${backtestType}${backtestSortBy}`] -
-                      b[`${backtestType}${backtestSortBy}`];
-                  })
-                  .map(
-                    (
-                      item: any, // eslint-disable-line @typescript-eslint/no-explicit-any
-                      idx: number
-                    ) =>
+                <Stack divider={<StackDivider />} spacing="4">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {backtestsTableData.data
+                    .sort(
+                      (a: any, b: any) =>
+                        b[`${backtestType}${backtestSortBy}`] -
+                        a[`${backtestType}${backtestSortBy}`]
+                    )
+                    ?.map((item: any) => (
+                      <Stack key={item["entity_0"]} fontSize="sm" spacing="0.5">
+                        <HStack justify="space-between">
+                          <Text fontWeight="bold" color="emphasized">
+                            {`${capitalizeFirstLetter(
+                              selectedReport.level_cols[0]
+                            )}:${item["entity_0"]}`}
+                          </Text>
+                          <HStack>
+                            <FontAwesomeIcon
+                              icon={
+                                item["mae_improvement_%"] < 0
+                                  ? faArrowDown
+                                  : faArrowUp
+                              }
+                              color={
+                                item["mae_improvement_%"] < 0
+                                  ? colors.supplementary.indicators.main_red
+                                  : colors.supplementary.indicators.main_green
+                              }
+                            />
+                            <Text
+                              color={
+                                item["mae_improvement_%"] < 0
+                                  ? "indicator.main_red"
+                                  : "indicator.main_green"
+                              }
+                              fontWeight="bold"
+                            >
+                              {roundToTwoDecimalPlaces(
+                                item["mae_improvement_%"]
+                              )}{" "}
+                              %
+                            </Text>
+                          </HStack>
+                        </HStack>
+                        <Text
+                          color="muted"
+                          sx={{
+                            "-webkit-box-orient": "vertical",
+                            "-webkit-line-clamp": "2",
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                          }}
+                        >
+                          Trending{" "}
+                          {item["mae_improvement_%"] == 0
+                            ? "flat"
+                            : item["mae_improvement_%"] > 0
+                            ? "upwards"
+                            : "downwards"}{" "}
+                          for the next {report_stats["forecast_horizon"]}{" "}
+                          Months. AI Backtests are{" "}
+                          {roundToTwoDecimalPlaces(item["mae_improvement_%"])}%
+                          better than benchmarks.
+                        </Text>
+                      </Stack>
+                    ))}
+                </Stack>
+              </Box>
+              <VStack alignItems="left" width="100%">
+                <Text fontWeight="bold" fontSize="2xl">
+                  Feature Importance
+                </Text>
+                <Text>Features that influences the forecast of tourism:</Text>
+                <Text>1. Consumer Confidence Index (UK)</Text>
+                <Text>2. Gross Domestic Product (NZ)</Text>
+                <Text>3. Gross Domestic Product (UK)</Text>
+                <Text>4. Gross Domestic Product (India)</Text>
+                <Text>5. Business Confidence Index (NZ)</Text>
+                <Text>
+                  The CCI (UK) is the leading feature in predicting the number
+                  of tourists in Australia followed closely by GDP
+                  (NZ/UK/India). This suggests that tourism in Australia may be
+                  heavily influenced by economic factors in these regions.
+                </Text>
+                <Image
+                  height="30rem"
+                  width="30rem"
+                  src="/reports/barplot.png"
+                />
+                <Text>
+                  Features where low values have negative contribution to
+                  tourism forecasting:
+                </Text>
+                <Text>1. CCI (UK)</Text>
+                <Text>2. GDP (India)</Text>
+
+                <Text>
+                  Features where high values have positive contribution to
+                  tourism forecasting:
+                </Text>
+                <Text>1. GDP (NZ)</Text>
+                <Text>2. GDP (UK)</Text>
+                <Text>3. BCI (NZ)</Text>
+                <Text>
+                  The high values (red) of CCI (UK) have a very high negative
+                  contribution to the forecast of tourism while the low values
+                  (green) have very high positive contribution. On the other
+                  hand, the low values of GDP (NZ) have high negative
+                  contribution while the high values have very high positive
+                  contribution.{" "}
+                </Text>
+                <Image
+                  height="30rem"
+                  width="30rem"
+                  src="/reports/beeswarm.png"
+                />
+              </VStack>
+            </VStack>
+          </HStack>
+          <Accordion width="100%" allowToggle>
+            <AccordionItem>
+              <h2>
+                <AccordionButton>
+                  <Box as="span" flex="1" textAlign="left">
+                    Backtest Result
+                  </Box>
+                  <AccordionIcon />
+                </AccordionButton>
+              </h2>
+              <AccordionPanel pb={4}>
+                <Stack spacing="3" width="full">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {backtestsTableData.data
+                    .sort(
+                      (a: any, b: any) =>
+                        b[`${backtestType}${backtestSortBy}`] -
+                        a[`${backtestType}${backtestSortBy}`]
+                    )
+                    .map((item: any, idx: number) =>
                       item ? (
                         <Box
                           key={idx}
@@ -856,11 +990,13 @@ export default function Forecast_Recommendations() {
                           </Stack>
                         </Box>
                       ) : null
-                  )}
-              </Stack>
-            </VStack>
-          </Stack>
+                    )}
+                </Stack>
+              </AccordionPanel>
+            </AccordionItem>
+          </Accordion>
         </VStack>
+        {/* THIS IS THE NEWER VERSION OF REPORTS */}
       </VStack>
     );
   } else {

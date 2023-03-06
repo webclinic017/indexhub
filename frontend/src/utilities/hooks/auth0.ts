@@ -12,8 +12,8 @@ export const useAuth0AccessToken = () => {
           audience: process.env.REACT_APP_INDEXHUB_API_AUDIENCE!, // eslint-disable-line @typescript-eslint/no-non-null-assertion
         });
         setAuth0AccessToken(access_token);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
-        // eslint-disable-line @typescript-eslint/no-explicit-any
         console.log(e.message);
       }
     };

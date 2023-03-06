@@ -59,6 +59,7 @@ const default_theme = extendTheme({
       header: colors.primary.brand_colors.not_black_black,
     },
     indicator: {
+      main_blue: colors.primary.brand_colors.main_blue,
       main_green: colors.supplementary.indicators.main_green,
       light_green: colors.supplementary.indicators.light_green,
       green_2: colors.supplementary.indicators.green_2,

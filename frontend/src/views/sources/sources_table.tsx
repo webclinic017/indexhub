@@ -237,8 +237,8 @@ export default function SourcesTable() {
       },
     }),
     columnHelper.accessor(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (row: any) => [
-        // eslint-disable-line @typescript-eslint/no-explicit-any
         row.id,
         row.name,
         row.entity_cols,
