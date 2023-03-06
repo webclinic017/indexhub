@@ -7,7 +7,7 @@ import boto3
 import polars as pl
 from functime.preprocessing import reindex_panel
 from prefect import flow, task
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 from typing_extensions import Literal
 
 
@@ -16,16 +16,15 @@ class PreprocessPanelInput(BaseModel):
     time_col: str
     entity_cols: List[str]
     freq: str
-    raw_data_path: str
     source_id: str
-    manual_forecast_path: Optional[str] = None
-    filters: Optional[Mapping[str, List[str]]] = None
+    raw_panel_path: str
+    raw_manual_path: Optional[str] = None
 
 
 class PreprocessPanelOutput(BaseModel):
+    metadata: Mapping[str, str]
     actual: str
     manual: Optional[str] = None
-    metadata: Mapping[str, str]
 
 
 def infer_dt_format(dt: str):
@@ -105,13 +104,7 @@ def clean_raw_panel(
     df: pl.LazyFrame,
     time_col: str,
     entity_cols: List[str],
-    filters: Optional[Mapping[str, List[str]]] = None,
 ) -> pl.LazyFrame:
-
-    # Filter rows
-    if filters is not None:
-        for col, values in filters.items():
-            df = df.filter(~pl.col(col).is_in(values))
 
     # Infer datetime format by using the first value
     fmt = infer_dt_format(str(df.collect().select([time_col])[0, 0]))
@@ -161,31 +154,24 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
     s3_bucket = inputs.s3_bucket
     time_col = inputs.time_col
     entity_cols = inputs.entity_cols
-    filters = inputs.filters
-    raw_data_path = inputs.raw_data_path
-    manual_forecast_path = inputs.manual_forecast_path
+    raw_panel_path = inputs.raw_panel_path
+    raw_manual_path = inputs.raw_manual_path
 
     try:
         # Load clean raw actual data
-        raw_panel = load_raw_panel(s3_bucket, raw_data_path, time_col, entity_cols)
-        fct_panel = raw_panel.pipe(clean_raw_panel, time_col, entity_cols, filters)
-        fct_panel_path = export_fct_panel(fct_panel, s3_bucket, raw_data_path)
+        raw_panel = load_raw_panel(s3_bucket, raw_panel_path, time_col, entity_cols)
+        fct_panel = raw_panel.pipe(clean_raw_panel, time_col, entity_cols)
+        fct_panel_path = export_fct_panel(fct_panel, s3_bucket, raw_panel_path)
         # Compute fct_panel metadata
         start_date = fct_panel.collect().select(pl.min("time"))[0, 0]
         end_date = fct_panel.collect().select(pl.max("time"))[0, 0]
 
         fct_manual_path = None
-        if manual_forecast_path is not None:
+        if raw_manual_path is not None:
             # Load clean manual forecast
-            raw_manual = load_raw_panel(
-                s3_bucket, manual_forecast_path, time_col, entity_cols
-            )
-            fct_manual = raw_manual.pipe(
-                clean_raw_panel, time_col, entity_cols, filters
-            )
-            fct_manual_path = export_fct_panel(
-                fct_manual, s3_bucket, raw_data_path, suffix="manual"
-            )
+            raw_manual = load_raw_panel(s3_bucket, raw_manual_path, time_col, entity_cols)
+            fct_manual = raw_manual.pipe(clean_raw_panel, time_col, entity_cols)
+            fct_manual_path = export_fct_panel(fct_manual, s3_bucket, raw_manual_path, suffix="manual")
 
         metadata = {
             "source_id": inputs.source_id,
@@ -214,23 +200,12 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
 class PrepareHierarchicalPanelInput(BaseModel):
     s3_bucket: str
     level_cols: List[str]
-    agg_method: Literal["sum", "mean"]
-    fct_panel_path: str
     target_col: str
     freq: str
-    lags: List[int]
-    manual_forecast_path: Optional[str] = None
+    agg_method: Literal["sum", "mean"]
+    fct_panel_path: str
+    fct_manual_path: Optional[str] = None
     allow_negatives: Optional[bool] = False
-
-    @validator("manual_forecast_path")
-    def check_manual_forecast_path(cls, v):
-        # Return None if empty string
-        return v or None
-
-    @validator("allow_negatives")
-    def check_allow_negatives(cls, v):
-        # Return False if empty string
-        return v or False
 
 
 class PrepareHierarchicalPanelOutput(BaseModel):
@@ -345,18 +320,18 @@ def prepare_hierarchical_panel(
         ftr_panel, inputs.s3_bucket, inputs.fct_panel_path
     )
     # Preprocess manual forecast
-    ftr_manual_forecast_path = None
-    if inputs.manual_forecast_path is not None:
-        fct_manual_forecast = load_fct_panel(s3_bucket, inputs.manual_forecast_path)
-        ftr_manual_forecast = fct_manual_forecast.pipe(
+    ftr_manual_path = None
+    if inputs.ftr_manual_path is not None:
+        fct_manual = load_fct_panel(s3_bucket, inputs.fct_manual_path)
+        ftr_manual = fct_manual.pipe(
             prepare_fct_panel, **preproc_kwargs, label="manual"
         )
-        ftr_manual_forecast_path = export_ftr_panel(
-            ftr_manual_forecast,
+        ftr_manual_path = export_ftr_panel(
+            ftr_manual,
             inputs.s3_bucket,
             inputs.fct_panel_path,
             suffix="manual",
         )
     # Return paths to exported data
-    paths = {"actual": ftr_panel_path, "manual": ftr_manual_forecast_path}
+    paths = {"actual": ftr_panel_path, "manual": ftr_manual_path}
     return paths
