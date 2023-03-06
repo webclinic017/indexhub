@@ -1,52 +1,61 @@
-import { Dispatch, SetStateAction, useCallback, useMemo, useState } from 'react'
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 interface Helpers {
-  goToNextStep: () => void
-  goToPrevStep: () => void
-  reset: () => void
-  canGoToNextStep: boolean
-  canGoToPrevStep: boolean
-  setStep: Dispatch<SetStateAction<number>>
+  goToNextStep: () => void;
+  goToPrevStep: () => void;
+  reset: () => void;
+  canGoToNextStep: boolean;
+  canGoToPrevStep: boolean;
+  setStep: Dispatch<SetStateAction<number>>;
 }
 
 interface UseStepProps {
-  maxStep: number
-  initialStep?: number
+  maxStep: number;
+  initialStep?: number;
 }
 
 export const useStep = (props: UseStepProps): [number, Helpers] => {
-  const { maxStep, initialStep = 0 } = props
-  const [currentStep, setCurrentStep] = useState(initialStep)
-  const canGoToNextStep = useMemo(() => currentStep + 1 <= maxStep, [currentStep, maxStep])
-  const canGoToPrevStep = useMemo(() => currentStep - 1 >= 0, [currentStep])
+  const { maxStep, initialStep = 0 } = props;
+  const [currentStep, setCurrentStep] = useState(initialStep);
+  const canGoToNextStep = useMemo(
+    () => currentStep + 1 <= maxStep,
+    [currentStep, maxStep]
+  );
+  const canGoToPrevStep = useMemo(() => currentStep - 1 >= 0, [currentStep]);
 
   const setStep = useCallback(
     (step: unknown) => {
-      const newStep = step instanceof Function ? step(currentStep) : step
+      const newStep = step instanceof Function ? step(currentStep) : step;
       if (newStep >= 0 && newStep <= maxStep) {
-        setCurrentStep(newStep)
-        return
+        setCurrentStep(newStep);
+        return;
       }
-      throw new Error('Step not valid')
+      throw new Error("Step not valid");
     },
-    [maxStep, currentStep],
-  )
+    [maxStep, currentStep]
+  );
 
   const goToNextStep = useCallback(() => {
     if (canGoToNextStep) {
-      setCurrentStep((step: any) => step + 1)
+      setCurrentStep((step: number) => step + 1);
     }
-  }, [canGoToNextStep])
+  }, [canGoToNextStep]);
 
   const goToPrevStep = useCallback(() => {
     if (canGoToPrevStep) {
-      setCurrentStep((step: any) => step - 1)
+      setCurrentStep((step: number) => step - 1);
     }
-  }, [canGoToPrevStep])
+  }, [canGoToPrevStep]);
 
   const reset = useCallback(() => {
-    setCurrentStep(0)
-  }, [])
+    setCurrentStep(0);
+  }, []);
 
   return [
     currentStep,
@@ -58,5 +67,5 @@ export const useStep = (props: UseStepProps): [number, Helpers] => {
       setStep,
       reset,
     },
-  ]
-}
+  ];
+};

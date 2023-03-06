@@ -1,11 +1,11 @@
 import json
 from datetime import datetime
 
-from sqlmodel import Session
-
 from indexhub.api.models.chart import Chart
 from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.report import Report
+from sqlmodel import Session
+
 
 async def populate_forecast_recommendations_data(report: Report, session: Session):
     # Populate chart related data

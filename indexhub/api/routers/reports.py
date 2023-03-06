@@ -1,20 +1,19 @@
+import codecs
 import json
 from datetime import datetime
 from typing import List, Optional
 
+import botocore
+import polars as pl
 from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket
+from indexhub.api.background_tasks.populate_report import populate_report_data
+from indexhub.api.check_source import read_source_file
+from indexhub.api.db import engine
+from indexhub.api.models.data_table import DataTable
+from indexhub.api.models.report import Report, Source
 from pydantic import BaseModel
 from sqlmodel import Session, select
-
-from indexhub.api.background_tasks.populate_report import populate_report_data
-from indexhub.api.db import engine
-from indexhub.api.models.report import Report, Source
-from indexhub.api.check_source import read_source_file
-from indexhub.api.models.data_table import DataTable
 from ydata_profiling import ProfileReport
-import botocore
-import codecs
-import polars as pl
 
 router = APIRouter()
 
@@ -119,6 +118,7 @@ def delete_report(report_id: str):
                 }
             return response
 
+
 @router.get("/reports/profiling")
 def get_source_profiling(source_id: str):
     s3_bucket = None
@@ -140,12 +140,13 @@ def get_source_profiling(source_id: str):
         df = read_source_file(s3_bucket=s3_bucket, s3_path=s3_path)
     except botocore.exceptions.ClientError as err:
         raise HTTPException(status_code=400, detail="Invalid S3 path") from err
-    
+
     profile = ProfileReport(df.to_pandas(), title="Profiling Report", tsmode=True)
     profile.to_file("your_report.html")
 
     page = codecs.open("your_report.html", "rb").read()
     return {"data": page}
+
 
 @router.get("/reports/levels")
 def get_report_levels(report_id: str):

@@ -1,8 +1,7 @@
 import { extendTheme } from "@chakra-ui/react";
-import { color } from "echarts";
 
 export const colors = {
-  primary:{
+  primary: {
     brand_colors: {
       main_blue: "#1b57f1",
       blue_2: "#194fdc",
@@ -11,11 +10,11 @@ export const colors = {
       blue_5: "#4f4fff",
       off_grey: "#e2e2e2",
       not_black_black: "#0a0a0a",
-      white: "#ffffff"
+      white: "#ffffff",
     },
   },
-  supplementary:{
-    indicators:{
+  supplementary: {
+    indicators: {
       main_green: "#44aa7e",
       light_green: "#C6f6d5",
       green_2: "#2a9162",
@@ -24,7 +23,7 @@ export const colors = {
       red_2: "#822020",
       red_3: "#14399a",
     },
-    diverging_color:{
+    diverging_color: {
       main_yellow: "#b79320",
       yellow_2: "#a07712",
       yellow_3: "#6d4c09",
@@ -36,10 +35,10 @@ export const colors = {
       main_brown: "#b56321",
       brown_2: "#994c17",
       brown_3: "#7f3808",
-      filter_grey: "#b7b7b7"
-    }
-  }
-}
+      filter_grey: "#b7b7b7",
+    },
+  },
+};
 
 // Add themes in the same format with different color mappings (eg dark_theme, light_theme)
 const default_theme = extendTheme({
@@ -59,7 +58,7 @@ const default_theme = extendTheme({
       background: colors.primary.brand_colors.white,
       header: colors.primary.brand_colors.not_black_black,
     },
-    indicator:{
+    indicator: {
       main_green: colors.supplementary.indicators.main_green,
       light_green: colors.supplementary.indicators.light_green,
       green_2: colors.supplementary.indicators.green_2,
@@ -70,38 +69,38 @@ const default_theme = extendTheme({
     },
     table: {
       header_background: "#f7fafc",
-      font:"#4a5568",
-      border: "#edf2f8"
+      font: "#4a5568",
+      border: "#edf2f8",
     },
     steps: {
       active: colors.primary.brand_colors.blue_3,
       title: "#2d3748",
-      subtitle: "#4a5568"
+      subtitle: "#4a5568",
     },
     forms: {
       border: "#ecf0f3",
-      bg_grey: "#f7fafc"
+      bg_grey: "#f7fafc",
     },
     toasts: {
       success_bg: colors.supplementary.indicators.main_green,
       error_bg: colors.supplementary.indicators.main_red,
       info_bg: "#2b6cb0",
-      subtitle: "#4a5568"
+      subtitle: "#4a5568",
     },
     lists: {
       bg_grey: "#f7fafc",
-      bg_light_grey: "#e4f0f9"
-    }
+      bg_light_grey: "#e4f0f9",
+    },
   },
   fonts: {
     heading: `'Open Sans', sans-serif`,
     body: `'Raleway', sans-serif`,
   },
   styles: {
-    global: (props: any) => ({
-      'html, body': {
+    global: () => ({
+      "html, body": {
         fontSize: "md",
-        fontWeight: "normal"
+        fontWeight: "normal",
       },
     }),
   },

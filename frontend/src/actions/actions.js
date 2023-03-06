@@ -22,10 +22,10 @@ export const addToFavourites = (item) => ({
 export const addReportId = (report_id, user_id) => ({
   type: ADD_REPORT_ID,
   report_id,
-  user_id
+  user_id,
 });
 
 export const initUser = (user_details) => ({
   type: INIT_USER,
-  user_details
-})
+  user_details,
+});

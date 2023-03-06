@@ -6,7 +6,7 @@ import Home from "./views/home";
 import Reports from "./views/reports/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
-import {themes} from "./theme/theme";
+import { themes } from "./theme/theme";
 import Sources from "./views/sources/sources";
 import Alerts from "./views/alerts";
 import Settings from "./views/settings";
@@ -32,9 +32,15 @@ function App() {
                 <Route path="new_source" element={<NewSource />} />
               </Route>
               <Route path="reports" element={<Reports />} />
-              <Route path="reports/profiling/:source_id" element={<SourceProfiling />} />
-              <Route path="reports/:id" element={<Forecast_Recommendations />} />
-              <Route path="alerts" element={<Alerts/>} />
+              <Route
+                path="reports/profiling/:source_id"
+                element={<SourceProfiling />}
+              />
+              <Route
+                path="reports/:id"
+                element={<Forecast_Recommendations />}
+              />
+              <Route path="alerts" element={<Alerts />} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<Profile />} />
             </Route>

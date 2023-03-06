@@ -12,7 +12,7 @@ const initialState = {
     email_verified: false,
     report_ids: null,
   },
-  report_ids: []
+  report_ids: [],
 };
 
 const reducer = (state = initialState, action) => {
@@ -33,7 +33,7 @@ const reducer = (state = initialState, action) => {
   }
   switch (action.type) {
     case "ADD_REPORT_ID_SUCCESS": {
-      newState.report_ids = [...state.report_ids, action.report_id]
+      newState.report_ids = [...state.report_ids, action.report_id];
     }
   }
   switch (action.type) {

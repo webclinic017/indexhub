@@ -2,11 +2,10 @@ import json
 from datetime import datetime
 from typing import Any, Mapping, Union
 
-from sqlmodel import Session, create_engine, select
 from indexhub.api.db import get_psql_conn_uri
-
 from indexhub.api.models.report import Report
 from indexhub.api.models.source import Source
+from sqlmodel import Session, create_engine, select
 
 
 def update_source_row(

@@ -92,12 +92,7 @@ def load_batch_raw_panel(
     return raw_panel.lazy()
 
 
-def load_raw_panel(
-    s3_bucket: str,
-    s3_path: str,
-    time_col: str,
-    entity_cols: str
-):
+def load_raw_panel(s3_bucket: str, s3_path: str, time_col: str, entity_cols: str):
     if s3_path.endswith(".xlsx"):
         df = load_file_raw_panel(s3_bucket, s3_path)
     else:
@@ -110,7 +105,7 @@ def clean_raw_panel(
     df: pl.LazyFrame,
     time_col: str,
     entity_cols: List[str],
-    filters: Optional[Mapping[str, List[str]]] =  None
+    filters: Optional[Mapping[str, List[str]]] = None,
 ) -> pl.LazyFrame:
 
     # Filter rows
@@ -145,10 +140,7 @@ def clean_raw_panel(
 
 @task
 def export_fct_panel(
-    df: pl.LazyFrame,
-    s3_bucket: str,
-    raw_data_path: str,
-    suffix: Optional[str] = None
+    df: pl.LazyFrame, s3_bucket: str, raw_data_path: str, suffix: Optional[str] = None
 ) -> str:
     # Use the first 7 characters of the hash of raw data path as ID
     identifer = md5(raw_data_path.encode("utf-8")).hexdigest()[:7]
@@ -185,10 +177,16 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
         fct_manual_path = None
         if manual_forecast_path is not None:
             # Load clean manual forecast
-            raw_manual = load_raw_panel(s3_bucket, manual_forecast_path, time_col, entity_cols)
-            fct_manual = raw_manual.pipe(clean_raw_panel, time_col, entity_cols, filters)
-            fct_manual_path = export_fct_panel(fct_manual, s3_bucket, raw_data_path, suffix="manual")
-        
+            raw_manual = load_raw_panel(
+                s3_bucket, manual_forecast_path, time_col, entity_cols
+            )
+            fct_manual = raw_manual.pipe(
+                clean_raw_panel, time_col, entity_cols, filters
+            )
+            fct_manual_path = export_fct_panel(
+                fct_manual, s3_bucket, raw_data_path, suffix="manual"
+            )
+
         metadata = {
             "source_id": inputs.source_id,
             "freq": inputs.freq,
@@ -199,7 +197,7 @@ def preprocess_panel(inputs: PreprocessPanelInput) -> PreprocessPanelOutput:
         result = {
             "actual": fct_panel_path,
             "manual": fct_manual_path,
-            "metadata": metadata
+            "metadata": metadata,
         }
     except Exception as exc:
         result = {
@@ -257,7 +255,7 @@ def prepare_fct_panel(
     target_col: str,
     agg_method: str,
     freq: str,
-    allow_negatives: bool
+    allow_negatives: bool,
 ):
 
     if not allow_negatives:
@@ -338,23 +336,27 @@ def prepare_hierarchical_panel(
         "target_col": inputs.target_col,
         "agg_method": inputs.agg_method,
         "freq": inputs.freq,
-        "allow_negatives": inputs.allow_negatives
+        "allow_negatives": inputs.allow_negatives,
     }
     # Preprocess fact table
     fct_panel = load_fct_panel(s3_bucket, inputs.fct_panel_path)
     ftr_panel = fct_panel.pipe(prepare_fct_panel, **preproc_kwargs, label="actual")
-    ftr_panel_path = export_ftr_panel(ftr_panel, inputs.s3_bucket, inputs.fct_panel_path)
+    ftr_panel_path = export_ftr_panel(
+        ftr_panel, inputs.s3_bucket, inputs.fct_panel_path
+    )
     # Preprocess manual forecast
     ftr_manual_forecast_path = None
     if inputs.manual_forecast_path is not None:
         fct_manual_forecast = load_fct_panel(s3_bucket, inputs.manual_forecast_path)
-        ftr_manual_forecast = fct_manual_forecast.pipe(prepare_fct_panel, **preproc_kwargs, label="manual")
+        ftr_manual_forecast = fct_manual_forecast.pipe(
+            prepare_fct_panel, **preproc_kwargs, label="manual"
+        )
         ftr_manual_forecast_path = export_ftr_panel(
-            ftr_manual_forecast, inputs.s3_bucket, inputs.fct_panel_path, suffix="manual"
+            ftr_manual_forecast,
+            inputs.s3_bucket,
+            inputs.fct_panel_path,
+            suffix="manual",
         )
     # Return paths to exported data
-    paths = {
-        "actual":ftr_panel_path,
-        "manual": ftr_manual_forecast_path
-    }
+    paths = {"actual": ftr_panel_path, "manual": ftr_manual_forecast_path}
     return paths

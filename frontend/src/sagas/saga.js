@@ -8,8 +8,7 @@ import {
   LOAD_COMING_SOON,
   LOAD_COMING_SOON_SUCCESS,
   ADD_REPORT_ID,
-  INIT_USER
-
+  INIT_USER,
 } from "../actions/actions";
 
 function comingSoonApi() {
@@ -31,7 +30,7 @@ function* workAddReportId({ report_id, user_id }) {
   yield put({ type: ADD_REPORT_ID_SUCCESS, report_id, user_id });
 }
 
-function* workInitUser({user_details}) {
+function* workInitUser({ user_details }) {
   yield put({ type: INIT_USER_SUCCESS, user_details });
 }
 
@@ -39,7 +38,7 @@ function* mySaga() {
   yield takeEvery(LOAD_COMING_SOON, workLoadComingSoon);
   yield takeEvery(ADD_FAVOURITES, workAddFavourites);
   yield takeEvery(ADD_REPORT_ID, workAddReportId);
-  yield takeEvery(INIT_USER, workInitUser)
+  yield takeEvery(INIT_USER, workInitUser);
 }
 
 export default mySaga;

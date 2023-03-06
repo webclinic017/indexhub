@@ -4,11 +4,10 @@ from typing import Dict, List, Optional, Sequence, Union
 
 import polars as pl
 from fastapi import APIRouter, HTTPException
+from indexhub.api.db import engine
+from indexhub.api.models.chart import Chart
 from pydantic import BaseModel
 from sqlmodel import Session, select
-
-from indexhub.api.models.chart import Chart
-from indexhub.api.db import engine
 
 router = APIRouter()
 
@@ -58,7 +57,11 @@ def get_chart(report_id: str = None, tag: str = None, filters: dict = None):
                 # Get path to the parquet file containing relevant analytics values and create df
                 path = charts[0].path
                 df = pl.read_csv(path)
-                df = df.with_column(pl.col('time').str.strptime(pl.Date, fmt='%Y-%m-%d').cast(pl.Datetime))
+                df = df.with_column(
+                    pl.col("time")
+                    .str.strptime(pl.Date, fmt="%Y-%m-%d")
+                    .cast(pl.Datetime)
+                )
 
                 # Apply all the filters that are available in this dataset if present in request body
                 if filters is not None:
@@ -78,9 +81,7 @@ def get_chart(report_id: str = None, tag: str = None, filters: dict = None):
                                 )
 
                 # Groupby the filtered df by time
-                time_sorted_df = (
-                    df.groupby("time").agg(pl.all().mean()).sort(by="time")
-                )
+                time_sorted_df = df.groupby("time").agg(pl.all().mean()).sort(by="time")
 
                 # Populate response
                 chart_data = ChartData(

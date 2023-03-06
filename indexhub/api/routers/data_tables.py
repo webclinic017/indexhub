@@ -1,14 +1,13 @@
 import json
 from datetime import datetime
-from typing import Dict, List, Sequence, Union, Mapping
+from typing import Dict, List, Mapping, Sequence, Union
 
 import polars as pl
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from sqlmodel import Session, select
-
 from indexhub.api.db import engine
 from indexhub.api.models.data_table import DataTable
+from pydantic import BaseModel
+from sqlmodel import Session, select
 
 router = APIRouter()
 
@@ -35,11 +34,11 @@ class ForecastRecommendationsData(BaseModel):
     rpt_forecast_90: Union[float, None]
 
 
-
 class ForecastRecommendationsTable(BaseModel):
     data: List[ForecastRecommendationsData]
     title: str
     readable_names: Dict[str, str]
+
 
 class BacktestsTable(BaseModel):
     data: List[Mapping]
@@ -90,8 +89,12 @@ def get_table(report_id: str = None, tag: str = None, filters: dict = None):
                 path = tables[0].path
                 df = pl.read_csv(path)
 
-                if tag == "forecast_recommendation" :
-                    df = df.with_column(pl.col('time').str.strptime(pl.Date, fmt='%Y-%m-%d').cast(pl.Datetime))
+                if tag == "forecast_recommendation":
+                    df = df.with_column(
+                        pl.col("time")
+                        .str.strptime(pl.Date, fmt="%Y-%m-%d")
+                        .cast(pl.Datetime)
+                    )
 
                     # Apply all filters that are available in this dataset if present in request body
                     if filters is not None:
@@ -146,8 +149,8 @@ def get_table(report_id: str = None, tag: str = None, filters: dict = None):
                         table_id=tables[0].id,
                         forecast_recommendations=forecast_recommendations_table,
                     )
-                    
-                elif tag == "backtests" :
+
+                elif tag == "backtests":
 
                     # Apply all filters that are available in this dataset if present in request body
                     if filters is not None:
@@ -164,10 +167,7 @@ def get_table(report_id: str = None, tag: str = None, filters: dict = None):
                                 df = df.filter(pl.struct([filter]).is_in(filter_expr))
 
                     # Groupby the filtered df by time
-                    time_sorted_df = (
-                        df.groupby(["entity_0"])
-                        .agg(pl.all().mean())
-                    )
+                    time_sorted_df = df.groupby(["entity_0"]).agg(pl.all().mean())
 
                     # Populate response
                     backtests_table = BacktestsTable(
@@ -180,6 +180,5 @@ def get_table(report_id: str = None, tag: str = None, filters: dict = None):
                         table_id=tables[0].id,
                         backtests=backtests_table,
                     )
-                    
 
                 return response
