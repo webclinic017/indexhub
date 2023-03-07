@@ -1,14 +1,13 @@
-from typing import Optional
+import enum
 
-from sqlmodel import Column, Field, ForeignKey, Integer, SQLModel
+from sqlmodel import Field, SQLModel
+
+
+class DataTableTags(str, enum.Enum):
+    pass
 
 
 class DataTable(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True, unique=True)
-    report_id: Optional[int] = Field(
-        sa_column=Column(Integer, ForeignKey("report.id", ondelete="CASCADE"))
-    )
-    tag: str
+    id: int = Field(default=None, primary_key=True, unique=True)
+    tag: DataTableTags
     path: str
-    title: str
-    readable_names: str  # dict
