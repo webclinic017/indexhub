@@ -1,7 +1,7 @@
 import os
-from sqlmodel import SQLModel, create_engine
-from indexhub.api import models  # noqa
 
+from indexhub.api import models  # noqa
+from sqlmodel import SQLModel, create_engine
 
 
 def get_psql_conn_uri():

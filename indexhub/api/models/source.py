@@ -2,9 +2,8 @@ import enum
 from datetime import datetime
 from typing import List, Optional
 
-from sqlmodel import Field, SQLModel, JSON
-
 from indexhub.api.models.user import User  # noqa
+from sqlmodel import JSON, Field, SQLModel
 
 
 class SourceTypes(str, enum.Enum):

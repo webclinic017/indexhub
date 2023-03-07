@@ -4,9 +4,6 @@ from typing import List, Optional
 
 import botocore
 from fastapi import APIRouter, HTTPException, WebSocket
-from pydantic import BaseModel
-from sqlmodel import Session, select
-
 from indexhub.api.check_source import (
     check_duplicates,
     check_filters,
@@ -15,6 +12,8 @@ from indexhub.api.check_source import (
 )
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
+from pydantic import BaseModel
+from sqlmodel import Session, select
 
 router = APIRouter()
 

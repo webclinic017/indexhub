@@ -193,7 +193,9 @@ export default function Forecast_Recommendations() {
     ],
     title: "",
   });
+
   const [backtestsTableData, setBacktestsTableData] = useState<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Record<string, any>
   >({
     readable_names: {},
@@ -208,7 +210,7 @@ export default function Forecast_Recommendations() {
       },
     ],
     title: "",
-  }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  });
   const [filters, setFilters] = useState<Record<string, any[]>>(initFilters()); // eslint-disable-line @typescript-eslint/no-explicit-any
   // const [levelsData, setLevelsData] = useState<Record<string, any>>({}) // eslint-disable-line @typescript-eslint/no-explicit-any
   const [backtestType] = useState("mae");
@@ -422,25 +424,23 @@ export default function Forecast_Recommendations() {
   report_stats["forecast_horizon"] = tableData.data.length;
   report_stats["mae_uplift_percentage"] = [
     backtestsTableData["data"]
-      .map((item: any) => item["mae_improvement"])
+      .map((item: any) => item["mae_improvement"]) // eslint-disable-line @typescript-eslint/no-explicit-any
       .reduce((prev: number, next: number) => prev + next),
     backtestsTableData["data"]
-      .map((item: any) => item["mae_improvement_%"])
+      .map((item: any) => item["mae_improvement_%"]) // eslint-disable-line @typescript-eslint/no-explicit-any
       .reduce((prev: number, next: number) => prev + next) /
       backtestsTableData["data"].length,
-  ]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  ];
   report_stats["mae_forecast"] = backtestsTableData["data"]
-    .map((item: any) => item["mae:forecast"])
-    .reduce((prev: number, next: number) => prev + next); // eslint-disable-line @typescript-eslint/no-explicit-any
+    .map((item: any) => item["mae:forecast"]) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .reduce((prev: number, next: number) => prev + next);
   report_stats["mae_manual"] = backtestsTableData["data"]
-    .map((item: any) => item["mae:manual"])
-    .reduce((prev: number, next: number) => prev + next); // eslint-disable-line @typescript-eslint/no-explicit-any
+    .map((item: any) => item["mae:manual"]) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .reduce((prev: number, next: number) => prev + next);
 
   if (selectedReport.id != "") {
     return (
       <VStack padding="10px">
-        {/* THIS IS THE NEWER VERSION OF REPORTS */}
-
         <VStack width="100%">
           <Text fontSize="3xl" width="100%" fontWeight="bold">
             Forecast Recommendation
@@ -695,71 +695,81 @@ export default function Forecast_Recommendations() {
                   />
                 </FormControl>
                 <Stack divider={<StackDivider />} spacing="4">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {backtestsTableData.data
                     .sort(
-                      (a: any, b: any) =>
+                      (
+                        a: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                        b: any // eslint-disable-line @typescript-eslint/no-explicit-any
+                      ) =>
                         b[`${backtestType}${backtestSortBy}`] -
                         a[`${backtestType}${backtestSortBy}`]
                     )
-                    ?.map((item: any) => (
-                      <Stack key={item["entity_0"]} fontSize="sm" spacing="0.5">
-                        <HStack justify="space-between">
-                          <Text fontWeight="bold" color="emphasized">
-                            {`${capitalizeFirstLetter(
-                              selectedReport.level_cols[0]
-                            )}:${item["entity_0"]}`}
-                          </Text>
-                          <HStack>
-                            <FontAwesomeIcon
-                              icon={
-                                item["mae_improvement_%"] < 0
-                                  ? faArrowDown
-                                  : faArrowUp
-                              }
-                              color={
-                                item["mae_improvement_%"] < 0
-                                  ? colors.supplementary.indicators.main_red
-                                  : colors.supplementary.indicators.main_green
-                              }
-                            />
-                            <Text
-                              color={
-                                item["mae_improvement_%"] < 0
-                                  ? "indicator.main_red"
-                                  : "indicator.main_green"
-                              }
-                              fontWeight="bold"
-                            >
-                              {roundToTwoDecimalPlaces(
-                                item["mae_improvement_%"]
-                              )}{" "}
-                              %
-                            </Text>
-                          </HStack>
-                        </HStack>
-                        <Text
-                          color="muted"
-                          sx={{
-                            "-webkit-box-orient": "vertical",
-                            "-webkit-line-clamp": "2",
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                          }}
+                    ?.map(
+                      (
+                        item: any // eslint-disable-line @typescript-eslint/no-explicit-any
+                      ) => (
+                        <Stack
+                          key={item["entity_0"]}
+                          fontSize="sm"
+                          spacing="0.5"
                         >
-                          Trending{" "}
-                          {item["mae_improvement_%"] == 0
-                            ? "flat"
-                            : item["mae_improvement_%"] > 0
-                            ? "upwards"
-                            : "downwards"}{" "}
-                          for the next {report_stats["forecast_horizon"]}{" "}
-                          Months. AI Backtests are{" "}
-                          {roundToTwoDecimalPlaces(item["mae_improvement_%"])}%
-                          better than benchmarks.
-                        </Text>
-                      </Stack>
-                    ))}
+                          <HStack justify="space-between">
+                            <Text fontWeight="bold" color="emphasized">
+                              {`${capitalizeFirstLetter(
+                                selectedReport.level_cols[0]
+                              )}:${item["entity_0"]}`}
+                            </Text>
+                            <HStack>
+                              <FontAwesomeIcon
+                                icon={
+                                  item["mae_improvement_%"] < 0
+                                    ? faArrowDown
+                                    : faArrowUp
+                                }
+                                color={
+                                  item["mae_improvement_%"] < 0
+                                    ? colors.supplementary.indicators.main_red
+                                    : colors.supplementary.indicators.main_green
+                                }
+                              />
+                              <Text
+                                color={
+                                  item["mae_improvement_%"] < 0
+                                    ? "indicator.main_red"
+                                    : "indicator.main_green"
+                                }
+                                fontWeight="bold"
+                              >
+                                {roundToTwoDecimalPlaces(
+                                  item["mae_improvement_%"]
+                                )}{" "}
+                                %
+                              </Text>
+                            </HStack>
+                          </HStack>
+                          <Text
+                            color="muted"
+                            sx={{
+                              "-webkit-box-orient": "vertical",
+                              "-webkit-line-clamp": "2",
+                              overflow: "hidden",
+                              display: "-webkit-box",
+                            }}
+                          >
+                            Trending{" "}
+                            {item["mae_improvement_%"] == 0
+                              ? "flat"
+                              : item["mae_improvement_%"] > 0
+                              ? "upwards"
+                              : "downwards"}{" "}
+                            for the next {report_stats["forecast_horizon"]}{" "}
+                            Months. AI Backtests are{" "}
+                            {roundToTwoDecimalPlaces(item["mae_improvement_%"])}
+                            % better than benchmarks.
+                          </Text>
+                        </Stack>
+                      )
+                    )}
                 </Stack>
               </Box>
               <VStack alignItems="left" width="100%">
@@ -825,171 +835,178 @@ export default function Forecast_Recommendations() {
               </h2>
               <AccordionPanel pb={4}>
                 <Stack spacing="3" width="full">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   {backtestsTableData.data
                     .sort(
-                      (a: any, b: any) =>
+                      (
+                        a: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                        b: any // eslint-disable-line @typescript-eslint/no-explicit-any
+                      ) =>
                         b[`${backtestType}${backtestSortBy}`] -
                         a[`${backtestType}${backtestSortBy}`]
                     )
-                    .map((item: any, idx: number) =>
-                      item ? (
-                        <Box
-                          key={idx}
-                          bg="lists.bg_grey"
-                          pl="1rem"
-                          boxShadow="sm"
-                          position="relative"
-                          borderRadius="lg"
-                        >
-                          <Stack shouldWrapChildren spacing="4">
-                            <HStack justify="space-around">
-                              <Text
-                                width="15%"
-                                fontSize="sm"
-                                fontWeight="medium"
-                                color="emphasized"
-                              >
-                                <b>{item["entity_0"]}</b>
-                              </Text>
-                              <VStack width="85%">
-                                <HStack
-                                  width="full"
-                                  justify="flex-start"
-                                  backgroundColor="lists.bg_light_grey"
-                                  p="0.5rem 0 0.5rem 1rem"
-                                  borderTopRightRadius="lg"
+                    .map(
+                      (
+                        item: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                        idx: number
+                      ) =>
+                        item ? (
+                          <Box
+                            key={idx}
+                            bg="lists.bg_grey"
+                            pl="1rem"
+                            boxShadow="sm"
+                            position="relative"
+                            borderRadius="lg"
+                          >
+                            <Stack shouldWrapChildren spacing="4">
+                              <HStack justify="space-around">
+                                <Text
+                                  width="15%"
+                                  fontSize="sm"
+                                  fontWeight="medium"
+                                  color="emphasized"
                                 >
-                                  <Text width="20%" fontSize="xs">
-                                    <b>Action:</b>{" "}
-                                    {item[`${backtestType}_improvement`] > 0
-                                      ? "✅ Use AI predictions"
-                                      : "⏸ Use benchmark"}
-                                  </Text>
-                                  <Text width="40%" fontSize="xs">
-                                    <b>Explanation:</b>{" "}
-                                    {item[`${backtestType}_improvement`] > 0
-                                      ? `AI has higher ${backtest_type_readable_names[backtestType]} then benchmark`
-                                      : `AI has lower ${backtest_type_readable_names[backtestType]} then benchmark`}
-                                  </Text>
-                                </HStack>
-                                <HStack width="full" justify="center">
-                                  <VStack width="20%" alignItems="flex-start">
-                                    <Text
-                                      fontSize="xs"
-                                      color="subtle"
-                                      fontWeight="medium"
-                                    >
-                                      {
-                                        backtest_type_readable_names[
-                                          backtestType
-                                        ]
-                                      }{" "}
-                                      (Benchmark)
+                                  <b>{item["entity_0"]}</b>
+                                </Text>
+                                <VStack width="85%">
+                                  <HStack
+                                    width="full"
+                                    justify="flex-start"
+                                    backgroundColor="lists.bg_light_grey"
+                                    p="0.5rem 0 0.5rem 1rem"
+                                    borderTopRightRadius="lg"
+                                  >
+                                    <Text width="20%" fontSize="xs">
+                                      <b>Action:</b>{" "}
+                                      {item[`${backtestType}_improvement`] > 0
+                                        ? "✅ Use AI predictions"
+                                        : "⏸ Use benchmark"}
                                     </Text>
-                                    <Text
-                                      fontSize="lg"
-                                      color="subtle"
-                                      fontWeight="bold"
-                                    >
-                                      {Math.round(
-                                        (item[`${backtestType}:manual`] +
-                                          Number.EPSILON) *
-                                          100
-                                      ) / 100}
+                                    <Text width="40%" fontSize="xs">
+                                      <b>Explanation:</b>{" "}
+                                      {item[`${backtestType}_improvement`] > 0
+                                        ? `AI has higher ${backtest_type_readable_names[backtestType]} then benchmark`
+                                        : `AI has lower ${backtest_type_readable_names[backtestType]} then benchmark`}
                                     </Text>
-                                  </VStack>
-                                  <VStack width="20%" alignItems="flex-start">
-                                    <Text
-                                      fontSize="xs"
-                                      color="subtle"
-                                      fontWeight="medium"
-                                    >
-                                      {
-                                        backtest_type_readable_names[
-                                          backtestType
-                                        ]
-                                      }{" "}
-                                      (AI)
-                                    </Text>
-                                    <Text
-                                      fontSize="lg"
-                                      color="subtle"
-                                      fontWeight="bold"
-                                    >
-                                      {Math.round(
-                                        (item[`${backtestType}:forecast`] +
-                                          Number.EPSILON) *
-                                          100
-                                      ) / 100}
-                                    </Text>
-                                  </VStack>
-                                  <VStack width="20%" alignItems="flex-start">
-                                    <Text
-                                      fontSize="xs"
-                                      color="subtle"
-                                      fontWeight="medium"
-                                    >
-                                      {
-                                        backtest_type_readable_names[
-                                          backtestType
-                                        ]
-                                      }{" "}
-                                      (Uplift)
-                                    </Text>
-                                    <Text
-                                      fontSize="lg"
-                                      color="subtle"
-                                      fontWeight="bold"
-                                    >
-                                      {Math.round(
-                                        (item[`${backtestType}_improvement`] +
-                                          Number.EPSILON) *
-                                          100
-                                      ) / 100}
-                                    </Text>
-                                  </VStack>
-                                  <VStack width="20%" alignItems="flex-start">
-                                    <Text
-                                      fontSize="xs"
-                                      color="subtle"
-                                      fontWeight="medium"
-                                    >
-                                      {
-                                        backtest_type_readable_names[
-                                          backtestType
-                                        ]
-                                      }{" "}
-                                      (Uplift %)
-                                    </Text>
-                                    <CircularProgress
-                                      value={Math.abs(
-                                        item[`${backtestType}_improvement_%`]
-                                      )}
-                                      color={
-                                        item[`${backtestType}_improvement_%`] >
-                                        0
-                                          ? "indicator.green_2"
-                                          : "indicator.red_2"
-                                      }
-                                    >
-                                      <CircularProgressLabel>
+                                  </HStack>
+                                  <HStack width="full" justify="center">
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text
+                                        fontSize="xs"
+                                        color="subtle"
+                                        fontWeight="medium"
+                                      >
+                                        {
+                                          backtest_type_readable_names[
+                                            backtestType
+                                          ]
+                                        }{" "}
+                                        (Benchmark)
+                                      </Text>
+                                      <Text
+                                        fontSize="lg"
+                                        color="subtle"
+                                        fontWeight="bold"
+                                      >
                                         {Math.round(
-                                          (item[
-                                            `${backtestType}_improvement_%`
-                                          ] +
+                                          (item[`${backtestType}:manual`] +
                                             Number.EPSILON) *
                                             100
                                         ) / 100}
-                                      </CircularProgressLabel>
-                                    </CircularProgress>
-                                  </VStack>
-                                </HStack>
-                              </VStack>
-                            </HStack>
-                          </Stack>
-                        </Box>
-                      ) : null
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text
+                                        fontSize="xs"
+                                        color="subtle"
+                                        fontWeight="medium"
+                                      >
+                                        {
+                                          backtest_type_readable_names[
+                                            backtestType
+                                          ]
+                                        }{" "}
+                                        (AI)
+                                      </Text>
+                                      <Text
+                                        fontSize="lg"
+                                        color="subtle"
+                                        fontWeight="bold"
+                                      >
+                                        {Math.round(
+                                          (item[`${backtestType}:forecast`] +
+                                            Number.EPSILON) *
+                                            100
+                                        ) / 100}
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text
+                                        fontSize="xs"
+                                        color="subtle"
+                                        fontWeight="medium"
+                                      >
+                                        {
+                                          backtest_type_readable_names[
+                                            backtestType
+                                          ]
+                                        }{" "}
+                                        (Uplift)
+                                      </Text>
+                                      <Text
+                                        fontSize="lg"
+                                        color="subtle"
+                                        fontWeight="bold"
+                                      >
+                                        {Math.round(
+                                          (item[`${backtestType}_improvement`] +
+                                            Number.EPSILON) *
+                                            100
+                                        ) / 100}
+                                      </Text>
+                                    </VStack>
+                                    <VStack width="20%" alignItems="flex-start">
+                                      <Text
+                                        fontSize="xs"
+                                        color="subtle"
+                                        fontWeight="medium"
+                                      >
+                                        {
+                                          backtest_type_readable_names[
+                                            backtestType
+                                          ]
+                                        }{" "}
+                                        (Uplift %)
+                                      </Text>
+                                      <CircularProgress
+                                        value={Math.abs(
+                                          item[`${backtestType}_improvement_%`]
+                                        )}
+                                        color={
+                                          item[
+                                            `${backtestType}_improvement_%`
+                                          ] > 0
+                                            ? "indicator.green_2"
+                                            : "indicator.red_2"
+                                        }
+                                      >
+                                        <CircularProgressLabel>
+                                          {Math.round(
+                                            (item[
+                                              `${backtestType}_improvement_%`
+                                            ] +
+                                              Number.EPSILON) *
+                                              100
+                                          ) / 100}
+                                        </CircularProgressLabel>
+                                      </CircularProgress>
+                                    </VStack>
+                                  </HStack>
+                                </VStack>
+                              </HStack>
+                            </Stack>
+                          </Box>
+                        ) : null
                     )}
                 </Stack>
               </AccordionPanel>
