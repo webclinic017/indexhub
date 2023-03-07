@@ -12,6 +12,10 @@ class SourceTypes(str, enum.Enum):
 
 
 class Source(SQLModel, table=True):
+    """Metadata schemas:
+    S3 - (s3_bucket: str, s3_path: str)
+    """
+
     id: int = Field(default=None, primary_key=True, unique=True)
     user_id: str = Field(default=None, foreign_key="user.user_id")
     name: str
