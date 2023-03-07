@@ -4,14 +4,11 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policies import ForecastPolicy
+from indexhub.api.models.policies import TAG_TO_POLICY
 from sqlmodel import Session, select
 
 
 router = APIRouter()
-
-
-TAG_TO_POLICY = {"forecast": ForecastPolicy}
 
 
 @router.post("/policies")

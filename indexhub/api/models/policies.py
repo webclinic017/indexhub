@@ -57,3 +57,6 @@ class ForecastPolicy(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete"}
     )
     msg: Optional[str] = None
+
+
+TAG_TO_POLICY = {"forecast": ForecastPolicy}
