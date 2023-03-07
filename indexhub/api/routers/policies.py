@@ -4,17 +4,28 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policies import TAG_TO_POLICY
+from indexhub.api.models.policies import POLICY_SCHEMAS, Policy
+from indexhub.api.models.source import Source
 from sqlmodel import Session, select
 
 
 router = APIRouter()
 
 
-@router.post("/policies")
-def create_policy(params: Mapping[str, Any], tag: str):
+@router.get("/policies/schemas/{source_id}")
+def list_policy_schemas(source_id: str):
     with Session(engine) as session:
-        policy = TAG_TO_POLICY[tag](**params)
+        query = select(Source).where(Source.id == source_id)
+        source = session.exec(query).first()
+        entity_cols = source.entity_cols
+        schemas = POLICY_SCHEMAS(entity_cols)
+    return schemas
+
+
+@router.post("/policies")
+def create_policy(params: Mapping[str, Any]):
+    with Session(engine) as session:
+        policy = Policy(**params)
         policy.status = "RUNNING"
         ts = datetime.utcnow()
         policy.created_at = ts
@@ -26,27 +37,24 @@ def create_policy(params: Mapping[str, Any], tag: str):
 
 
 @router.get("/policies")
-def list_policies(user_id: str, tag: str):
+def list_policies(user_id: str):
     with Session(engine) as session:
-        Policy = TAG_TO_POLICY[tag]
         query = select(Policy).where(Policy.user_id == user_id)
         policies = session.exec(query).all()
         return {"policies": policies}
 
 
 @router.get("/policies/{policy_id}")
-def get_policy(policy_id: str, tag: str):
+def get_policy(policy_id: str):
     with Session(engine) as session:
-        Policy = TAG_TO_POLICY[tag]
         query = select(Policy).where(Policy.id == policy_id)
         policy = session.exec(query).all()
         return {"policy": policy}
 
 
 @router.delete("/policies/{policy_id}")
-def delete_policy(policy_id: str, tag: str):
+def delete_policy(policy_id: str):
     with Session(engine) as session:
-        Policy = TAG_TO_POLICY[tag]
         query = select(Policy).where(Policy.id == policy_id)
         report = session.exec(query).first()
         if report is None:
