@@ -26,7 +26,7 @@ def list_data_tables(policy_id: int, policy_tag: str):
 def get_data_table(table_id: str):
     """Return CSV"""
     if table_id in DEMO_TABLE_IDS:
-        s3_bucket = os.environ["DEMO__S3_BUCKET"]
+        s3_bucket = os.environ.get("DEMO__S3_BUCKET", "indexhub-demo")
         # Read parquet
         path = f"{s3_bucket}/{table_id}.parquet"  # noqa
     else:
