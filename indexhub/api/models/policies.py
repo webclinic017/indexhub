@@ -1,4 +1,3 @@
-import enum
 from datetime import datetime
 from typing import List, Optional
 
@@ -39,11 +38,6 @@ POLICY_VARIABLES = {
         },
     }
 }
-
-
-class PolicyTypes(str, enum.Enum):
-    FORECAST = "FORECAST"
-    FEATURE_IMPORTANCE = "FEATURE_IMPORTANCE"
 
 
 class ForecastPolicy(SQLModel, table=True):
