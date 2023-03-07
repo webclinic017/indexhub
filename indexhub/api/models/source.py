@@ -27,6 +27,7 @@ class Source(SQLModel, table=True):
     # Source specific variables
     metadata: str
     freq: str
+    datetime_fmt: str
     entity_cols: List[str]
     time_col: str
     target_cols: List[str]
