@@ -14,7 +14,7 @@ class SourceTags(str, enum.Enum):
 
 class Source(SQLModel, table=True):
     """Metadata schemas:
-    S3 - (s3_bucket: str, s3_path: str)
+    S3 - (s3_bucket: str, s3_path: str, file_ext: str)
     """
 
     id: int = Field(default=None, primary_key=True, unique=True)
