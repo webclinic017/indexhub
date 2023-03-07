@@ -1,19 +1,16 @@
-import codecs
 import json
 from datetime import datetime
 from typing import List, Optional
 
-import botocore
 import polars as pl
 from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket
 from indexhub.api.background_tasks.populate_report import populate_report_data
-from indexhub.api.check_source import read_source_file
 from indexhub.api.db import engine
 from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.report import Report, Source
 from pydantic import BaseModel
 from sqlmodel import Session, select
-from ydata_profiling import ProfileReport
+
 
 router = APIRouter()
 
@@ -117,35 +114,6 @@ def delete_report(report_id: str):
                     "message": f"Record for report_id ({report_id}) is deleted. No other records found for the user_id ({user_id})",
                 }
             return response
-
-
-@router.get("/reports/profiling")
-def get_source_profiling(source_id: str):
-    s3_bucket = None
-    s3_path = None
-    with Session(engine) as session:
-        if source_id is None:
-            raise HTTPException(status_code=400, detail="source_id is required")
-        else:
-            query = select(Source).where(Source.id == source_id)
-            source = session.exec(query).first()
-            if source is None:
-                raise HTTPException(
-                    status_code=400, detail="No record found for this source_id"
-                )
-            s3_bucket = source.s3_data_bucket
-            s3_path = source.raw_data_path
-
-    try:
-        df = read_source_file(s3_bucket=s3_bucket, s3_path=s3_path)
-    except botocore.exceptions.ClientError as err:
-        raise HTTPException(status_code=400, detail="Invalid S3 path") from err
-
-    profile = ProfileReport(df.to_pandas(), title="Profiling Report", tsmode=True)
-    profile.to_file("your_report.html")
-
-    page = codecs.open("your_report.html", "rb").read()
-    return {"data": page}
 
 
 @router.get("/reports/levels")

@@ -1,19 +1,19 @@
+import codecs
+import io
 import json
 from datetime import datetime
 from typing import List, Optional
 
+import boto3
 import botocore
+import polars as pl
 from fastapi import APIRouter, HTTPException, WebSocket
-from indexhub.api.check_source import (
-    check_duplicates,
-    check_filters,
-    check_time_col_fmt,
-    read_source_file,
-)
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
 from pydantic import BaseModel
 from sqlmodel import Session, select
+from ydata_profiling import ProfileReport
+
 
 router = APIRouter()
 
@@ -32,11 +32,73 @@ class CreateSource(BaseModel):
     manual_forecast_path: Optional[str] = None
 
 
+def infer_dt_format(dt: str):
+    n_chars = len(dt)
+    if n_chars == 19:
+        fmt = "%Y-%m-%d %H:%M:%S"
+    elif n_chars == 10:
+        fmt = "%Y-%m-%d"
+    elif n_chars == 7:
+        if "-" in dt:
+            fmt = "%Y-%m"
+    elif n_chars == 6:
+        fmt = "%Y%m"
+    else:
+        fmt = False
+    return fmt
+
+
+def read_source_excel(s3_bucket: str, s3_path: str) -> pl.DataFrame:
+    s3_client = boto3.client("s3")
+    obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_path)["Body"].read()
+    raw_panel = pl.read_excel(
+        io.BytesIO(obj),
+        # Ignore infer datatype to float as it is not supported by xlsx2csv
+        xlsx2csv_options={"ignore_formats": "float"},
+        read_csv_options={
+            "infer_schema_length": None,
+            "parse_dates": True,
+            "use_pyarrow": True,
+        },
+    )
+    s3_client.close()
+    return raw_panel
+
+
+def check_duplicates(time_col: str, entity_cols: List[str], target_cols: List[str]):
+    columns_set = {
+        time_col,
+        *entity_cols,
+        *target_cols,
+    }
+    columns = [
+        time_col,
+        *entity_cols,
+        *target_cols,
+    ]
+    has_duplicates = len(columns) != len(columns_set)
+    return has_duplicates
+
+
+def check_time_col_fmt(df: pl.DataFrame, time_col: str):
+    fmt = infer_dt_format(str(df.select([time_col])[0, 0]))
+    try:
+        df = df.select(pl.col(time_col).cast(pl.Utf8).str.strptime(pl.Date, fmt=fmt))
+    except Exception as err:
+        return err
+    return df
+
+
+def check_filters(entity_cols: List[str], filters: str):
+    filters = json.loads(filters)
+    return [col for col in filters.keys() if col not in entity_cols]
+
+
 @router.post("/sources")
 def create_source(create_source: CreateSource):
     # Check if the raw_data_path is readable
     try:
-        raw_panel = read_source_file(
+        raw_panel = read_source_excel(
             s3_bucket=create_source.s3_data_bucket, s3_path=create_source.raw_data_path
         )
     except Exception as err:
@@ -44,7 +106,7 @@ def create_source(create_source: CreateSource):
     # Check if the manual_forecast_path is readable
     if create_source.manual_forecast_path:
         try:
-            raw_panel = read_source_file(
+            raw_panel = read_source_excel(
                 s3_bucket=create_source.s3_data_bucket,
                 s3_path=create_source.manual_forecast_path,
             )
@@ -156,7 +218,7 @@ def delete_source(source_id: str):
 @router.get("/sources/columns")
 def read_source_cols(s3_data_bucket: str, path: str):
     try:
-        raw_panel = read_source_file(s3_bucket=s3_data_bucket, s3_path=path)
+        raw_panel = read_source_excel(s3_bucket=s3_data_bucket, s3_path=path)
     except botocore.exceptions.ClientError as err:
         raise HTTPException(status_code=400, detail="Invalid S3 path") from err
     columns = [col for col in raw_panel.columns if col]
@@ -181,3 +243,32 @@ async def ws_get_sources(websocket: WebSocket):
             response.append(values)
         response = {"sources": response}
         await websocket.send_text(json.dumps(response, default=str))
+
+
+@router.get("/sources/profile")
+def get_source_profile(source_id: str):
+    s3_bucket = None
+    s3_path = None
+    with Session(engine) as session:
+        if source_id is None:
+            raise HTTPException(status_code=400, detail="source_id is required")
+        else:
+            query = select(Source).where(Source.id == source_id)
+            source = session.exec(query).first()
+            if source is None:
+                raise HTTPException(
+                    status_code=400, detail="No record found for this source_id"
+                )
+            s3_bucket = source.s3_data_bucket
+            s3_path = source.raw_data_path
+
+    try:
+        df = read_source_excel(s3_bucket=s3_bucket, s3_path=s3_path)
+    except botocore.exceptions.ClientError as err:
+        raise HTTPException(status_code=400, detail="Invalid S3 path") from err
+
+    profile = ProfileReport(df.to_pandas(), title="Profiling Report", tsmode=True)
+    profile.to_file("your_report.html")
+
+    page = codecs.open("your_report.html", "rb").read()
+    return {"data": page}
