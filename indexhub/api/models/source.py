@@ -12,11 +12,28 @@ class SourceTags(str, enum.Enum):
     XERO = "XERO"
 
 
-class Source(SQLModel, table=True):
-    """Metadata schemas:
-    S3 - (s3_bucket: str, s3_path: str, file_ext: str)
-    """
+SUPPORTED_FILE_EXT = {"title": "", "subtitle": "", "values": ["csv", "xlsx", "parquet"]}
 
+
+SOURCE_SCHEMAS = {
+    "s3": {
+        "description": "",
+        "variables": {
+            "s3_bucket": {
+                "title": "",
+                "subtitle": "",
+            },
+            "s3_path": {
+                "title": "",
+                "subtitle": "",
+            },
+            "file_ext": SUPPORTED_FILE_EXT,
+        },
+    }
+}
+
+
+class Source(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, unique=True)
     user_id: str = Field(default=None, foreign_key="user.user_id")
     tag: SourceTags
