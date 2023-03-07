@@ -2,11 +2,12 @@ import enum
 from datetime import datetime
 from typing import List, Optional
 
+from indexhub.api.models._status import StatusTypes
 from indexhub.api.models.user import User  # noqa
-from sqlmodel import JSON, Field, SQLModel
+from sqlmodel import Field, SQLModel
 
 
-class SourceTypes(str, enum.Enum):
+class SourceTags(str, enum.Enum):
     S3 = "S3"
     XERO = "XERO"
 
@@ -18,15 +19,15 @@ class Source(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True, unique=True)
     user_id: str = Field(default=None, foreign_key="user.user_id")
+    tag: SourceTags
     name: str
-    type: SourceTypes
+    status: StatusTypes
     created_at: datetime
     updated_at: datetime
+    # Source specific variables
+    metadata: str
     freq: str
-    time_col: str
     entity_cols: List[str]
+    time_col: str
     target_cols: List[str]
-    metadata: JSON
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
     msg: Optional[str] = None
