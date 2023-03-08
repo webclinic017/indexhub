@@ -2,7 +2,7 @@ import os
 
 from fastapi import APIRouter
 from indexhub.api.db import engine
-from indexhub.api.models.policies import TAG_TO_POLICY
+from indexhub.api.models.policy import TAG_TO_POLICY
 from sqlmodel import Session, select
 
 router = APIRouter()

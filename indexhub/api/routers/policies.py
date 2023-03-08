@@ -4,7 +4,7 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policies import POLICY_SCHEMAS, Policy
+from indexhub.api.models.policy import POLICY_SCHEMAS, Policy
 from indexhub.api.models.source import Source
 from sqlmodel import Session, select
 
