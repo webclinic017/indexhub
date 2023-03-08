@@ -47,5 +47,5 @@ class Source(SQLModel, table=True):
     datetime_fmt: str
     entity_cols: List[str]
     time_col: str
-    target_cols: List[str]
+    feature_cols: List[str]
     msg: Optional[str] = None
