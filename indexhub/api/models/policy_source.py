@@ -1,8 +1,6 @@
-import enum
 from datetime import datetime
 from typing import List, Optional
 
-from indexhub.api.models._status import StatusTypes
 from indexhub.api.models.data_table import DataTable
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -56,7 +54,7 @@ class Policy(SQLModel, table=True):
     user_id: str = Field(default=None, foreign_key="user.id")
     tag: str
     name: str
-    status: StatusTypes
+    status: str
     created_at: datetime
     updated_at: datetime
     # Policy specific variables
@@ -72,11 +70,6 @@ class Policy(SQLModel, table=True):
 
 
 # =========================== SOURCE MODEL =========================== #
-
-
-class SourceTags(str, enum.Enum):
-    S3 = "S3"
-    XERO = "XERO"
 
 
 SUPPORTED_FILE_EXT = {"title": "", "subtitle": "", "values": ["csv", "xlsx", "parquet"]}
@@ -117,9 +110,9 @@ SOURCE_SCHEMAS = {
 class Source(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, unique=True)
     user_id: str = Field(default=None, foreign_key="user.id")
-    tag: SourceTags
+    tag: str
     name: str
-    status: StatusTypes
+    status: str
     created_at: datetime
     updated_at: datetime
     # Source specific variables

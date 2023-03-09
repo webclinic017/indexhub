@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
 
-from indexhub.api.models._status import StatusTypes
 from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.policy_source import Source  # noqa
 from sqlmodel import Field, Relationship, SQLModel
@@ -42,7 +41,7 @@ class Policy(SQLModel, table=True):
     user_id: str = Field(default=None, foreign_key="user.user_id")
     tag: str
     name: str
-    status: StatusTypes
+    status: str
     created_at: datetime
     updated_at: datetime
     # Policy specific variables
