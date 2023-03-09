@@ -3,7 +3,7 @@ from typing import Optional
 import boto3
 import botocore
 from fastapi import APIRouter, HTTPException
-from services.parsers import parse_csv, parse_excel, parse_parquet
+from indexhub.api.services.parsers import parse_csv, parse_excel, parse_parquet
 
 
 FILE_EXT_TO_PARSER = {"excel": parse_excel, "csv": parse_csv, "parquet": parse_parquet}

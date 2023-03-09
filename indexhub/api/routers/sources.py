@@ -4,7 +4,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.source import SOURCE_SCHEMAS, Source
+from indexhub.api.models.policy_source import SOURCE_SCHEMAS, Source
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -15,15 +15,16 @@ class CreateSourceParams(BaseModel):
     user_id: str
     tag: str
     name: str
-    metadata: str
+    attributes: str
     freq: str
     datetime_fmt: str
     entity_cols: List[str]
     time_col: str
     target_cols: List[str]
+    feature_cols: List[str]
 
 
-@router.get("sources/tags")
+@router.get("/sources/tags")
 def list_source_tags():
     return list(SOURCE_SCHEMAS.keys())
 
@@ -31,7 +32,7 @@ def list_source_tags():
 @router.post("/sources")
 def create_source(params: CreateSourceParams):
     with Session(engine) as session:
-        source = Source(**params)
+        source = Source(**params.__dict__)
         source.status = "RUNNING"
         ts = datetime.utcnow()
         source.created_at = ts
@@ -54,7 +55,7 @@ def list_sources(user_id: str):
 def get_source(source_id: str):
     with Session(engine) as session:
         query = select(Source).where(Source.id == source_id)
-        source = session.exec(query).all()
+        source = session.exec(query).first()
         return {"source": source}
 
 

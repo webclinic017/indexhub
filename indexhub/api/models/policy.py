@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from indexhub.api.models._status import StatusTypes
 from indexhub.api.models.data_table import DataTable
-from indexhub.api.models.source import Source  # noqa
+from indexhub.api.models.policy_source import Source  # noqa
 from sqlmodel import Field, Relationship, SQLModel
 
 

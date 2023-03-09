@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Response, status
 from indexhub.api.db import engine
@@ -19,10 +19,8 @@ class CreateUser(BaseModel):
 
 class UserPatch(BaseModel):
     name: Optional[str] = None
-    nickname: str
+    nickname: Optional[str] = None
     email: Optional[str] = None
-    email_verified: Optional[str] = None
-    report_ids: Optional[List[str]] = None
 
 
 @router.post("/users")
@@ -33,7 +31,7 @@ def create_user(
     with Session(engine) as session:
 
         user = User()
-        user.user_id = create_user.user_id
+        user.id = create_user.user_id
         user.name = create_user.name
         user.nickname = create_user.nickname
         user.email = create_user.email
@@ -67,15 +65,13 @@ def patch_user(
 ):
 
     with Session(engine) as session:
-        filter_user_query = select(User).where(User.user_id == user_id)
+        filter_user_query = select(User).where(User.id == user_id)
         results = session.exec(filter_user_query)
         user = results.one()
 
         user.name = user_patch.name or user.name
         user.nickname = user_patch.nickname or user.nickname
         user.email = user_patch.email or user.email
-        user.email_verified = user_patch.email_verified or user.email_verified
-        user.report_ids = user_patch.report_ids or user.report_ids
 
         session.add(user)
         session.commit()

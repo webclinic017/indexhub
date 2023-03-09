@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import create_db_and_tables
 from .dependencies import verify_oauth_token
-from .routers import charts, data_tables, reports, sources, users
+from .routers import data_tables, policies, sources, users
 
 dependencies = None
 
@@ -17,8 +17,7 @@ if (os.getenv("DEBUG", "true").lower()) == "false":
 app = FastAPI(dependencies=dependencies)
 
 app.include_router(users.router)
-app.include_router(reports.router)
-app.include_router(charts.router)
+app.include_router(policies.router)
 app.include_router(data_tables.router)
 app.include_router(sources.router)
 

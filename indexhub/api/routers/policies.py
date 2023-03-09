@@ -4,8 +4,7 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policy import POLICY_SCHEMAS, Policy
-from indexhub.api.models.source import Source
+from indexhub.api.models.policy_source import POLICY_SCHEMAS, Policy, Source
 from sqlmodel import Session, select
 
 
@@ -18,7 +17,8 @@ def list_policy_schemas(source_id: str):
         query = select(Source).where(Source.id == source_id)
         source = session.exec(query).first()
         entity_cols = source.entity_cols
-        schemas = POLICY_SCHEMAS(entity_cols)
+        feature_cols = source.feature_cols
+        schemas = POLICY_SCHEMAS(entity_cols, feature_cols)
     return schemas
 
 
@@ -48,7 +48,7 @@ def list_policies(user_id: str):
 def get_policy(policy_id: str):
     with Session(engine) as session:
         query = select(Policy).where(Policy.id == policy_id)
-        policy = session.exec(query).all()
+        policy = session.exec(query).first()
         return {"policy": policy}
 
 

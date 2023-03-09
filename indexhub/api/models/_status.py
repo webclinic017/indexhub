@@ -1,7 +1,7 @@
 import enum
 
 
-class StatusTypes(str, enum.ENUM):
+class StatusTypes(str, enum.Enum):
     SUCCESS = "SUCCESS"
     RUNNING = "RUNNING"
     FAILED = "FAILED"
