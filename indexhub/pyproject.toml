@@ -6,38 +6,25 @@ build-backend = "hatchling.build"
 name = "indexhub"
 description = "IndexHub API and workflows."
 readme = "README.md"
-requires-python = ">=3.9,<3.10"
+requires-python = ">=3.10,<3.11"
 authors = [
-    { name = "Christopher Lo", email = "christopher@orcabase.com"},
+    { name = "Christopher Lo", email = "chris@indexhub.ai"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
     "boto3==1.24.59",
-    "fastapi",
-    "httpx",
-    "numpy",
-    "pandas==1.5.2",
-    "polars==0.15.17",
-    "prefect",
-    "requests",
+    "polars==0.16.11",
+    "pyarrow",
     "s3fs",
     "sqlmodel",
-    "PyJWT",
-    "xlsx2csv",
-    "pyarrow",
-    "openpyxl",
-    "psycopg2-binary",
-    "uvicorn==0.20.0",
-    "phik==0.11.1",
-    "ydata-profiling"
 ]
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/OrcaBaseHQ/indexhub"
+Homepage = "https://github.com/functional-analytics/indexhub"
 
 [project.optional-dependencies]
 dev = [
@@ -51,11 +38,16 @@ dev = [
     "pyupgrade",
     "ruff",
 ]
-
-ml = [
-    "joblib==1.2.0",
-    "mlforecast==0.4.0",
-    "lightgbm==3.3.3",
+api = [
+    "fastapi",
+    "httpx",
+    "PyJWT",
+    "pyarrow",
+    "uvicorn==0.20.0",
+]
+parsers = [
+    "openpyxl",
+    "xlsx2csv",
 ]
 
 [tool.hatch.version]
