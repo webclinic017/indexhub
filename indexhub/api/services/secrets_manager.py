@@ -9,14 +9,13 @@ from typing import Mapping
 import boto3
 from botocore.exceptions import ClientError
 
-ENV = "dev"
-if os.environ["DEBUG"].lower() != "true":
-    ENV = "prod"
+
+ENVIRONMENT = "dev" if os.environ["DEBUG"].lower() != "true" else "prod"
 
 
 def get_aws_secret(tag: str, secret_type: str, user_id: str):
 
-    secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
+    secret_name = f"{ENVIRONMENT}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
     region_name = "ap-northeast-2"
 
     # Create a Secrets Manager client
@@ -39,8 +38,7 @@ def create_aws_secret(
     tag: str, secret_type: str, user_id: str, secret: Mapping[str, str]
 ):
 
-    secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
-    print(secret_name)
+    secret_name = f"{ENVIRONMENT}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
     region_name = "ap-northeast-2"
 
     # Create a Secrets Manager client
