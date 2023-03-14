@@ -5,7 +5,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.data_table import DataTable
 from indexhub.api.models.policy_source import Policy
 from indexhub.api.models.user import User
-from indexhub.api.routers.readers import read_s3
+from indexhub.api.services.io import read_data_from_s3
 from sqlmodel import Session, select
 
 router = APIRouter()
@@ -30,22 +30,18 @@ def get_data_table(table_id: str, user_id: str):
     """Return CSV"""
     with Session(engine) as session:
         if table_id in DEMO_TABLE_IDS:
-            s3_bucket = os.environ.get("DEMO__S3_BUCKET", "indexhub-demo")
-            s3_path = f"{s3_bucket}/{table_id}.parquet"  # noqa
+            bucket_name = os.environ.get("DEMO__BUCKET_NAME", "indexhub-demo")
+            object_path = f"{bucket_name}/{table_id}.parquet"  # noqa
         else:
             # Get S3 bucket associated with user
             query = select(User).where(User.id == user_id)
             user = session.exec(query).first()
-            s3_bucket = (
-                user.s3_bucket
-            )  # TODO: Update accordingly when model created for connections
+            bucket_name = user.bucket_name
 
             # Get S3 path from DataTable
             query = select(DataTable).where(DataTable.id == table_id)
             table = session.exec(query).first()
-            s3_path = table.path
+            object_path = table.path
 
-        data = read_s3(
-            s3_bucket, s3_path, "parquet"
-        )  # QUESTION: Can we file ext here to parquet or should we create a field in DataTable schema
+        data = read_data_from_s3(bucket_name, object_path, "parquet")
         return {"data": data}

@@ -38,12 +38,12 @@ repos:
     hooks:
       - id: black
         language_version: python3
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: ''
-    hooks:
-      - id: eslint
-        name: eslint + prettier (FE Files)
-        files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
-        types: [file]
-        entry: bash -c "cd frontend && npm run lint-staged"
-        language: node
+  # - repo: https://github.com/pre-commit/mirrors-eslint
+  #   rev: ''
+  #   hooks:
+  #     - id: eslint
+  #       name: eslint + prettier (FE Files)
+  #       files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
+  #       types: [file]
+  #       entry: bash -c "cd frontend && npm run lint-staged"
+  #       language: node

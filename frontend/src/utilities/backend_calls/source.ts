@@ -95,14 +95,14 @@ export const getSourcesSchema = async (
 };
 
 export const getS3SourceColumns = async (
-  s3_bucket: string,
-  s3_path: string,
+  bucket_name: string,
+  object_path: string,
   file_ext: string,
   access_token_indexhub_api: string
 ) => {
   const get_source_columns_url = `${
     process.env.REACT_APP_INDEXHUB_API_DOMAIN
-  }/readers/s3?s3_bucket=${s3_bucket}&s3_path=${s3_path}&file_ext=${file_ext}&orient=list&n_rows=${1}`;
+  }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list&n_rows=${1}`;
 
   const get_source_columns_response = await fetch(get_source_columns_url, {
     method: "GET",

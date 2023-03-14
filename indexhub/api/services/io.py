@@ -13,8 +13,8 @@ router = APIRouter()
 
 
 def read_data_from_s3(
-    s3_bucket: str,
-    s3_path: str,
+    bucket_name: str,
+    object_path: str,
     file_ext: str,
     n_rows: Optional[int] = None,
     aws_access_key_id: Optional[str] = None,
@@ -26,7 +26,7 @@ def read_data_from_s3(
         aws_secret_access_key=aws_secret_access_key,
     )
     try:
-        obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_path)["Body"].read()
+        obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)["Body"].read()
     except botocore.exceptions.ClientError as err:
         error_code = err.response["Error"]["Code"]
         if error_code == "NoSuchBucket":
