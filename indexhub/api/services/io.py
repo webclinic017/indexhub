@@ -13,9 +13,18 @@ router = APIRouter()
 
 
 def load_s3_data(
-    s3_bucket: str, s3_path: str, file_ext: str, n_rows: Optional[int] = None
+    s3_bucket: str,
+    s3_path: str,
+    file_ext: str,
+    n_rows: Optional[int] = None,
+    aws_access_key_id: Optional[str] = None,
+    aws_secret_access_key: Optional[str] = None,
 ):
-    s3_client = boto3.client("s3")
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+    )
     try:
         obj = s3_client.get_object(Bucket=s3_bucket, Key=s3_path)["Body"].read()
     except botocore.exceptions.ClientError as err:
