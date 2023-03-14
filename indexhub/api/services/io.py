@@ -12,7 +12,7 @@ FILE_EXT_TO_PARSER = {"excel": parse_excel, "csv": parse_csv, "parquet": parse_p
 router = APIRouter()
 
 
-def load_s3_data(
+def read_data_from_s3(
     s3_bucket: str,
     s3_path: str,
     file_ext: str,

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter
-from indexhub.api.services.io import load_s3_data
+from indexhub.api.services.io import read_data_from_s3
 
 
 router = APIRouter()
@@ -15,7 +15,7 @@ def read_s3(
     orient: str,
     n_rows: Optional[int] = None,
 ):
-    data = load_s3_data(
+    data = read_data_from_s3(
         s3_bucket=s3_bucket, s3_path=s3_path, file_ext=file_ext, n_rows=n_rows
     )
     if orient == "records":
