@@ -27,7 +27,7 @@ def parse_excel(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
         return raw_panel
 
 
-def parse_csv(obj: str, n_rows: Optional[int] = None):
+def parse_csv(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
     try:
         raw_panel = pl.read_csv(io.BytesIO(obj), n_rows=n_rows)
     except ComputeError as err:
@@ -36,7 +36,7 @@ def parse_csv(obj: str, n_rows: Optional[int] = None):
         return raw_panel
 
 
-def parse_parquet(obj: str, n_rows: Optional[int] = None):
+def parse_parquet(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
     try:
         raw_panel = pl.read_parquet(io.BytesIO(obj), n_rows=n_rows)
     except ArrowError as err:

@@ -4,9 +4,12 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policy_source import SOURCE_SCHEMAS, Source
+from indexhub.api.models.policy_source import Source
+from indexhub.api.models.user import User
+from indexhub.api.schemas import SOURCE_SCHEMAS
 from pydantic import BaseModel
 from sqlmodel import Session, select
+
 
 router = APIRouter()
 
@@ -15,18 +18,20 @@ class CreateSourceParams(BaseModel):
     user_id: str
     tag: str
     name: str
-    attributes: str
+    variables: str
     freq: str
     datetime_fmt: str
     entity_cols: List[str]
     time_col: str
-    target_cols: List[str]
     feature_cols: List[str]
 
 
-@router.get("/sources/tags")
-def list_source_tags():
-    return list(SOURCE_SCHEMAS.keys())
+@router.get("/sources/schema/{user_id}")
+def list_source_schemas(user_id: str):
+    with Session(engine) as session:
+        query = select(User).where(User.id == user_id)
+        user = session.exec(query).first()
+        return SOURCE_SCHEMAS(user=user)
 
 
 @router.post("/sources")

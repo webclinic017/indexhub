@@ -5,7 +5,7 @@ const initialState = {
     itemsId: [],
   },
   user: {
-    user_id: "",
+    id: "",
     name: "",
     nickname: "",
     email: "",
@@ -39,7 +39,7 @@ const reducer = (state = initialState, action) => {
   switch (action.type) {
     case "INIT_USER_SUCCESS": {
       newState.user = {
-        user_id: action.user_details.user_id,
+        id: action.user_details.id,
         name: action.user_details.name,
         nickname: action.user_details.nickname,
         email: action.user_details.email,

@@ -100,15 +100,11 @@ export default function SourcesTable() {
   const user_details = useSelector((state: AppState) => state.reducer?.user);
 
   const getSourcesByUserId = () => {
-    sendMessage(JSON.stringify({ user_id: user_details.user_id }));
+    sendMessage(JSON.stringify({ user_id: user_details.id }));
   };
 
   useEffect(() => {
-    if (
-      user_details.user_id &&
-      readyState == ReadyState.OPEN &&
-      !wsCallStarted
-    ) {
+    if (user_details.id && readyState == ReadyState.OPEN && !wsCallStarted) {
       getSourcesByUserId();
       setWsCallStarted(true);
       if (new_report) {
@@ -152,7 +148,7 @@ export default function SourcesTable() {
   const createReport = async () => {
     if (selectedLevelCols.length > 0 && selectedTargetCol) {
       const response = await createReportApi(
-        user_details.user_id,
+        user_details.id,
         selectedSource.name,
         selectedLevelCols,
         selectedTargetCol,

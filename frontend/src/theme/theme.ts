@@ -92,6 +92,10 @@ const default_theme = extendTheme({
       bg_grey: "#f7fafc",
       bg_light_grey: "#e4f0f9",
     },
+    buttons: {
+      filter_grey: colors.supplementary.sister_colors.filter_grey,
+      main_green: colors.supplementary.indicators.main_green,
+    },
   },
   fonts: {
     heading: `'Open Sans', sans-serif`,

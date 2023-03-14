@@ -6,7 +6,6 @@ import {
   Flex,
   FormControl,
   FormLabel,
-  Input,
   Stack,
 } from "@chakra-ui/react";
 import { Select, MultiValue } from "chakra-react-select";
@@ -39,9 +38,7 @@ const ConfigureSource = (props: {
   goToPrevStep: () => void;
   setTimeCol: React.Dispatch<React.SetStateAction<string>>;
   setFreq: React.Dispatch<React.SetStateAction<string>>;
-  setEntityCols: React.Dispatch<React.SetStateAction<never[]>>;
-  setTargetCols: React.Dispatch<React.SetStateAction<never[]>>;
-  setManualForecastPath: React.Dispatch<React.SetStateAction<string>>;
+  setEntityCols: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
   const options = getOptions(props.column_options);
 
@@ -103,21 +100,6 @@ const ConfigureSource = (props: {
             onChange={(value) => setColumnValue(value, props.setEntityCols)}
             options={options}
             isMulti
-          />
-        </FormControl>
-        <FormControl isRequired>
-          <FormLabel>Target columns</FormLabel>
-          <Select
-            onChange={(value) => setColumnValue(value, props.setTargetCols)}
-            options={options}
-            isMulti
-          />
-        </FormControl>
-        <FormControl isRequired>
-          <FormLabel>Manual forecast path</FormLabel>
-          <Input
-            onChange={(e) => props.setManualForecastPath(e.currentTarget.value)}
-            placeholder="Path to the manual forecast files in your S3 Bucket"
           />
         </FormControl>
       </Stack>

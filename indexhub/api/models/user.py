@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -9,6 +10,8 @@ class User(SQLModel, table=True):
     nickname: str
     email: str
     email_verified: bool
-    s3_bucket: Optional[str] = None
-    source_ids: Optional[str] = None  # List[str]
-    policy_ids: Optional[str] = None  # List[str]
+    has_s3_creds: bool = False
+    has_azure_creds: bool = False
+    storage_tag: Optional[str] = None
+    storage_bucket_name: Optional[str] = None
+    storage_created_at: Optional[datetime]

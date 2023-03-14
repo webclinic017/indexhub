@@ -16,9 +16,8 @@ const ConfirmCreateSource = (props: {
   source_name: string;
   freq: string;
   time_col: string;
-  target_cols: string[];
+  feature_cols: string[];
   entity_cols: string[];
-  manual_forecast_path: string;
   createSource: () => void;
   goToPrevStep: () => void;
 }) => {
@@ -67,16 +66,6 @@ const ConfirmCreateSource = (props: {
               justifyContent="space-between"
             >
               <Text width="30%" fontWeight="bold">
-                Manual forecast path:
-              </Text>
-              <Text width="70%">{props.manual_forecast_path}</Text>
-            </Stack>
-            <Stack
-              direction={{ base: "column", md: "row" }}
-              spacing={{ base: "1.5", md: "8" }}
-              justifyContent="space-between"
-            >
-              <Text width="30%" fontWeight="bold">
                 Frequency:
               </Text>
               <Text width="70%">{props.freq}</Text>
@@ -99,7 +88,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Target column(s)
               </Text>
-              <Text width="70%">{props.target_cols.join(", ")}</Text>
+              <Text width="70%">{props.feature_cols.join(", ")}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}

@@ -1,8 +1,10 @@
-from typing import Optional
+from typing import Mapping, Optional
 
-from fastapi import APIRouter, Response, status
+from botocore.exceptions import ClientError
+from fastapi import APIRouter, HTTPException, Response, status
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.services.secrets_manager import create_aws_secret
 from pydantic import BaseModel
 from sqlmodel import Field, Session, select
 
@@ -15,12 +17,6 @@ class CreateUser(BaseModel):
     nickname: str
     email: str
     email_verified: bool
-
-
-class UserPatch(BaseModel):
-    name: Optional[str] = None
-    nickname: Optional[str] = None
-    email: Optional[str] = None
 
 
 @router.post("/users")
@@ -42,7 +38,7 @@ def create_user(
         session.refresh(user)
 
         return {
-            "user_id": create_user.user_id,
+            "user_id": user.id,
             "message": "User creation on backend success",
         }
 
@@ -56,6 +52,12 @@ def get_user(response: Response, user_id: str):
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "User id not found"}
+
+
+class UserPatch(BaseModel):
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    email: Optional[str] = None
 
 
 @router.patch("/users/{user_id}")
@@ -78,3 +80,39 @@ def patch_user(
         session.refresh(user)
 
         return user
+
+
+class CreateSourceCreds(BaseModel):
+    tag: str
+    secret: Mapping[str, str]
+
+
+@router.post("/users/{user_id}/credentials")
+def add_source_credentials(params: CreateSourceCreds, user_id: str):
+    try:
+        create_aws_secret(
+            tag=params.tag,
+            secret_type="sources",
+            user_id=user_id,
+            secret=params.secret,
+        )
+    except ClientError as err:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong with storing your credentials. Please contact our support team for help.",
+        ) from err
+    else:
+        with Session(engine) as session:
+            query = select(User).where(User.id == user_id)
+            user = session.exec(query).first()
+            if params.tag == "s3":
+                user.has_s3_creds = True
+            elif params.tag == "azure":
+                user.has_azure_creds = True
+
+            session.add(user)
+            session.commit()
+            return {"ok": True}

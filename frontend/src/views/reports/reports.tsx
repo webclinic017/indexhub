@@ -84,7 +84,7 @@ export default function Reports() {
   const user_details = useSelector((state: AppState) => state.reducer?.user);
 
   const getReportsByUserId = () => {
-    sendMessage(JSON.stringify({ user_id: user_details.user_id }));
+    sendMessage(JSON.stringify({ user_id: user_details.id }));
   };
 
   const reports_per_page = 5;
@@ -92,11 +92,7 @@ export default function Reports() {
   const pages_required = Math.ceil(reports.reports?.length / reports_per_page);
 
   useEffect(() => {
-    if (
-      user_details.user_id &&
-      readyState == ReadyState.OPEN &&
-      !wsCallStarted
-    ) {
+    if (user_details.id && readyState == ReadyState.OPEN && !wsCallStarted) {
       getReportsByUserId();
       setWsCallStarted(true);
     }
