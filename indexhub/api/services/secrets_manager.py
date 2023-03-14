@@ -14,7 +14,7 @@ if os.environ["DEBUG"].lower() != "true":
     ENV = "prod"
 
 
-def get_s3_secret(tag: str, secret_type: str, user_id: str):
+def get_aws_secret(tag: str, secret_type: str, user_id: str):
 
     secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
     region_name = "ap-northeast-2"
