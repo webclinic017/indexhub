@@ -20,9 +20,8 @@ def list_data_tables(policy_id: int):
     with Session(engine) as session:
         query = select(Policy).where(Policy.id == policy_id)
         policy = session.exec(query).first()
-        data_tables = policy.data_tables  # noqa
+        data_tables = [table.dict(exclude_unset=True) for table in policy.data_tables]
         return {"data_tables": data_tables}
-        # TODO: coerce data_tables to JSON
 
 
 @router.get("/tables/{table_id}")
