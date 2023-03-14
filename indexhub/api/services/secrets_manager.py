@@ -10,7 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-ENVIRONMENT = "dev" if os.environ["DEBUG"].lower() != "true" else "prod"
+ENVIRONMENT = "prod" if (os.getenv("DEBUG", "true").lower()) == "false" else "dev"
 
 
 def get_aws_secret(tag: str, secret_type: str, user_id: str):

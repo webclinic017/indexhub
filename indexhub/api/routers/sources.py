@@ -4,7 +4,7 @@ from typing import List
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policy_source import Source
+from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 from indexhub.api.schemas import SOURCE_SCHEMAS
 from pydantic import BaseModel

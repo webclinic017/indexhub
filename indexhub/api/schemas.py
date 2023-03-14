@@ -1,3 +1,6 @@
+from typing import List, Mapping
+
+from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 
 STORAGE_SCHEMAS = {
@@ -75,15 +78,27 @@ def SOURCE_SCHEMAS(user: User):
     }
 
 
-def TARGET_COL_SCHEMA(col_names):
-    return {"title": "", "subtitle": "", "values": col_names}
+def TARGET_COL_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
+    schema = {
+        "title": "",
+        "subtitle": "",
+        "values": col_names,
+        "depends_on": depends_on
+    }
+    return schema
 
 
-def LEVEL_COLS_SCHEMA(col_names):
-    return {"title": "", "subtitle": "", "values": col_names}
+def TARGET_COL_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
+    schema = {
+        "title": "",
+        "subtitle": "",
+        "values": col_names,
+        "depends_on": depends_on
+    }
+    return schema
 
 
-def POLICY_SCHEMAS(entity_cols, feature_cols):
+def POLICY_SCHEMAS(sources: List[Source]):
     return {
         "forecast": {
             "description": "Reduce {direction} forecast error for {risks} entitie).",
@@ -94,12 +109,18 @@ def POLICY_SCHEMAS(entity_cols, feature_cols):
                     "values": ["over", "under", "overall"],
                 },
                 "risks": {"title": "", "subtitle": "", "values": ["low volatility"]},
-                "target_col": TARGET_COL_SCHEMA(feature_cols),
-                "level_cols": LEVEL_COLS_SCHEMA(entity_cols),
+                "target_col": {src.id: TARGET_COL_SCHEMA(src.feature_cols) for src in sources},
+                "level_cols": {src.id: LEVEL_COLS_SCHEMA(src.entity_cols) for src in sources},
+                "panel_source_id": {
+                    "title": "",
+                    "subtitle": "",
+                    "values": {src.name: src.id for src in sources},
+                },
+                "baseline_source_id": {
+                    "title": "",
+                    "subtitle": "",
+                    "values": {src.name: src.id for src in sources},
+                },
             },
-            "sources": [
-                {"name": "panel", "title": "", "subtitle": ""},
-                {"name": "benchmark", "title": "", "subtitle": ""},
-            ],
         }
     }

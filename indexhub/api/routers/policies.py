@@ -4,7 +4,8 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
-from indexhub.api.models.policy_source import Policy, Source
+from indexhub.api.models.policy import Policy
+from indexhub.api.models.source import Source
 from indexhub.api.schemas import POLICY_SCHEMAS
 from sqlmodel import Session, select
 
@@ -12,14 +13,12 @@ from sqlmodel import Session, select
 router = APIRouter()
 
 
-@router.get("/policies/schemas/{source_id}")
-def list_policy_schemas(source_id: str):
+@router.get("/policies/schemas/{user_id}")
+def list_policy_schemas(user_id: str):
     with Session(engine) as session:
-        query = select(Source).where(Source.id == source_id)
-        source = session.exec(query).first()
-        entity_cols = source.entity_cols
-        feature_cols = source.feature_cols
-        schemas = POLICY_SCHEMAS(entity_cols, feature_cols)
+        query = select(Source).where(Source.user_id == user_id)
+        sources = session.exec(query).all()
+        schemas = POLICY_SCHEMAS(sources=sources)
     return schemas
 
 

@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter
 from indexhub.api.db import engine
 from indexhub.api.models.data_table import DataTable
-from indexhub.api.models.policy_source import Policy
+from indexhub.api.models.policy import Policy
 from indexhub.api.models.user import User
 from indexhub.api.services.io import read_data_from_s3
 from sqlmodel import Session, select
