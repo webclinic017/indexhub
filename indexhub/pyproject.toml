@@ -32,7 +32,6 @@ dev = [
     "black",
     "coverage[toml]",
     "flake8",
-    "isort",
     "pre-commit",
     "pytest",
     "pyupgrade",
