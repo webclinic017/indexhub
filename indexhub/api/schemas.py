@@ -1,4 +1,4 @@
-from typing import List, Mapping
+from typing import List
 
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
@@ -83,17 +83,17 @@ def TARGET_COL_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
         "title": "",
         "subtitle": "",
         "values": col_names,
-        "depends_on": depends_on
+        "depends_on": depends_on,
     }
     return schema
 
 
-def TARGET_COL_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
+def LEVEL_COLS_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
     schema = {
         "title": "",
         "subtitle": "",
         "values": col_names,
-        "depends_on": depends_on
+        "depends_on": depends_on,
     }
     return schema
 
@@ -109,8 +109,18 @@ def POLICY_SCHEMAS(sources: List[Source]):
                     "values": ["over", "under", "overall"],
                 },
                 "risks": {"title": "", "subtitle": "", "values": ["low volatility"]},
-                "target_col": {src.id: TARGET_COL_SCHEMA(src.feature_cols) for src in sources},
-                "level_cols": {src.id: LEVEL_COLS_SCHEMA(src.entity_cols) for src in sources},
+                "target_col": {
+                    src.id: TARGET_COL_SCHEMA(
+                        col=src.feature_cols, depends_on="panel_source_id"
+                    )
+                    for src in sources
+                },
+                "level_cols": {
+                    src.id: LEVEL_COLS_SCHEMA(
+                        col=src.entity_cols, depends_on="panel_source_id"
+                    )
+                    for src in sources
+                },
                 "panel_source_id": {
                     "title": "",
                     "subtitle": "",
