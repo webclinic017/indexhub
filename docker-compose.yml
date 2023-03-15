@@ -1,6 +1,6 @@
 version: '3.8'
 services:
-  indexhub_local:
+  postgres:
     image: postgres:10-alpine
     container_name: PG_Database
     ports:
@@ -33,7 +33,7 @@ services:
     ports:
       - "${FASTAPI_PORT}:${FASTAPI_PORT}"
     depends_on:
-      - indexhub_local
+      - postgres
 
   frontend:
     build: ./frontend
