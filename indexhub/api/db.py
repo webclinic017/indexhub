@@ -8,7 +8,7 @@ PSQL_USERNAME = os.environ["PSQL_USERNAME"]
 PSQL_PASSWORD = os.environ["PSQL_PASSWORD"]
 PSQL_HOST = os.environ["PSQL_HOST"]
 PSQL_PORT = os.environ["PSQL_PORT"]
-PSQL_DBNAME = os.environ["PSQL_NAME"]
+PSQL_DBNAME = os.environ["PSQL_DBNAME"]
 PSQL_SSLMODE = os.environ.get("PSQL_SSLMODE", "require")
 PSQL_URI = (
     f"postgresql://{PSQL_USERNAME}:{PSQL_PASSWORD}@"

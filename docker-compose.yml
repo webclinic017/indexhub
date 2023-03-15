@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_USER: "${PSQL_USERNAME}"
       POSTGRES_PASSWORD: "${PSQL_PASSWORD}"
-      POSTGRES_DB: "${PSQL_NAME}"
+      POSTGRES_DB: "${PSQL_DBNAME}"
   admin:
     image: adminer
     container_name: Database_Admin
@@ -23,7 +23,7 @@ services:
       - PSQL_USERNAME=${PSQL_USERNAME}
       - PSQL_PASSWORD=${PSQL_PASSWORD}
       - PSQL_HOST=${PSQL_HOST}
-      - PSQL_NAME=${PSQL_NAME}
+      - PSQL_DBNAME=${PSQL_DBNAME}
       - PSQL_PORT=${PSQL_PORT}
       - PSQL_SSLMODE=${PSQL_SSLMODE}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
