@@ -34,6 +34,7 @@ dev = [
     "flake8",
     "pre-commit",
     "pytest",
+    "pytest-postgresql",
     "pyupgrade",
     "ruff",
 ]
