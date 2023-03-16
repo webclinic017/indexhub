@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Mapping, Optional
 
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, Response, status
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.schemas import STORAGE_SCHEMAS
 from indexhub.api.services.secrets_manager import create_aws_secret
 from pydantic import BaseModel
 from sqlmodel import Field, Session, select
@@ -116,3 +118,45 @@ def add_source_credentials(params: CreateSourceCreds, user_id: str):
             session.add(user)
             session.commit()
             return {"ok": True}
+
+
+class CreateStorageCreds(BaseModel):
+    tag: str
+    secret: Mapping[str, str]
+    storage_bucket_name: str
+
+
+@router.post("/users/{user_id}/storage")
+def add_storage_credentials(params: CreateStorageCreds, user_id: str):
+    try:
+        create_aws_secret(
+            tag=params.tag,
+            secret_type="storage",
+            user_id=user_id,
+            secret=params.secret,
+        )
+    except ClientError as err:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+
+        raise HTTPException(
+            status_code=500,
+            detail="Something went wrong with creating your storage. Please contact our support team for help.",
+        ) from err
+    else:
+        with Session(engine) as session:
+            query = select(User).where(User.id == user_id)
+            user = session.exec(query).first()
+            user.storage_tag = params.tag
+            user.storage_bucket_name = params.storage_bucket_name
+            ts = datetime.utcnow()
+            user.storage_created_at = ts
+
+            session.add(user)
+            session.commit()
+            return {"ok": True}
+
+
+@router.get("/users/schema/storage")
+def list_storage_schemas():
+    return STORAGE_SCHEMAS

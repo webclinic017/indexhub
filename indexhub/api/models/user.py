@@ -14,4 +14,4 @@ class User(SQLModel, table=True):
     has_azure_creds: bool = False
     storage_tag: Optional[str] = None
     storage_bucket_name: Optional[str] = None
-    storage_created_at: Optional[datetime]
+    storage_created_at: Optional[datetime] = None

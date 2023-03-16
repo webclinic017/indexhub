@@ -16,6 +16,7 @@ import Forecast_Recommendations from "./views/reports/report_types/forecast_pred
 import NewSource from "./views/sources/new_source";
 import SourcesTable from "./views/sources/sources_table";
 import SourceProfiling from "./views/reports/profiling";
+import Storage from "./views/storage/storage";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
                 element={<Forecast_Recommendations />}
               />
               <Route path="alerts" element={<Alerts />} />
+              <Route path="storage" element={<Storage />} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<Profile />} />
             </Route>

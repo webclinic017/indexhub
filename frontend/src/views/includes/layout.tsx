@@ -25,6 +25,7 @@ import {
   faPlusCircle,
   faRightFromBracket,
   faRightToBracket,
+  faWarehouse,
 } from "@fortawesome/free-solid-svg-icons";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
@@ -285,6 +286,31 @@ export default function Layout() {
                       marginTop="0.5rem"
                     >
                       Alerts
+                    </Text>
+                  </Container>
+                </Link>
+                <Link style={{ width: "100%" }} to="/storage">
+                  <Container
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    flexDirection="column"
+                    width="100%"
+                    padding="1rem"
+                  >
+                    <FontAwesomeIcon
+                      style={{ transition: "color 0.3s ease-out" }}
+                      icon={faWarehouse}
+                      size="lg"
+                      color={getIconColor("storage")}
+                    />
+                    <Text
+                      transition="color 0.3s ease-out"
+                      color={getIconColor("storage")}
+                      fontSize="sm"
+                      marginTop="0.5rem"
+                    >
+                      Storage
                     </Text>
                   </Container>
                 </Link>

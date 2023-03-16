@@ -53,7 +53,9 @@ const steps = [
 export default function NewSource() {
   const [sources_schema, setSourcesSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [source_type, setSourceType] = useState("");
-  const [source_configs, setSourceConfigs] = useState<Record<string, string>>({});
+  const [source_configs, setSourceConfigs] = useState<Record<string, string>>(
+    {}
+  );
   const [source_columns, setSourceColumns] = useState([""]);
   const [column_options, setColumnOptions] = useState([""]);
   const [time_col, setTimeCol] = useState("");
@@ -89,8 +91,8 @@ export default function NewSource() {
   }, [source_columns]);
 
   useEffect(() => {
-    let selected_columns: string[] = entity_cols.concat([])
-    selected_columns.push(time_col)
+    let selected_columns: string[] = entity_cols.concat([]);
+    selected_columns.push(time_col);
     selected_columns = selected_columns.filter((val) => {
       return val != "";
     });
@@ -102,7 +104,7 @@ export default function NewSource() {
     });
 
     setColumnOptions(new_options);
-    setFeatureCols(new_options)
+    setFeatureCols(new_options);
   }, [time_col, entity_cols]);
 
   const submitSourceType = (source_type: string) => {
@@ -117,7 +119,6 @@ export default function NewSource() {
   const submitSourceCreds = async (source_creds: Record<string, string>) => {
     const response = await createCredentials(
       source_creds,
-      "source",
       source_type,
       user_details.id,
       access_token_indexhub_api
@@ -153,7 +154,7 @@ export default function NewSource() {
         );
       }
       if (Object.keys(source_columns).includes("data")) {
-        setSourceConfigs(configs)
+        setSourceConfigs(configs);
         setSourceColumns(Object.keys(source_columns["data"]));
         goToNextStep();
       } else {
@@ -170,12 +171,7 @@ export default function NewSource() {
   };
 
   const submitSourceConfig = () => {
-    if (
-      time_col &&
-      freq &&
-      entity_cols &&
-      feature_cols
-    ) {
+    if (time_col && freq && entity_cols && feature_cols) {
       goToNextStep();
     } else {
       Toast(

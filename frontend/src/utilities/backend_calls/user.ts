@@ -34,3 +34,44 @@ export const createUser = async (
 
   return create_user_response;
 };
+
+export const getStorageSchema = async (access_token: string) => {
+  const get_storage_schema_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/schema/storage`;
+  const get_storage_schema_response = await fetch(get_storage_schema_url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access_token}`,
+    },
+  });
+
+  const response_json = await get_storage_schema_response.json();
+
+  return response_json;
+};
+
+export const createStorage = async (
+  storage_credentials: Record<string, string | number>,
+  storage_bucket_name: string,
+  storage_tag: string,
+  user_id: string,
+  access_token_indexhub_api: string
+) => {
+  const create_storage_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/${user_id}/storage`;
+
+  const create_credentials_response = await fetch(create_storage_url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+    body: JSON.stringify({
+      tag: storage_tag,
+      secret: storage_credentials,
+      storage_bucket_name: storage_bucket_name,
+    }),
+  });
+
+  const response_json = await create_credentials_response.json();
+  return response_json;
+};

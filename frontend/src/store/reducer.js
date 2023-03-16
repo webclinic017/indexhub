@@ -10,7 +10,11 @@ const initialState = {
     nickname: "",
     email: "",
     email_verified: false,
-    report_ids: null,
+    has_s3_creds: false,
+    has_azure_creds: false,
+    storage_tag: "",
+    storage_bucket_name: "",
+    storage_created_at: "",
   },
   report_ids: [],
 };
@@ -38,14 +42,7 @@ const reducer = (state = initialState, action) => {
   }
   switch (action.type) {
     case "INIT_USER_SUCCESS": {
-      newState.user = {
-        id: action.user_details.id,
-        name: action.user_details.name,
-        nickname: action.user_details.nickname,
-        email: action.user_details.email,
-        email_verified: action.user_details.email_verified,
-        report_ids: action.user_details.report_id,
-      };
+      newState.user = action.user_details;
     }
   }
   return newState;
