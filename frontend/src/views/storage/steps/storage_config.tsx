@@ -20,7 +20,6 @@ const StorageConfig = (props: {
 }) => {
   const storage_credentials: Record<string, string> = {};
   let bucket_name = "";
-  console.log(props.selected_storage_schema);
   return (
     <Box
       as="form"

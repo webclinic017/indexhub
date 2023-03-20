@@ -2,6 +2,14 @@ import React from "react";
 import { Box, Divider, Grid, Stack, Text, VStack } from "@chakra-ui/react";
 import { Card, CardBody } from "@chakra-ui/card";
 import { capitalizeFirstLetter } from "../../../utilities/helpers";
+import { ReactComponent as S3Logo } from "../../../assets/images/svg/s3.svg";
+import { ReactComponent as AzureLogo } from "../../../assets/images/svg/azure.svg";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const logos: Record<string, any> = {
+  s3: <S3Logo width="7rem" height="7rem" />,
+  azure: <AzureLogo width="7rem" height="7rem" />,
+};
 
 const SourceType = (props: {
   sources_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -34,6 +42,7 @@ const SourceType = (props: {
               >
                 <CardBody>
                   <VStack>
+                    <Box p="6">{logos[source_type]}</Box>
                     <Box p="4">
                       <Text textAlign="center" fontWeight="bold">
                         {capitalizeFirstLetter(source_type)}

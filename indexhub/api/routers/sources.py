@@ -81,6 +81,12 @@ async def ws_get_sources(websocket: WebSocket):
     await websocket.accept()
     while True:
         data = await websocket.receive_json()
-        result = list_sources(**data)
-        response = {"sources": result["sources"]}
+        results = list_sources(**data)
+        response = []
+        for result in results["sources"]:
+            values = {
+                k: v for k, v in vars(result).items() if k != "_sa_instance_state"
+            }
+            response.append(values)
+        response = {"sources": response}
         await websocket.send_text(json.dumps(response, default=str))

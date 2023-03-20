@@ -37,7 +37,6 @@ const NewStorage = () => {
   useEffect(() => {
     const getStorageSchemaApi = async () => {
       const storage_schema = await getStorageSchema(access_token_indexhub_api);
-      console.log(storage_schema);
       setStorageSchema(storage_schema);
     };
     if (access_token_indexhub_api) {

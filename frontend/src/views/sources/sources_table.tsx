@@ -29,11 +29,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faPlus,
-  faTrash,
-  faCircleCheck,
-} from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import NewReport from "../reports/new_report";
 import { createReport as createReportApi } from "../../utilities/backend_calls/report";
 import Toast from "../../components/toast";
@@ -41,23 +37,21 @@ import { colors } from "../../theme/theme";
 
 export type Source = {
   id: string;
-  s3_data_bucket: string;
-  raw_data_path: string;
-  manual_forecast_path: string;
-  freq: string;
-  time_col: string;
-  target_cols: string[];
-  entity_cols: string[];
-  filters: string[];
+  user_id: string;
+  name: string;
   created_at: string;
   updated_at: string;
-  start_date: string;
-  end_date: string;
-  name: string;
-  user_id: string;
-  fct_panel_paths: string;
+  datetime_fmt: string;
+  feature_cols: string[];
+  entity_cols: string[];
+  time_col: string;
+  freq: string;
+  output_path: string;
   status: string;
+  tag: string;
+  variables: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   msg: string;
+  target_cols: string; // to be removed when refactoring policies
 };
 
 export type SelectedSource = {
@@ -115,7 +109,14 @@ export default function SourcesTable() {
 
   useEffect(() => {
     if (lastMessage?.data) {
-      setSources(JSON.parse(lastMessage.data));
+      const sources: Record<"sources", Source[]> = JSON.parse(lastMessage.data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sources["sources"].map((source: Record<string, any>) => {
+        source["entity_cols"] = source["entity_cols"].slice(1, -1).split(",");
+        source["feature_cols"] = source["feature_cols"].slice(1, -1).split(",");
+        source["variables"] = JSON.parse(source["variables"]);
+      });
+      setSources(sources);
 
       if (Object.keys(JSON.parse(lastMessage.data)).includes("sources")) {
         const statuses: string[] = [];
@@ -184,21 +185,18 @@ export default function SourcesTable() {
       header: "Name",
     }),
     columnHelper.accessor(
-      (row) => [
-        row.s3_data_bucket,
-        row.raw_data_path,
-        row.manual_forecast_path,
-      ],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (row: any) => [row.variables, row.output_path],
       {
         id: "paths",
         cell: (info) => (
           <VStack alignItems="flex-start">
             <Text>
-              <b>Raw Data:</b> s3://{info.getValue()[0]}/{info.getValue()[1]}
+              <b>Raw Data:</b> s3://{info.getValue()[0]["bucket_name"]}/
+              {info.getValue()[0]["object_path"]}
             </Text>
             <Text>
-              <b>Manual Forecast:</b> s3://{info.getValue()[0]}/
-              {info.getValue()[2]}
+              <b>Output path: {info.getValue()[1]}</b>
             </Text>
           </VStack>
         ),
@@ -206,7 +204,7 @@ export default function SourcesTable() {
       }
     ),
     columnHelper.accessor(
-      (row: any) => [row.time_col, row.target_cols, row.entity_cols], // eslint-disable-line @typescript-eslint/no-explicit-any
+      (row: any) => [row.time_col, row.feature_cols, row.entity_cols], // eslint-disable-line @typescript-eslint/no-explicit-any
       {
         id: "columns",
         cell: (info) => (
@@ -215,7 +213,7 @@ export default function SourcesTable() {
               <b>Time Col:</b> {info.getValue()[0]}
             </Text>
             <Text>
-              <b>Target Col(s):</b> {info.getValue()[1].join(", ")}
+              <b>Feature Col(s):</b> {info.getValue()[1].join(", ")}
             </Text>
             <Text>
               <b>Entity Col(s):</b> {info.getValue()[2].join(", ")}
@@ -246,21 +244,6 @@ export default function SourcesTable() {
         cell: (info) => {
           return (
             <HStack justifyContent="space-between" width="60px">
-              {/* Need to be changed to new reports instead */}
-              <FontAwesomeIcon
-                cursor="pointer"
-                icon={faPlus}
-                onClick={() => {
-                  if (info.getValue()[4] == "COMPLETE") {
-                    openNewReportModal(
-                      info.getValue()[0],
-                      info.getValue()[1],
-                      info.getValue()[2],
-                      info.getValue()[3]
-                    );
-                  }
-                }}
-              />
               <FontAwesomeIcon
                 cursor="pointer"
                 icon={faTrash}
