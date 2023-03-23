@@ -1,0 +1,21 @@
+{
+    "sources": [
+        {
+            "id": 1,
+            "tag": "s3",
+            "status": "RUNNING",
+            "updated_at": "2023-03-20T04:07:34.071755",
+            "freq": "d",
+            "entity_cols": "{country,territory}",
+            "feature_cols": "{state,trips_in_000s}",
+            "msg": null,
+            "name": "Source name",
+            "user_id": "auth0|641021bb38b3e02b77fdbe7f",
+            "created_at": "2023-03-20T04:07:34.071755",
+            "variables": "{\"bucket_name\":\"indexhub-demo\",\"object_path\":\"tourism/tourism_20221212.parquet\",\"file_ext\":\"parquet\",\"source_name\":\"Source name\"}",
+            "datetime_fmt": "datetime_ftm_str",
+            "time_col": "time",
+            "output_path": null
+        }
+    ]
+}
