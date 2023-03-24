@@ -11,7 +11,7 @@ async def ws_get_sources(websocket: WebSocket):
     while True:
         data = await websocket.receive_json()
         if "user_id" in data:
-            f = open("tests/snapshots/sources.json")
+            f = open("frontend/tests/snapshots/sources/sources_list.json")
             response = json.load(f)
         else:
             response = {"error": "User id not provided"}

@@ -69,7 +69,7 @@ export default function SourcesTable() {
   const { new_report } = useOutletContext<stateProps>();
   const access_token_indexhub_api = useAuth0AccessToken();
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    "ws://localhost:8000/sources/ws"
+    `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/sources/ws`
   );
   const [sources, setSources] = useState<{ sources: Source[] }>({
     sources: [],
