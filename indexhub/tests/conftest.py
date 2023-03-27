@@ -41,6 +41,7 @@ def new_user():
 
     with Session(engine) as session:
         user = User(
+            id="test_auth0_id",
             name="John Smith",
             nickname="John",
             email="",
@@ -64,9 +65,7 @@ def new_storage(tag: str):
         user.storage_created_at = datetime.utcnow()
 
 
-new_s3_storage_db = factories.postgresql(
-    "database", load=[new_user(), new_storage("s3")]
-)
+new_s3_storage_db = factories.postgresql("database", load=[new_storage("s3")])
 
 # SOURCE CREATION / UPDATE STATES
 # User creates new source with state=RUNNING
@@ -91,6 +90,10 @@ def _add_data_lake_source(tag: str, file_ext: str):
                     "file_ext": file_ext,
                 }
             ),
+            freq="M",
+            datetime_fmt="dd/mm/yyyy",
+            time_col="time_col",
+            output_path="tourism",
             feature_cols=["country", "trips_in_000s"],
             entity_cols=["territory", "state"],
         )
@@ -105,12 +108,10 @@ def new_source(tag: str, file_ext: Optional[str] = None):
         raise ValueError(f"Tag {tag} not supported")
 
 
-new_s3_csv_source_db = factories.postgresql(
-    "database", load=[new_user(), new_storage("s3"), new_source("s3", "csv")]
-)
+new_s3_csv_source_db = factories.postgresql("database", load=[new_source("s3", "csv")])
 
 new_s3_xlsx_source_db = factories.postgresql(
-    "database", load=[new_user(), new_storage("s3"), new_source("s3", "xlsx")]
+    "database", load=[new_source("s3", "xlsx")]
 )
 
 
@@ -119,7 +120,7 @@ def update_source_status(status: str):
 
     with Session(engine) as session:
         query = select(Source).where(Source.name == "Tourism")
-        source = session.exec(query).one()
+        source = session.exec(query).first()
         source.status = status
 
         session.add(source)
@@ -130,9 +131,6 @@ def update_source_status(status: str):
 connected_source_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
         update_source_status("SUCCESSFUL"),
     ],
 )
@@ -141,9 +139,6 @@ connected_source_db = factories.postgresql(
 failed_source_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
         update_source_status("FAILED"),
     ],
 )
@@ -152,9 +147,6 @@ failed_source_db = factories.postgresql(
 updating_source_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
         update_source_status("RUNNING"),
     ],
 )
@@ -171,7 +163,7 @@ def new_policy(has_baseline: bool = False):
         user_id = user.id
 
         query = select(Source).where(Source.name == "Tourism")
-        source = session.exec(query).one()
+        source = session.exec(query).first()
         source_id = source.id
 
         fields = {
@@ -202,10 +194,6 @@ def new_policy(has_baseline: bool = False):
 new_forecast_policy_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
-        update_source_status("SUCCESSFUL"),
         new_policy(),
     ],
 )
@@ -214,10 +202,6 @@ new_forecast_policy_db = factories.postgresql(
 new_forecast_with_baseline_policy_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
-        update_source_status("SUCCESSFUL"),
         new_policy(has_baseline=True),
     ],
 )
@@ -228,7 +212,7 @@ def update_policy_status(status: str):
 
     with Session(engine) as session:
         query = select(Policy).where(Source.name == "Tourism Forecast")
-        policy = session.exec(query).one()
+        policy = session.exec(query).first()
         policy.status = status
 
         session.add(policy)
@@ -239,11 +223,6 @@ def update_policy_status(status: str):
 completed_forecast_policy_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
-        update_source_status("SUCCESSFUL"),
-        new_policy(has_baseline=True),
         update_policy_status(status="successful"),
     ],
 )
@@ -252,11 +231,6 @@ completed_forecast_policy_db = factories.postgresql(
 failed_forecast_policy_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
-        update_source_status("SUCCESSFUL"),
-        new_policy(has_baseline=True),
         update_policy_status(status="failed"),
     ],
 )
@@ -265,11 +239,6 @@ failed_forecast_policy_db = factories.postgresql(
 updating_forecast_policy_db = factories.postgresql(
     "database",
     load=[
-        new_user(),
-        new_storage("s3"),
-        new_source("s3", "csv"),
-        update_source_status("SUCCESSFUL"),
-        new_policy(has_baseline=True),
         update_policy_status(status="running"),
     ],
 )
