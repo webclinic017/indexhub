@@ -78,22 +78,29 @@ def SOURCE_SCHEMAS(user: User):
     }
 
 
-def TARGET_COL_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
+def _string_to_list(string: str):
+    return string[1:-1].split(",")
+
+
+def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
-        "title": "",
+        "title": "Target column",
         "subtitle": "",
-        "values": col_names,
+        # Probably won't scale but good enough for now
+        "values": {src.id: _string_to_list(src.feature_cols) for src in sources},
         "depends_on": depends_on,
     }
     return schema
 
 
-def LEVEL_COLS_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
+def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
-        "title": "",
+        "title": "Level column(s)",
         "subtitle": "",
-        "values": col_names,
+        # Probably won't scale but good enough for now
+        "values": {src.id: _string_to_list(src.entity_cols) for src in sources},
         "depends_on": depends_on,
+        "multiple_choice": True,
     }
     return schema
 
@@ -101,36 +108,37 @@ def LEVEL_COLS_SCHEMA(col_names: List[str], depends_on: str = "source_id"):
 def POLICY_SCHEMAS(sources: List[Source]):
     return {
         "forecast": {
-            "description": "Reduce {direction} forecast error for {risks} entitie).",
-            "fields": {
-                "direction": {
-                    "title": "",
-                    "subtitle": "",
-                    "values": ["over", "under", "overall"],
-                },
-                "risks": {"title": "", "subtitle": "", "values": ["low volatility"]},
-                "target_col": {
-                    src.id: TARGET_COL_SCHEMA(
-                        col=src.feature_cols, depends_on="panel_source_id"
-                    )
-                    for src in sources
-                },
-                "level_cols": {
-                    src.id: LEVEL_COLS_SCHEMA(
-                        col=src.entity_cols, depends_on="panel_source_id"
-                    )
-                    for src in sources
-                },
+            "subtitle": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+            "description": "Reduce {target_col} {direction} forecast error for {risks} {level_cols}.",
+            "datasets": {
                 "panel_source_id": {
-                    "title": "",
+                    "title": "Panel Source",
                     "subtitle": "",
                     "values": {src.name: src.id for src in sources},
                 },
                 "baseline_source_id": {
-                    "title": "",
+                    "title": "Baseline Source",
                     "subtitle": "",
                     "values": {src.name: src.id for src in sources},
                 },
+            },
+            "fields": {
+                "direction": {
+                    "title": "Direction",
+                    "subtitle": "",
+                    "values": ["over", "under", "overall"],
+                },
+                "risks": {
+                    "title": "Risks",
+                    "subtitle": "",
+                    "values": ["low volatility"],
+                },
+                "target_col": TARGET_COL_SCHEMA(
+                    sources=sources, depends_on="panel_source_id"
+                ),
+                "level_cols": LEVEL_COLS_SCHEMA(
+                    sources=sources, depends_on="panel_source_id"
+                ),
             },
         }
     }

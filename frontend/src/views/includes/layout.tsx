@@ -50,23 +50,6 @@ export const PopoverIcon = (props: { isOpen: boolean }) => {
   );
 };
 
-export const add_source_reports_items = [
-  {
-    title: "Add Source",
-    description: "Add and configure a new Source to generate reports from",
-    to: "/sources/new_source",
-    props: {},
-    icon: faDatabase,
-  },
-  {
-    title: "Add Report",
-    description: "Add and configure a new Source to generate reports from",
-    to: "/sources",
-    props: { new_report: true },
-    icon: faChartLine,
-  },
-];
-
 export default function Layout() {
   const { user, logout, loginWithRedirect } = useAuth0();
   const current_path = useLocation().pathname;
@@ -78,6 +61,21 @@ export default function Layout() {
       return colors.primary.brand_colors.blue_5;
     } else return colors.primary.brand_colors.not_black_black;
   };
+
+  const add_source_reports_items = [
+    {
+      title: "Add Source",
+      description: "Add and configure a new Source to generate reports from",
+      icon: faDatabase,
+      onClick: () => navigate("/sources/new_source"),
+    },
+    {
+      title: "Add Policy",
+      description: "Add and configure a new Policy from your available Sources",
+      icon: faChartLine,
+      onClick: () => navigate("/policies/new_policy"),
+    },
+  ];
 
   return (
     <>
@@ -134,9 +132,7 @@ export default function Layout() {
                           variant="menu"
                           key={id}
                           borderRadius="0.5rem"
-                          onClick={() =>
-                            navigate(item.to, { state: item.props })
-                          }
+                          onClick={item.onClick}
                         >
                           <Stack spacing="4" direction="row" p="3">
                             <FontAwesomeIcon

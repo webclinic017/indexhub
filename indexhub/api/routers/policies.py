@@ -1,19 +1,19 @@
 import json
 from datetime import datetime
-from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.schemas import POLICY_SCHEMAS
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 
 router = APIRouter()
 
 
-@router.get("/policies/schemas/{user_id}")
+@router.get("/policies/schema/{user_id}")
 def list_policy_schemas(user_id: str):
     with Session(engine) as session:
         query = select(Source).where(Source.user_id == user_id)
@@ -22,10 +22,17 @@ def list_policy_schemas(user_id: str):
     return schemas
 
 
+class CreatePolicyParams(BaseModel):
+    user_id: str
+    tag: str
+    name: str
+    fields: str
+
+
 @router.post("/policies")
-def create_policy(params: Mapping[str, Any]):
+def create_policy(params: CreatePolicyParams):
     with Session(engine) as session:
-        policy = Policy(**params)
+        policy = Policy(**params.__dict__)
         policy.status = "RUNNING"
         ts = datetime.utcnow()
         policy.created_at = ts
@@ -33,7 +40,7 @@ def create_policy(params: Mapping[str, Any]):
         session.add(policy)
         session.commit()
         session.refresh(policy)
-        return {"user_id": params["user_id"], "policy_id": policy.id}
+        return {"user_id": params.user_id, "policy_id": policy.id}
 
 
 @router.get("/policies")

@@ -17,6 +17,8 @@ import NewSource from "./views/sources/new_source";
 import SourcesTable from "./views/sources/sources_table";
 import SourceProfiling from "./views/reports/profiling";
 import Storage from "./views/storage/storage";
+import NewPolicy from "./views/policies/new_policy";
+import Policies from "./views/policies/policies";
 
 function App() {
   return (
@@ -31,6 +33,10 @@ function App() {
               <Route path="sources" element={<Sources />}>
                 <Route index element={<SourcesTable />} />
                 <Route path="new_source" element={<NewSource />} />
+              </Route>
+              <Route path="policies" element={<Policies />}>
+                <Route index element={<Reports />} />
+                <Route path="new_policy" element={<NewPolicy />} />
               </Route>
               <Route path="reports" element={<Reports />} />
               <Route
