@@ -1,0 +1,39 @@
+name: Deploy Webapp
+
+on:
+  workflow_dispatch:
+  release:
+    types: [ published ]
+
+jobs:
+  deploy:
+    name: Deploy FastAPI
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout 🛎️
+      uses: actions/checkout@v2
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ vars.AWS_DEFAULT_REGION }}
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-duration-seconds: 3600
+
+    - name: Install CDK CLI
+      run: |
+        npm install -g aws-cdk@2.72.0
+        cdk --version
+
+    - name: Install Python CDK
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -r requirements-cdk.txt
+
+    - name: CDK bootstrap
+      run: cdk bootstrap --app "python3 cdk_app.py"
+
+    - name: CDK deploy
+      run: cdk deploy --app "python3 cdk_app.py" --require-approval never
