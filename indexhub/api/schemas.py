@@ -110,13 +110,13 @@ def POLICY_SCHEMAS(sources: List[Source]):
         "forecast": {
             "subtitle": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
             "description": "Reduce {target_col} {direction} forecast error for {risks} {level_cols}.",
-            "datasets": {
-                "panel_source_id": {
+            "sources": {
+                "panel": {
                     "title": "Panel Source",
                     "subtitle": "",
                     "values": {src.name: src.id for src in sources},
                 },
-                "baseline_source_id": {
+                "baseline": {
                     "title": "Baseline Source",
                     "subtitle": "",
                     "values": {src.name: src.id for src in sources},
@@ -133,12 +133,8 @@ def POLICY_SCHEMAS(sources: List[Source]):
                     "subtitle": "",
                     "values": ["low volatility"],
                 },
-                "target_col": TARGET_COL_SCHEMA(
-                    sources=sources, depends_on="panel_source_id"
-                ),
-                "level_cols": LEVEL_COLS_SCHEMA(
-                    sources=sources, depends_on="panel_source_id"
-                ),
+                "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
+                "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
             },
         }
     }

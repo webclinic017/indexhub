@@ -52,19 +52,14 @@ const NewPolicy = () => {
   };
 
   const submitPolicySources = (policy_sources: Record<string, string>) => {
-    if (Object.keys(policy_sources).includes("panel_source_id")) {
-      policy_configs["panel_source_id"] = policy_sources["panel_source_id"];
-      policy_configs["panel_source_id_name"] =
-        policy_sources["panel_source_id_name"];
-      policy_configs["baseline_source_id"] = policy_sources[
-        "baseline_source_id"
-      ]
-        ? policy_sources["baseline_source_id"]
+    if (Object.keys(policy_sources).includes("panel")) {
+      policy_configs["panel"] = policy_sources["panel"];
+      policy_configs["panel_name"] = policy_sources["panel_name"];
+      policy_configs["baseline"] = policy_sources["baseline"]
+        ? policy_sources["baseline"]
         : "";
-      policy_configs["baseline_source_id_name"] = policy_sources[
-        "baseline_source_id_name"
-      ]
-        ? policy_sources["baseline_source_id_name"]
+      policy_configs["baseline_name"] = policy_sources["baseline_name"]
+        ? policy_sources["baseline_name"]
         : "";
       setPolicyConfigs(policy_configs);
       goToNextStep();

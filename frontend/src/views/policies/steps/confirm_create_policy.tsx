@@ -62,9 +62,7 @@ const ConfirmCreatePolicy = (props: {
               <Text width="30%" fontWeight="bold">
                 Panel source:
               </Text>
-              <Text width="70%">
-                {props.policy_configs["panel_source_id_name"]}
-              </Text>
+              <Text width="70%">{props.policy_configs["panel_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -74,9 +72,7 @@ const ConfirmCreatePolicy = (props: {
               <Text width="30%" fontWeight="bold">
                 Baseline source:
               </Text>
-              <Text width="70%">
-                {props.policy_configs["baseline_source_id_name"]}
-              </Text>
+              <Text width="70%">{props.policy_configs["baseline_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}

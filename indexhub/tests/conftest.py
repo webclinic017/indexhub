@@ -171,11 +171,11 @@ def new_policy(has_baseline: bool = False):
             "risks": "low volatility",
             "target_col": ["trips_in_000s"],
             "level_cols": ["territory", "state"],
-            "panel_source_id": source_id,
+            "panel": source_id,
         }
 
         if has_baseline:
-            fields["baseline_source_id"] = source.id
+            fields["baseline"] = source.id
 
         policy = Policy(
             user_id=user_id,

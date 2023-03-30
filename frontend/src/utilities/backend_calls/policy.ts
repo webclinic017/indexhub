@@ -22,25 +22,6 @@ export const createPolicy = async (
   policy_configs: Record<string, any>, // eslint-disable-line @typescript-eslint/no-explicit-any
   access_token_indexhub_api: string
 ) => {
-  console.log(
-    JSON.stringify({
-      user_id: user_id,
-      tag: policy_configs["policy_type"],
-      name: policy_configs["policy_name"],
-      fields: JSON.stringify({
-        datasets: {
-          panel_source_id: policy_configs["panel_source_id"],
-          baseline_source_id: policy_configs["baseline_source_id"]
-            ? policy_configs["baseline_source_id"]
-            : "",
-        },
-        direction: policy_configs["direction"],
-        risks: policy_configs["risks"],
-        target_col: policy_configs["target_col"],
-        level_cols: policy_configs["level_cols"],
-      }),
-    })
-  );
   const create_policy_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/policies`;
   const create_policy_response = await fetch(create_policy_url, {
     method: "POST",
@@ -53,10 +34,10 @@ export const createPolicy = async (
       tag: policy_configs["policy_type"],
       name: policy_configs["policy_name"],
       fields: JSON.stringify({
-        datasets: {
-          panel_source_id: policy_configs["panel_source_id"],
-          baseline_source_id: policy_configs["baseline_source_id"]
-            ? policy_configs["baseline_source_id"]
+        sources: {
+          panel: policy_configs["panel"],
+          baseline: policy_configs["baseline"]
+            ? policy_configs["baseline"]
             : "",
         },
         direction: policy_configs["direction"],

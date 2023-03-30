@@ -30,7 +30,7 @@ const PolicySource = (props: {
   goToPrevStep: () => void;
 }) => {
   const schema_dataset_fields =
-    props.policies_schema[props.policy_configs["policy_type"]]["datasets"];
+    props.policies_schema[props.policy_configs["policy_type"]]["sources"];
   const policy_sources: Record<string, string> = {};
 
   return (
