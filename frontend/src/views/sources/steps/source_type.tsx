@@ -1,9 +1,20 @@
 import React from "react";
-import { Box, Divider, Grid, Stack, Text, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Divider,
+  Grid,
+  HStack,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import { Card, CardBody } from "@chakra-ui/card";
 import { capitalizeFirstLetter } from "../../../utilities/helpers";
 import { ReactComponent as S3Logo } from "../../../assets/images/svg/s3.svg";
 import { ReactComponent as AzureLogo } from "../../../assets/images/svg/azure.svg";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
+import { colors } from "../../../theme/theme";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const logos: Record<string, any> = {
@@ -42,29 +53,42 @@ const SourceType = (props: {
               >
                 <CardBody>
                   <VStack>
+                    <HStack p="3" width="100%" justify="left">
+                      <FontAwesomeIcon
+                        size="2xs"
+                        icon={faCircleDot}
+                        beatFade
+                        style={{
+                          color:
+                            props.sources_schema[source_type][
+                              "is_authenticated"
+                            ] == true
+                              ? colors.supplementary.indicators.main_green
+                              : colors.supplementary.indicators.main_red,
+                        }}
+                      />
+                      <Text
+                        textAlign="center"
+                        fontSize="2xs"
+                        color={
+                          props.sources_schema[source_type][
+                            "is_authenticated"
+                          ] == true
+                            ? colors.supplementary.indicators.main_green
+                            : colors.supplementary.indicators.main_red
+                        }
+                      >
+                        {props.sources_schema[source_type][
+                          "is_authenticated"
+                        ] == true
+                          ? "HAS CREDENTIALS"
+                          : "NEEDS CREDENTIALS"}
+                      </Text>
+                    </HStack>
                     <Box p="6">{logos[source_type]}</Box>
                     <Box p="4">
                       <Text textAlign="center" fontWeight="bold">
                         {capitalizeFirstLetter(source_type)}
-                      </Text>
-                    </Box>
-                    <Box
-                      p="3"
-                      backgroundColor={
-                        props.sources_schema[source_type]["is_authenticated"] ==
-                        true
-                          ? "buttons.main_green"
-                          : "buttons.filter_grey"
-                      }
-                      width="100%"
-                      borderBottomRadius="lg"
-                    >
-                      <Text textAlign="center" fontWeight="bold">
-                        {props.sources_schema[source_type][
-                          "is_authenticated"
-                        ] == true
-                          ? "Has Credentials"
-                          : "Needs Credentials"}
                       </Text>
                     </Box>
                   </VStack>
