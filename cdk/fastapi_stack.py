@@ -13,13 +13,13 @@ from aws_cdk import (
 )
 
 
-class IndexHubWebappStack(Stack):
+class FastAPIStack(Stack):
     def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         self.vpc = ec2.Vpc(
             self,
-            "indexhub-webapp-vpc",
+            "IndexHubVPC",
             vpc_name="indexhub-vpc",
             max_azs=3,  # default is all AZs in region
             # nat_gateways=1
@@ -44,7 +44,7 @@ class IndexHubWebappStack(Stack):
 
         self.ecs_service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self,
-            "FastAPIService",
+            "IndexHubFastAPIService",
             cluster=self.ecs_cluster,
             cpu=256,
             memory_limit_mib=512,
