@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -15,8 +15,6 @@ class Source(SQLModel, table=True):
     variables: str
     freq: str
     datetime_fmt: str
-    entity_cols: List[str]
-    time_col: str
-    feature_cols: List[str]
+    columns: str  # {entity_cols: List[str], feature_cols: List[str], time_col: str}
     output_path: Optional[str] = None
     msg: Optional[str] = None

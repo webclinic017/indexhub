@@ -24,9 +24,11 @@ export const createSource = async (
       variables: JSON.stringify(source_configs),
       freq: freq,
       datetime_fmt: datetime_fmt,
-      entity_cols: entity_cols,
-      time_col: time_col,
-      feature_cols: feature_cols,
+      columns: JSON.stringify({
+        entity_cols: entity_cols,
+        time_col: time_col,
+        feature_cols: feature_cols,
+      }),
     }),
   });
 

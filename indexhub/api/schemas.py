@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 from indexhub.api.models.source import Source
@@ -78,16 +79,12 @@ def SOURCE_SCHEMAS(user: User):
     }
 
 
-def _string_to_list(string: str):
-    return string[1:-1].split(",")
-
-
 def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Target column",
         "subtitle": "",
         # Probably won't scale but good enough for now
-        "values": {src.id: _string_to_list(src.feature_cols) for src in sources},
+        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
         "depends_on": depends_on,
     }
     return schema
@@ -98,7 +95,7 @@ def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
         "title": "Level column(s)",
         "subtitle": "",
         # Probably won't scale but good enough for now
-        "values": {src.id: _string_to_list(src.entity_cols) for src in sources},
+        "values": {src.id: json.loads(src.columns)["entity_cols"] for src in sources},
         "depends_on": depends_on,
         "multiple_choice": True,
     }
