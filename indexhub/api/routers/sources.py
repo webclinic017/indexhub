@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-from typing import List
 
 from fastapi import APIRouter, HTTPException, WebSocket
 from indexhub.api.db import engine
@@ -21,9 +20,7 @@ class CreateSourceParams(BaseModel):
     variables: str
     freq: str
     datetime_fmt: str
-    entity_cols: List[str]
-    time_col: str
-    feature_cols: List[str]
+    columns: str
 
 
 @router.get("/sources/schema/{user_id}")

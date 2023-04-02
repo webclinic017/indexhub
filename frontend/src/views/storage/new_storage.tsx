@@ -1,6 +1,7 @@
 import { Container, Stack, useToast } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { AppState } from "../..";
 import { Step } from "../../components/step";
 import Toast from "../../components/toast";
@@ -33,6 +34,7 @@ const NewStorage = () => {
   });
   const user_details = useSelector((state: AppState) => state.reducer?.user);
   const toast = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const getStorageSchemaApi = async () => {
@@ -62,7 +64,7 @@ const NewStorage = () => {
         access_token_indexhub_api
       );
       if (Object.keys(response).includes("ok")) {
-        window.location.reload();
+        navigate("/sources");
         Toast(
           toast,
           "Credentials Stored",

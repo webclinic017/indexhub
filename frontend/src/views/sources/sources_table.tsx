@@ -7,33 +7,34 @@ import {
   Stack,
   Heading,
   Button,
-  HStack,
   TableContainer,
-  useDisclosure,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  useToast,
+  Flex,
+  HStack,
 } from "@chakra-ui/react";
-import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
+// import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
 import { useSelector } from "react-redux";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { AppState } from "../../index";
-import { deleteSource } from "../../utilities/backend_calls/source";
-import { Link, useOutletContext } from "react-router-dom";
+// import { deleteSource } from "../../utilities/backend_calls/source";
+import { Link, useNavigate } from "react-router-dom";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
-import { useNavigate } from "react-router-dom";
+import { Card, CardBody } from "@chakra-ui/card";
+import { capitalizeFirstLetter } from "../../utilities/helpers";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash, faCircleCheck } from "@fortawesome/free-solid-svg-icons";
-import NewReport from "../reports/new_report";
-import { createReport as createReportApi } from "../../utilities/backend_calls/report";
-import Toast from "../../components/toast";
+import { faCalendarDays } from "@fortawesome/free-solid-svg-icons";
+import { ReactComponent as S3Logo } from "../../assets/images/svg/s3.svg";
+import { ReactComponent as AzureLogo } from "../../assets/images/svg/azure.svg";
+import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
 import { colors } from "../../theme/theme";
+// import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+// import { faTrash } from "@fortawesome/free-solid-svg-icons";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const logos: Record<string, any> = {
+  s3: <S3Logo width="7rem" />,
+  azure: <AzureLogo width="7rem" />,
+};
 
 export type Source = {
   id: string;
@@ -42,9 +43,7 @@ export type Source = {
   created_at: string;
   updated_at: string;
   datetime_fmt: string;
-  feature_cols: string[];
-  entity_cols: string[];
-  time_col: string;
+  columns: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   freq: string;
   output_path: string;
   status: string;
@@ -61,36 +60,16 @@ export type SelectedSource = {
   target_cols: string[];
 };
 
-type stateProps = {
-  new_report: boolean;
-};
-
 export default function SourcesTable() {
-  const { new_report } = useOutletContext<stateProps>();
-  const access_token_indexhub_api = useAuth0AccessToken();
+  // const access_token_indexhub_api = useAuth0AccessToken();
   const { sendMessage, lastMessage, readyState } = useWebSocket(
     `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/sources/ws`
   );
   const [sources, setSources] = useState<{ sources: Source[] }>({
     sources: [],
   });
-  const [selectedSource, setSelectedSource] = useState<SelectedSource>({
-    id: "",
-    name: "",
-    entity_cols: [],
-    target_cols: [],
-  });
-
-  const [selectedLevelCols, setSelectedLevelCols] = useState([]);
-  const [selectedTargetCol, setSelectedTargetCol] = useState("");
-
   const [wsCallStarted, setWsCallStarted] = useState(false);
-
   const navigate = useNavigate();
-
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast();
-
   const user_details = useSelector((state: AppState) => state.reducer?.user);
 
   const getSourcesByUserId = () => {
@@ -101,9 +80,6 @@ export default function SourcesTable() {
     if (user_details.id && readyState == ReadyState.OPEN && !wsCallStarted) {
       getSourcesByUserId();
       setWsCallStarted(true);
-      if (new_report) {
-        openNewReportModal("", "", [], []);
-      }
     }
   }, [user_details, readyState, wsCallStarted]);
 
@@ -112,8 +88,7 @@ export default function SourcesTable() {
       const sources: Record<"sources", Source[]> = JSON.parse(lastMessage.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sources["sources"].map((source: Record<string, any>) => {
-        source["entity_cols"] = source["entity_cols"].slice(1, -1).split(",");
-        source["feature_cols"] = source["feature_cols"].slice(1, -1).split(",");
+        source["columns"] = JSON.parse(source["columns"]);
         source["variables"] = JSON.parse(source["variables"]);
       });
       setSources(sources);
@@ -130,52 +105,6 @@ export default function SourcesTable() {
       }
     }
   }, [lastMessage]);
-
-  const openNewReportModal = (
-    source_id: string,
-    source_name: string,
-    entity_cols: string[],
-    target_cols: string[]
-  ) => {
-    setSelectedSource({
-      id: source_id,
-      name: source_name,
-      entity_cols,
-      target_cols,
-    });
-    onOpen();
-  };
-
-  const createReport = async () => {
-    if (selectedLevelCols.length > 0 && selectedTargetCol) {
-      const response = await createReportApi(
-        user_details.id,
-        selectedSource.name,
-        selectedLevelCols,
-        selectedTargetCol,
-        selectedSource.id,
-        access_token_indexhub_api
-      );
-      if (Object.keys(response).includes("report_id")) {
-        Toast(
-          toast,
-          "Generating Report",
-          "Your report is being generated",
-          "info"
-        );
-        navigate("/reports");
-      } else {
-        Toast(toast, "Error", response["detail"], "error");
-      }
-    } else {
-      Toast(
-        toast,
-        "Empty / Invalid Columns",
-        "Please ensure all required columns are filled with valid values",
-        "error"
-      );
-    }
-  };
 
   const columnHelper = createColumnHelper<Source>();
 
@@ -204,19 +133,20 @@ export default function SourcesTable() {
       }
     ),
     columnHelper.accessor(
-      (row: any) => [row.time_col, row.feature_cols, row.entity_cols], // eslint-disable-line @typescript-eslint/no-explicit-any
+      "columns", // eslint-disable-line @typescript-eslint/no-explicit-any
       {
         id: "columns",
         cell: (info) => (
           <VStack alignItems="flex-start">
             <Text>
-              <b>Time Col:</b> {info.getValue()[0]}
+              <b>Time Col:</b> {info.getValue()["time_col"]}
             </Text>
             <Text>
-              <b>Feature Col(s):</b> {info.getValue()[1].join(", ")}
+              <b>Feature Col(s):</b>{" "}
+              {info.getValue()["feature_cols"].join(", ")}
             </Text>
             <Text>
-              <b>Entity Col(s):</b> {info.getValue()[2].join(", ")}
+              <b>Entity Col(s):</b> {info.getValue()["entity_cols"].join(", ")}
             </Text>
           </VStack>
         ),
@@ -230,47 +160,119 @@ export default function SourcesTable() {
         isBadge: true,
       },
     }),
-    columnHelper.accessor(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (row: any) => [
-        row.id,
-        row.name,
-        row.entity_cols,
-        row.target_cols,
-        row.status,
-      ],
-      {
-        id: "id",
-        cell: (info) => {
-          return (
-            <HStack justifyContent="space-between" width="60px">
-              <FontAwesomeIcon
-                cursor="pointer"
-                icon={faTrash}
-                onClick={async () =>
-                  setSources(
-                    await deleteSource(
-                      access_token_indexhub_api,
-                      info.getValue()[0]
-                    )
-                  )
-                }
-              />
-            </HStack>
-          );
-        },
-        header: "",
-        meta: {
-          isButtons: true,
-        },
-        enableSorting: false,
-      }
-    ),
+    // columnHelper.accessor(
+    //   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    //   (row: any) => [
+    //     row.id,
+    //     row.name,
+    //     row.entity_cols,
+    //     row.target_cols,
+    //     row.status,
+    //   ],
+    //   {
+    //     id: "id",
+    //     cell: (info) => {
+    //       return (
+    //         <HStack justifyContent="space-between" width="60px">
+    //           <FontAwesomeIcon
+    //             cursor="pointer"
+    //             icon={faTrash}
+    //             onClick={async () =>
+    //               setSources(
+    //                 await deleteSource(
+    //                   access_token_indexhub_api,
+    //                   info.getValue()[0]
+    //                 )
+    //               )
+    //             }
+    //           />
+    //         </HStack>
+    //       );
+    //     },
+    //     header: "",
+    //     meta: {
+    //       isButtons: true,
+    //     },
+    //     enableSorting: false,
+    //   }
+    // ),
   ];
 
   return (
     <>
+      <Flex width="100%" justifyContent="center">
+        <Card boxShadow="md" borderRadius="lg" width="50%" p="6">
+          <CardBody>
+            <HStack>
+              <Text fontSize="small" fontWeight="bold">
+                Your Storage:
+              </Text>
+              <FontAwesomeIcon
+                size="2xs"
+                icon={faCircleDot}
+                beatFade
+                style={{
+                  color: user_details.storage_bucket_name
+                    ? colors.supplementary.indicators.main_green
+                    : colors.supplementary.indicators.main_red,
+                }}
+              />
+              <Text
+                textAlign="center"
+                fontSize="2xs"
+                color={
+                  user_details.storage_bucket_name
+                    ? colors.supplementary.indicators.main_green
+                    : colors.supplementary.indicators.main_red
+                }
+              >
+                {user_details.storage_bucket_name
+                  ? "CONFIGURED"
+                  : "NOT CONFIGURED"}
+              </Text>
+            </HStack>
+            {user_details.storage_bucket_name ? (
+              <HStack justifyContent="center">
+                <Box p="6">{logos[user_details.storage_tag]}</Box>
+
+                <VStack alignItems="flex-start">
+                  <Heading
+                    size="md"
+                    fontWeight="extrabold"
+                    letterSpacing="tight"
+                    marginEnd="6"
+                  >
+                    {capitalizeFirstLetter(user_details.storage_tag)} Storage
+                  </Heading>
+                  <Text mt="1" fontWeight="medium">
+                    Bucket name: {user_details.storage_bucket_name}
+                  </Text>
+                  <Stack spacing="1" mt="2">
+                    <HStack fontSize="sm">
+                      <FontAwesomeIcon icon={faCalendarDays} />
+                      <Text>
+                        {new Date(
+                          user_details.storage_created_at
+                        ).toDateString()}
+                      </Text>
+                    </HStack>
+                  </Stack>
+                </VStack>
+              </HStack>
+            ) : (
+              <Flex p="5" justify="center">
+                <Button onClick={() => navigate("/new_storage")}>
+                  Configure Storage
+                </Button>
+              </Flex>
+            )}
+          </CardBody>
+        </Card>
+      </Flex>
       <VStack width="100%" padding="10px">
+        <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
+          Sources
+        </Text>
         {sources?.sources?.length > 0 ? (
           <TableContainer width="100%" backgroundColor="white">
             <DataTable
@@ -315,53 +317,6 @@ export default function SourcesTable() {
           </Box>
         )}
       </VStack>
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            <VStack>
-              <Text width="100%" textAlign="left">
-                New Report
-              </Text>
-              <HStack
-                width="100%"
-                backgroundColor="indicator.light_green"
-                borderRadius="5px"
-                padding="15px 10px"
-              >
-                <FontAwesomeIcon
-                  icon={faCircleCheck}
-                  color={colors.supplementary.indicators.main_green}
-                />
-                <Text fontWeight="normal" fontSize="sm">
-                  <b>No Issues</b>: Your dataset has no issues
-                </Text>
-              </HStack>
-            </VStack>
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <NewReport
-              source_name={selectedSource.name}
-              entity_cols={selectedSource.entity_cols}
-              target_cols={selectedSource.target_cols}
-              setSelectedLevelCols={setSelectedLevelCols}
-              setSelectedTargetCol={setSelectedTargetCol}
-              sources={sources.sources}
-              new_report={new_report}
-              setSelectedSource={setSelectedSource}
-            />
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={createReport}>
-              Create Report
-            </Button>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </>
   );
 }

@@ -250,38 +250,43 @@ export default function NewSource() {
   };
 
   return (
-    <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
-      <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
-        {steps.map((step, id) => (
-          <Step
-            key={id}
-            title={step.title}
-            description={step.description}
-            isActive={currentStep === id}
-            isCompleted={currentStep > id}
-          />
-        ))}
-      </Stack>
-      {stepScreens[currentStep]}
-      <Modal isOpen={isOpen} onClose={onClose}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>
-            <Text>Credentials</Text>
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {source_type && (
-              <SourceCredentials
-                required_credentials_schema={
-                  sources_schema[source_type]["credentials"]
-                }
-                submitSourceCreds={submitSourceCreds}
-              />
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-    </Container>
+    <>
+      <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
+        Sources
+      </Text>
+      <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
+        <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
+          {steps.map((step, id) => (
+            <Step
+              key={id}
+              title={step.title}
+              description={step.description}
+              isActive={currentStep === id}
+              isCompleted={currentStep > id}
+            />
+          ))}
+        </Stack>
+        {stepScreens[currentStep]}
+        <Modal isOpen={isOpen} onClose={onClose}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>
+              <Text>Credentials</Text>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {source_type && (
+                <SourceCredentials
+                  required_credentials_schema={
+                    sources_schema[source_type]["credentials"]
+                  }
+                  submitSourceCreds={submitSourceCreds}
+                />
+              )}
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+      </Container>
+    </>
   );
 }

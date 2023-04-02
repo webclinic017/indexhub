@@ -1,5 +1,5 @@
 import React from "react";
-import { Text, VStack } from "@chakra-ui/react";
+import { VStack } from "@chakra-ui/react";
 import { Outlet, useLocation } from "react-router-dom";
 
 interface propState {
@@ -16,9 +16,6 @@ export default function Sources() {
   }
   return (
     <VStack padding="10px">
-      <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
-        Sources
-      </Text>
       <Outlet context={{ new_report: new_report_state }}></Outlet>
     </VStack>
   );
