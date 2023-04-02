@@ -25,11 +25,11 @@ function App() {
     <ChakraProvider theme={themes["default_theme"]}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
-            <Route path="docs" element={<Docs />} />
-            {/* All protected pages will go inside this parent route */}
-            <Route element={<ProtectedRoute />}>
+          {/* All protected pages will go inside this parent route */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Home />} />
+              <Route path="docs" element={<Docs />} />
               <Route path="sources" element={<Sources />}>
                 <Route index element={<SourcesTable />} />
                 <Route path="new_source" element={<NewSource />} />
