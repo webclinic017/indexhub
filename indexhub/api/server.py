@@ -23,10 +23,7 @@ app.include_router(sources.router)
 app.include_router(readers.router)
 app.include_router(tests.router)
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
+origins = ["http://localhost:3000", "https://indexhub.vercel.app"]
 
 app.add_middleware(
     CORSMiddleware,
