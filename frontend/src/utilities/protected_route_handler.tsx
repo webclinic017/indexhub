@@ -60,7 +60,7 @@ export default function ProtectedRoute({
             size="sm"
             onClick={() =>
               loginWithRedirect({
-                redirectUri: `http://localhost:3000${current_path}`,
+                appState: { returnTo: current_path },
               })
             }
           >
@@ -69,7 +69,7 @@ export default function ProtectedRoute({
         );
       } else {
         loginWithRedirect({
-          redirectUri: `http://localhost:3000${current_path}`,
+          appState: { returnTo: current_path },
         });
       }
     } else {

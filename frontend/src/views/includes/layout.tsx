@@ -166,7 +166,7 @@ export default function Layout() {
                 icon={faRightToBracket}
                 onClick={() =>
                   loginWithRedirect({
-                    redirectUri: `http://localhost:3000${current_path}`,
+                    appState: { returnTo: current_path },
                   })
                 }
               />

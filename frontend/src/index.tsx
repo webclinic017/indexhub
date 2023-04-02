@@ -16,6 +16,11 @@ export type AppState = ReturnType<typeof rootReducer>;
 const store = createStore(rootReducer, applyMiddleware(sagaMiddleware));
 sagaMiddleware.run(mySaga);
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const onAuth0RedirectCallback = (appState: any) => {
+  window.location.assign(`${window.location.origin}${appState.returnTo}`);
+};
+
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
 );
@@ -27,6 +32,7 @@ root.render(
         clientId={process.env.REACT_APP_CLIENT_ID!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
         redirectUri={window.location.origin}
         audience={process.env.REACT_APP_INDEXHUB_API_AUDIENCE!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        onRedirectCallback={onAuth0RedirectCallback}
       >
         <App />
       </Auth0Provider>
