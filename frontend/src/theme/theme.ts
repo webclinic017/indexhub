@@ -1,4 +1,6 @@
 import { extendTheme } from "@chakra-ui/react";
+import "@fontsource/raleway/700.css";
+import "@fontsource/public-sans/400.css";
 
 export const colors = {
   primary: {
@@ -98,8 +100,8 @@ const default_theme = extendTheme({
     },
   },
   fonts: {
-    heading: `'Open Sans', sans-serif`,
-    body: `'Raleway', sans-serif`,
+    heading: `'Raleway', sans-serif`,
+    body: `'Public Sans', sans-serif`,
   },
   styles: {
     global: () => ({
