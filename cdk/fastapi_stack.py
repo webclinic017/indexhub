@@ -115,7 +115,9 @@ class FastAPIStack(Stack):
 
         # ECS Task
         image = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-            image=ecs.ContainerImage.from_asset(directory="indexhub"),
+            image=ecs.ContainerImage.from_asset(
+                directory=".", file="indexhub/Dockerfile"
+            ),
             container_port=8000,
             environment={
                 "DEBUG": "false",
