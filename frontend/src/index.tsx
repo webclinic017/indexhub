@@ -32,6 +32,7 @@ root.render(
         clientId={process.env.REACT_APP_CLIENT_ID!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
         redirectUri={window.location.origin}
         audience={process.env.REACT_APP_INDEXHUB_API_AUDIENCE!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        cacheLocation="localstorage"
         onRedirectCallback={onAuth0RedirectCallback}
       >
         <App />
