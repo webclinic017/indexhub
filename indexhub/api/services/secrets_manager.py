@@ -3,34 +3,32 @@
 # https://aws.amazon.com/developer/language/python/
 
 import json
-import os
 from typing import Mapping
 
 import boto3
 from botocore.exceptions import ClientError
 
-
-ENVIRONMENT = "prod" if (os.getenv("DEBUG", "true").lower()) == "false" else "dev"
+from indexhub.settings import AWS_DEFAULT_REGION, ENV
 
 
 def get_aws_secret(tag: str, secret_type: str, user_id: str):
 
-    secret_name = f"{ENVIRONMENT}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
-    region_name = "ap-northeast-2"
-
     # Create a Secrets Manager client
     session = boto3.Session()
-    client = session.client(service_name="secretsmanager", region_name=region_name)
+    client = session.client(
+        service_name="secretsmanager", region_name=AWS_DEFAULT_REGION
+    )
 
     try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
+        response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
         raise e
 
     # Decrypts secret using the associated KMS key.
-    secret = get_secret_value_response["SecretString"]
+    secret = response["SecretString"]
     return json.loads(secret)
 
 
@@ -38,21 +36,25 @@ def create_aws_secret(
     tag: str, secret_type: str, user_id: str, secret: Mapping[str, str]
 ):
 
-    secret_name = f"{ENVIRONMENT}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
-    region_name = "ap-northeast-2"
-
-    # Create a Secrets Manager client
     session = boto3.Session()
-    client = session.client(service_name="secretsmanager", region_name=region_name)
+    client = session.client(
+        service_name="secretsmanager", region_name=AWS_DEFAULT_REGION
+    )
 
     try:
-        get_secret_value_response = client.create_secret(
+        secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
+        response = client.create_secret(
             Name=secret_name,
             SecretString=json.dumps(secret),
+            Tags=[
+                {"Key": "owner", "Value": "user"},
+                {"Key": "user_id", "Value": user_id},
+            ],
+            ForceOverwriteReplicaSecret=True,
         )
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
         raise e
 
-    return get_secret_value_response
+    return response
