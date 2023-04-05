@@ -1,23 +1,5 @@
 version: '3.8'
 services:
-  postgres:
-    image: postgres:10-alpine
-    container_name: database
-    restart: always
-    environment:
-      POSTGRES_DB: default
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - 5432:5432
-
-  postgres_admin:
-    image: adminer
-    container_name: admin
-    restart: always
-    ports:
-    - 8080:8080
-
   fastapi:
     build:
       context: ./
@@ -26,20 +8,18 @@ services:
     environment:
       DEBUG: true
       RUST_BACKTRACE: 1
-      PSQL_DBNAME: default
-      PSQL_PORT: 5432
-      PSQL_USERNAME: postgres
-      PSQL_PASSWORD: postgres
-      PSQL_HOST: localhost
-      PSQL_SSLMODE: disable
+      PSQL_DBNAME: ${PSQL_DBNAME}
+      PSQL_PORT: ${PSQL_PORT}
+      PSQL_USERNAME: ${PSQL_USERNAME}
+      PSQL_PASSWORD: ${PSQL_PASSWORD}
+      PSQL_HOST: ${PSQL_HOST}
+      PSQL_SSLMODE: require
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
     volumes:
        - ./indexhub:/app/indexhub
     ports:
       - 8000:8000
-    depends_on:
-      - postgres
 
   frontend:
     build: ./frontend
