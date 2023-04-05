@@ -2,44 +2,57 @@ version: '3.8'
 services:
   postgres:
     image: postgres:10-alpine
-    container_name: PG_Database
-    ports:
-      - ${PSQL_PORT}:${PSQL_PORT}
+    container_name: database
+    restart: always
     environment:
-      POSTGRES_USER: "${PSQL_USERNAME}"
-      POSTGRES_PASSWORD: "${PSQL_PASSWORD}"
-      POSTGRES_DB: "${PSQL_DBNAME}"
-  admin:
+      POSTGRES_DB: default
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+
+  postgres_admin:
     image: adminer
-    container_name: Database_Admin
+    container_name: admin
     restart: always
     ports:
-    - "${PSQL_ADMIN_PORT}:${PSQL_ADMIN_PORT}"
+    - 8080:8080
+
   fastapi:
-    build: ./
-    container_name: FastAPI
+    build:
+      context: ./
+      dockerfile: ./indexhub/Dockerfile
+    container_name: fastapi
     environment:
-      - RUST_BACKTRACE=1
-      - PSQL_USERNAME=${PSQL_USERNAME}
-      - PSQL_PASSWORD=${PSQL_PASSWORD}
-      - PSQL_HOST=${PSQL_HOST}
-      - PSQL_DBNAME=${PSQL_DBNAME}
-      - PSQL_PORT=${PSQL_PORT}
-      - PSQL_SSLMODE=${PSQL_SSLMODE}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-      - DEBUG=${DEBUG}
+      DEBUG: true
+      RUST_BACKTRACE: 1
+      PSQL_DBNAME: default
+      PSQL_PORT: 5432
+      PSQL_USERNAME: postgres
+      PSQL_PASSWORD: postgres
+      PSQL_HOST: localhost
+      PSQL_SSLMODE: disable
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+       - ./indexhub:/app/indexhub
     ports:
-      - "${FASTAPI_PORT}:${FASTAPI_PORT}"
+      - 8000:8000
     depends_on:
       - postgres
 
   frontend:
     build: ./frontend
-    container_name: React_Frontend
-    ports:
-      - "3000:3000"
+    container_name: frontend
+    environment:
+      REACT_APP_AUTH0_DOMAIN: ${REACT_APP_AUTH0_DOMAIN}
+      REACT_APP_CLIENT_ID: ${REACT_APP_CLIENT_ID}
+      REACT_APP_INDEXHUB_API_AUDIENCE: ${REACT_APP_INDEXHUB_API_AUDIENCE}
+      REACT_APP_INDEXHUB_API_CLIENT_ID: ${REACT_APP_INDEXHUB_API_CLIENT_ID}
+      REACT_APP_INDEXHUB_API_CLIENT_SECRET: ${REACT_APP_INDEXHUB_API_CLIENT_SECRET}
+      REACT_APP_INDEXHUB_API_DOMAIN: ${REACT_APP_INDEXHUB_API_DOMAIN}
+      REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET: ${REACT_APP_INDEXHUB_API_DOMAIN}
+      REACT_APP_AUTH0_MGMT_API_AUDIENCE: ${REACT_APP_AUTH0_MGMT_API_AUDIENCE}
     stdin_open: true
     tty: true
     volumes:
@@ -47,3 +60,5 @@ services:
        - /app/node_modules
     depends_on:
       - fastapi
+    ports:
+      - 3000:3000

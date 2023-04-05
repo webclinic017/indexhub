@@ -5,7 +5,6 @@ build-backend = "hatchling.build"
 [project]
 name = "indexhub"
 description = "IndexHub API and workflows."
-readme = "README.md"
 requires-python = ">=3.10,<3.11"
 authors = [
     { name = "Christopher Lo", email = "chris@indexhub.ai"},
@@ -13,13 +12,6 @@ authors = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3.10",
-]
-dependencies = [
-    "boto3==1.24.59",
-    "polars==0.16.11",
-    "pyarrow",
-    "s3fs",
-    "sqlmodel",
 ]
 dynamic = ["version"]
 
@@ -37,17 +29,6 @@ dev = [
     "pytest-postgresql",
     "pyupgrade",
     "ruff",
-]
-api = [
-    "fastapi",
-    "httpx",
-    "PyJWT",
-    "pyarrow",
-    "uvicorn==0.20.0",
-]
-parsers = [
-    "openpyxl",
-    "xlsx2csv",
 ]
 
 [tool.hatch.version]
@@ -79,7 +60,6 @@ select = [
     "W",  # pycodestyle warnings
     "F",  # pyflakes
     "I",  # isort
-    "C",  # flake8-comprehensions
     "B",  # flake8-bugbear
 ]
 ignore = [

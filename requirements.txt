@@ -1,0 +1,13 @@
+boto3==1.24.59
+polars==0.16.11
+pyarrow
+s3fs
+sqlmodel
+fastapi
+httpx
+PyJWT
+pyarrow
+uvicorn==0.20.0
+openpyxl
+xlsx2csv
+psycopg2-binary
