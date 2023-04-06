@@ -44,10 +44,35 @@ export const createPolicy = async (
         risks: policy_configs["risks"],
         target_col: policy_configs["target_col"],
         level_cols: policy_configs["level_cols"],
+        description: policy_configs["policy_description"],
       }),
     }),
   });
 
   const response_json = await create_policy_response.json();
+  return response_json;
+};
+
+export const getPolicy = async (
+  user_id = "",
+  policy_id = "",
+  access_token_indexhub_api: string
+) => {
+  let get_policy_url = "";
+
+  if (policy_id) {
+    get_policy_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/policies/${policy_id}`;
+  } else {
+    get_policy_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/policies?user_id=${user_id}`;
+  }
+  const get_policy_response = await fetch(get_policy_url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+  });
+
+  const response_json = await get_policy_response.json();
   return response_json;
 };

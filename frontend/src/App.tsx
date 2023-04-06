@@ -19,6 +19,7 @@ import SourceProfiling from "./views/reports/profiling";
 import NewStorage from "./views/storage/new_storage";
 import NewPolicy from "./views/policies/new_policy";
 import Policies from "./views/policies/policies";
+import PoliciesDashboard from "./views/policies/policies_dashboard";
 
 function App() {
   return (
@@ -35,7 +36,7 @@ function App() {
                 <Route path="new_source" element={<NewSource />} />
               </Route>
               <Route path="policies" element={<Policies />}>
-                <Route index element={<Reports />} />
+                <Route index element={<PoliciesDashboard />} />
                 <Route path="new_policy" element={<NewPolicy />} />
               </Route>
               <Route path="reports" element={<Reports />} />

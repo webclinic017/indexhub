@@ -2,12 +2,13 @@ import json
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, WebSocket
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.schemas import POLICY_SCHEMAS
-from pydantic import BaseModel
-from sqlmodel import Session, select
 
 
 router = APIRouter()
@@ -76,6 +77,12 @@ async def ws_get_policies(websocket: WebSocket):
     await websocket.accept()
     while True:
         data = await websocket.receive_json()
-        result = list_policies(**data)
-        response = {"policies": result["policies"]}
+        results = list_policies(**data)
+        response = []
+        for result in results["policies"]:
+            values = {
+                k: v for k, v in vars(result).items() if k != "_sa_instance_state"
+            }
+            response.append(values)
+        response = {"policies": response}
         await websocket.send_text(json.dumps(response, default=str))

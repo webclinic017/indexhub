@@ -234,7 +234,7 @@ export default function Layout() {
                     </Text>
                   </Container>
                 </Link>
-                <Link style={{ width: "100%" }} to="/reports">
+                <Link style={{ width: "100%" }} to="/policies">
                   <Container
                     display="flex"
                     justifyContent="center"
@@ -247,15 +247,15 @@ export default function Layout() {
                       style={{ transition: "color 0.3s ease-out" }}
                       icon={faChartLine}
                       size="lg"
-                      color={getIconColor("reports")}
+                      color={getIconColor("policies")}
                     />
                     <Text
                       transition="color 0.3s ease-out"
-                      color={getIconColor("reports")}
+                      color={getIconColor("policies")}
                       fontSize="sm"
                       marginTop="0.5rem"
                     >
-                      Reports
+                      Policies
                     </Text>
                   </Container>
                 </Link>

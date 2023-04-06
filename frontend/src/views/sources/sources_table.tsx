@@ -204,7 +204,7 @@ export default function SourcesTable() {
         <Card boxShadow="md" borderRadius="lg" width="50%" p="6">
           <CardBody>
             <HStack>
-              <Text fontSize="small" fontWeight="bold">
+              <Text fontSize="small" fontWeight="bold" pr="2">
                 Your Storage:
               </Text>
               <FontAwesomeIcon
