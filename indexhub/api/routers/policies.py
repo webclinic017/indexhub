@@ -3,7 +3,6 @@ from datetime import datetime
 
 import modal
 from fastapi import APIRouter, HTTPException, WebSocket
-from holidays import get_supported_countries
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -11,7 +10,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.schemas import POLICY_SCHEMAS
+from indexhub.api.schemas import POLICY_SCHEMAS, SUPPORTED_COUNTRIES
 
 
 router = APIRouter()
@@ -49,7 +48,6 @@ def create_policy(params: CreatePolicyParams):
         policy.status = "RUNNING"
 
         if policy.tag == "forecast":
-            country_to_code = get_supported_countries()
             flow = modal.Function.lookup("indexhub-forecast", "flow")
             flow.call(
                 user_id=policy.user_id,
@@ -66,7 +64,7 @@ def create_policy(params: CreatePolicyParams):
                 freq=FREQ_NAME_TO_ALIAS[policy.fields["freq"]],
                 n_splits=policy.fields["n_splits"],
                 holiday_regions=[
-                    country_to_code[country]
+                    SUPPORTED_COUNTRIES[country]
                     for country in policy.fields["holiday_regions"]
                 ],
             )
