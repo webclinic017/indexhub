@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime
 from functools import partial
@@ -114,9 +115,14 @@ def flow(
             **storage_creds,
         )
 
+        metadata = {}
+
         # Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
-        time_col = y_panel.select(pl.col([pl.Date, pl.Datetime])).columns[0]
+        time_col = y_panel.select(
+            pl.col([pl.Date, pl.Datetime, pl.Datetime("ns")])
+        ).columns[0]
+
         y, outputs = automl_flow.call(
             y=y_panel.select([*level_cols, time_col, target_col]),
             min_lags=min_lags,
@@ -126,6 +132,9 @@ def flow(
             n_splits=n_splits,
             holiday_regions=holiday_regions,
         )
+        outputs["y"] = make_path(prefix="y")
+        metadata["y"] = {"n_rows": y.shape[0]}
+
         write(y, object_path=make_path(prefix="y"))
 
         # Compute uplift if applicable
@@ -145,9 +154,15 @@ def flow(
                 kwargs={"y": y, "y_baseline": y_baseline, "freq": freq},
                 order_outputs=True,
             )
+            outputs["y_baseline"] = make_path(prefix="y_baseline")
             outputs["baseline__scores"] = make_path(prefix="baseline__scores")
             outputs["baseline__metrics"] = make_path(prefix="baseline__metrics")
             outputs["uplift"] = make_path(prefix="uplift")
+
+            metadata["y_baseline"] = {"n_rows": y_baseline.shape[0]}
+            metadata["baseline__scores"] = {"n_rows": baseline_scores.shape[0]}
+            metadata["baseline__metrics"] = {"n_rows": baseline_metrics.shape[0]}
+            metadata["uplift"] = {"n_rows": uplift.shape[0]}
 
             write(baseline_scores, object_path=outputs["baseline__scores"])
             write(baseline_metrics, object_path=outputs["baseline__scores"])
@@ -161,19 +176,29 @@ def flow(
             "scores",
             "quantiles",
         ]
+
         for key in model_artifacts_keys:
             model_artifacts = outputs[key]
+            model_artifacts_metadata = {}
+
             for model, df in model_artifacts.items():
                 output_path = make_path(prefix=f"{key}__{model}")
                 write(df, object_path=output_path)
                 outputs[key][model] = output_path
+                model_artifacts_metadata[model] = {"n_rows": df.shape[0]}
+            metadata[key] = model_artifacts_metadata
 
         # Export statistics
+        statistics_metadata = {}
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
+            statistics_metadata[key] = {"n_rows": df.shape[0]}
+        metadata["statistics"] = statistics_metadata
 
+        outputs["metadata"] = metadata
+        outputs = json.dumps(outputs)
     except Exception as exc:
         updated_at = datetime.utcnow()
         outputs = None
@@ -218,9 +243,8 @@ def test(user_id: str = "indexhub-demo"):
         policy_id=policy_id,
         panel_path=fields["sources"]["panel"],
         storage_tag=storage_tag,
-        storage_bucket_name=storage_bucket_name,
+        bucket_name=storage_bucket_name,
         level_cols=fields["level_cols"],
-        time_col=fields["time_col"],
         target_col=fields["target_col"],
         min_lags=fields["min_lags"],
         max_lags=fields["max_lags"],

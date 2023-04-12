@@ -12,6 +12,7 @@ class Policy(SQLModel, table=True):
     status: str
     created_at: datetime
     updated_at: datetime
+    sources: str
     fields: str
     # Outputs
     outputs: str
