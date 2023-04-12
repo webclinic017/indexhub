@@ -3,6 +3,7 @@ from datetime import datetime
 
 import modal
 from fastapi import APIRouter, HTTPException, WebSocket
+from holidays import get_supported_countries
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -34,12 +35,21 @@ class CreatePolicyParams(BaseModel):
 
 @router.post("/policies")
 def create_policy(params: CreatePolicyParams):
+
+    FREQ_NAME_TO_ALIAS = {
+        "Hourly": "1h",
+        "Daily": "1d",
+        "Weekly": "1w",
+        "Monthly": "1mo",
+    }
+
     with Session(engine) as session:
         policy = Policy(**params.__dict__)
         user = session.get(User, policy.user_id)
         policy.status = "RUNNING"
 
         if policy.tag == "forecast":
+            country_to_code = get_supported_countries()
             flow = modal.Function.lookup("indexhub-forecast", "flow")
             flow.call(
                 user_id=policy.user_id,
@@ -49,12 +59,15 @@ def create_policy(params: CreatePolicyParams):
                 storage_bucket_name=user.storage_bucket_name,
                 level_cols=policy.fields["level_cols"],
                 target_col=policy.fields["target_col"],
-                min_lags=policy.fields["min_lags"],
-                max_lags=policy.fields["max_lags"],
-                fh=policy.fields["fh"],
-                freq=policy.fields["freq"],
+                min_lags=int(policy.fields["min_lags"]),
+                max_lags=int(policy.fields["max_lags"]),
+                fh=int(policy.fields["fh"]),
+                freq=FREQ_NAME_TO_ALIAS[policy.fields["freq"]],
                 n_splits=policy.fields["n_splits"],
-                holiday_regions=policy.fields["holiday_regions"],
+                holiday_regions=[
+                    country_to_code[country]
+                    for country in policy.fields["holiday_regions"]
+                ],
             )
         else:
             raise ValueError(f"Policy tag `{policy.tag}` not found")
