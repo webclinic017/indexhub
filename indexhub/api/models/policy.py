@@ -1,8 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
-from indexhub.api.models.data_table import DataTable
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 
 class Policy(SQLModel, table=True):
@@ -15,7 +14,5 @@ class Policy(SQLModel, table=True):
     updated_at: datetime
     fields: str
     # Outputs
-    data_tables: Optional[List[DataTable]] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete"}
-    )
+    outputs: str
     msg: Optional[str] = None

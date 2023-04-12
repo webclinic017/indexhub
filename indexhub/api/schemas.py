@@ -1,6 +1,8 @@
 import json
 from typing import List
 
+from holidays import get_supported_countries
+
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 
@@ -58,6 +60,12 @@ def SOURCE_SCHEMAS(user: User):
                 },
                 "file_ext": SUPPORTED_FILE_EXT,
             },
+            "freq": "",
+            "datetime_fmt": "%Y-%m-%d",
+            "columns": {
+                "entity_cols": [],
+                "time_col": "",
+            },
         },
         "azure": {
             "available": False,
@@ -75,6 +83,12 @@ def SOURCE_SCHEMAS(user: User):
                 },
                 "file_ext": SUPPORTED_FILE_EXT,
             },
+            "freq": "",
+            "datetime_fmt": "%Y-%m-%d",
+            "columns": {
+                "entity_cols": [],
+                "time_col": "",
+            },
         },
     }
 
@@ -82,7 +96,7 @@ def SOURCE_SCHEMAS(user: User):
 def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Target column",
-        "subtitle": "",
+        "subtitle": "Target column to forecast such as quantity, sales amount, etc.",
         # Probably won't scale but good enough for now
         "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
         "depends_on": depends_on,
@@ -93,7 +107,7 @@ def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
 def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Level column(s)",
-        "subtitle": "",
+        "subtitle": "Run forecast by levels such as region, customer, product, etc.",
         # Probably won't scale but good enough for now
         "values": {src.id: json.loads(src.columns)["entity_cols"] for src in sources},
         "depends_on": depends_on,
@@ -103,35 +117,76 @@ def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
 
 
 def POLICY_SCHEMAS(sources: List[Source]):
-    return {
+    schemas = {
         "forecast": {
-            "subtitle": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-            "description": "Reduce {target_col} {direction} forecast error for {risks} {level_cols}.",
+            "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
+            "description": "Choose this policy to reduce .",
             "sources": {
                 "panel": {
-                    "title": "Panel Source",
-                    "subtitle": "",
+                    "title": "Dataset",
+                    "subtitle": "Select one panel dataset of observed values to forecast.",
                     "values": {src.name: src.id for src in sources},
                 },
                 "baseline": {
-                    "title": "Baseline Source",
-                    "subtitle": "",
+                    "title": "Baseline Forecasts",
+                    "subtitle": (
+                        "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
+                        " Must have the same schema as `panel`."
+                    ),
                     "values": {src.name: src.id for src in sources},
+                    "is_required": False,
                 },
             },
             "fields": {
-                "direction": {
-                    "title": "Direction",
-                    "subtitle": "",
-                    "values": ["over", "under", "overall"],
+                "error_type": {
+                    "title": "Forecast Error Type",
+                    "subtitle": "Which type of forecast error do you want to reduce?",
+                    "values": [
+                        "over-forecast",
+                        "under-forecast",
+                        "both over-forecast and under-forecast",
+                    ],
                 },
-                "risks": {
-                    "title": "Risks",
-                    "subtitle": "",
-                    "values": ["low volatility"],
+                "segmentation_factor": {
+                    "title": "Segmentation Factor",
+                    "subtitle": "How do you want to segment the AI predictions?",
+                    "values": [
+                        "volatlity",
+                        "total value",
+                        "historical growth rate",
+                        "predicted growth rate",
+                    ],
                 },
                 "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
                 "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
+                "min_lags": {
+                    "title": "What is the minimum number lagged variables?",
+                    "subtitle": "`min_lags` must be less than `max_lags`.",
+                    "values": list(range(12, 25)),
+                    "default": 12,
+                },
+                "max_lags": {
+                    "title": "What is the maximum number of lagged variables?",
+                    "subtitle": "`max_lags` must be greater than `min_lags`.",
+                    "values": list(range(24, 49)),
+                    "default": 24,
+                },
+                "fh": {
+                    "title": "Forecast Horizon",
+                    "subtitle": "How many periods into the future do you want to predict?",
+                    "values": list(range(1, 30)),
+                },
+                "freq": {
+                    "title": "Frequency",
+                    "subtitle": "How often do you want to generate new predictions?",
+                    "values": ["Hourly", "Daily", "Weekly", "Monthly"],
+                },
+                "holiday_regions": {
+                    "title": "Holiday Regions",
+                    "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
+                    "values": list(get_supported_countries().keys()),
+                },
             },
         }
     }
+    return schemas

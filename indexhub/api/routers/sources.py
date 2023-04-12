@@ -1,13 +1,15 @@
 import json
 from datetime import datetime
 
+import modal
 from fastapi import APIRouter, HTTPException, WebSocket
+from pydantic import BaseModel
+from sqlmodel import Session, select
+
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 from indexhub.api.schemas import SOURCE_SCHEMAS
-from pydantic import BaseModel
-from sqlmodel import Session, select
 
 
 router = APIRouter()
@@ -35,7 +37,21 @@ def list_source_schemas(user_id: str):
 def create_source(params: CreateSourceParams):
     with Session(engine) as session:
         source = Source(**params.__dict__)
+        user = session.get(User, source.user_id)
         source.status = "RUNNING"
+        flow = modal.Function.lookup("indexhub-preprocess", "flow")
+        flow.call(
+            user_id=source.user_id,
+            source_id=source.id,
+            source_tag=source.tag,
+            source_variables=source.variables,
+            storage_tag=user.storage_tag,
+            storage_bucket_name=user.storage_bucket_name,
+            entity_cols=source.columns["entity_cols"],
+            time_col=source.columns["time_col"],
+            datetime_fmt=source.datetime_fmt,
+        )
+
         ts = datetime.utcnow()
         source.created_at = ts
         source.updated_at = ts

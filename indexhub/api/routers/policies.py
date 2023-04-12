@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 
+import modal
 from fastapi import APIRouter, HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -8,6 +9,7 @@ from sqlmodel import Session, select
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
+from indexhub.api.models.user import User
 from indexhub.api.schemas import POLICY_SCHEMAS
 
 
@@ -34,13 +36,36 @@ class CreatePolicyParams(BaseModel):
 def create_policy(params: CreatePolicyParams):
     with Session(engine) as session:
         policy = Policy(**params.__dict__)
+        user = session.get(User, policy.user_id)
         policy.status = "RUNNING"
+
+        if policy.tag == "forecast":
+            flow = modal.Function.lookup("indexhub-forecast", "flow")
+            flow.call(
+                user_id=policy.user_id,
+                policy_id=policy.id,
+                panel_path=policy.sources["panel"],
+                storage_tag=user.storage_tag,
+                storage_bucket_name=user.storage_bucket_name,
+                level_cols=policy.fields["level_cols"],
+                target_col=policy.fields["target_col"],
+                min_lags=policy.fields["min_lags"],
+                max_lags=policy.fields["max_lags"],
+                fh=policy.fields["fh"],
+                freq=policy.fields["freq"],
+                n_splits=policy.fields["n_splits"],
+                holiday_regions=policy.fields["holiday_regions"],
+            )
+        else:
+            raise ValueError(f"Policy tag `{policy.tag}` not found")
+
         ts = datetime.utcnow()
         policy.created_at = ts
         policy.updated_at = ts
         session.add(policy)
         session.commit()
         session.refresh(policy)
+
         return {"user_id": params.user_id, "policy_id": policy.id}
 
 

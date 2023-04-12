@@ -1,5 +1,6 @@
 boto3==1.24.59
-polars==0.16.11
+botocore
+polars==0.16.16
 pyarrow
 s3fs
 sqlmodel
@@ -11,3 +12,4 @@ uvicorn==0.20.0
 openpyxl
 xlsx2csv
 psycopg2-binary
+holidays
