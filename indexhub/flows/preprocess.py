@@ -61,7 +61,7 @@ def _clean_panel(
     return panel_data
 
 
-def _generate_output_path(source_id: int, updated_at: datetime) -> str:
+def _make_output_path(source_id: int, updated_at: datetime) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
     path = f"staging/{source_id}/{timestamp}.parquet"
     return path
@@ -132,7 +132,7 @@ def flow(
         # Write data to data lake storage
         updated_at = datetime.utcnow()
         write = STORAGE_TAG_TO_WRITER[storage_tag]
-        output_path = _generate_output_path(source_id=source_id, updated_at=updated_at)
+        output_path = _make_output_path(source_id=source_id, updated_at=updated_at)
         write(
             panel_data,
             bucket_name=storage_bucket_name,

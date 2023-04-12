@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime
+from functools import partial
 from typing import Any, List, Mapping, Optional
 
 import modal
 import polars as pl
-from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -33,9 +33,9 @@ logger = _logger(name=__name__)
 stub = modal.Stub("indexhub-forecast", image=IMAGE)
 
 
-def _generate_output_path(policy_id: int, updated_at: datetime, prefix: str) -> str:
+def _make_output_path(policy_id: int, updated_at: datetime, prefix: str) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
-    path = f"artifacts/{policy_id}/{prefix}_{timestamp}.parquet"
+    path = f"artifacts/{policy_id}/{timestamp}/{prefix}.parquet"
     return path
 
 
@@ -77,7 +77,7 @@ def flow(
     policy_id: int,
     panel_path: str,
     storage_tag: str,
-    storage_bucket_name: str,
+    bucket_name: str,
     level_cols: List[str],
     target_col: str,
     min_lags: int,
@@ -86,16 +86,29 @@ def flow(
     freq: str,
     n_splits: int,
     holiday_regions: Optional[List[str]] = None,
+    baseline_path: Optional[str] = None,
 ):
     try:
+        status, msg = "SUCCESS", "OK"
         # Get credentials
         storage_creds = get_aws_secret(
             tag=storage_tag, secret_type="storage", user_id=user_id
         )
+        # Setup writer to upload artifacts to data lake storage
+        updated_at = datetime.utcnow()
+        write = partial(
+            STORAGE_TAG_TO_WRITER[storage_tag],
+            bucket_name=bucket_name,
+            **storage_creds,
+        )
+        make_path = partial(
+            _make_output_path, policy_id=policy_id, updated_at=updated_at
+        )
+
         # Read y from storage
         read = SOURCE_TAG_TO_READER[storage_tag]
         y_panel = read(
-            bucket_name=storage_bucket_name,
+            bucket_name=bucket_name,
             object_path=panel_path,
             file_ext="parquet",
             **storage_creds,
@@ -113,21 +126,32 @@ def flow(
             n_splits=n_splits,
             holiday_regions=holiday_regions,
         )
+        write(y, object_path=make_path(prefix="y"))
 
-        # Write artifacts from "outputs" to data lake storage
-        updated_at = datetime.utcnow()
-        write = STORAGE_TAG_TO_WRITER[storage_tag]
+        # Compute uplift if applicable
+        # NOTE: Only compares against BEST MODEL
+        if baseline_path:
+            # Read baseline from storage
+            y_baseline = read(
+                bucket_name=bucket_name,
+                object_path=baseline_path,
+                file_ext="parquet",
+                **storage_creds,
+            )
+            # Score baseline compared to best scores
+            uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
+            baseline_scores, baseline_metrics, uplift = uplift_flow(
+                outputs["scores"][outputs["best_model"]],
+                kwargs={"y": y, "y_baseline": y_baseline, "freq": freq},
+                order_outputs=True,
+            )
+            outputs["baseline__scores"] = make_path(prefix="baseline__scores")
+            outputs["baseline__metrics"] = make_path(prefix="baseline__metrics")
+            outputs["uplift"] = make_path(prefix="uplift")
 
-        # Export y
-        output_path = _generate_output_path(
-            policy_id=policy_id, updated_at=updated_at, prefix="y"
-        )
-        write(
-            y,
-            bucket_name=storage_bucket_name,
-            object_path=output_path,
-            **storage_creds,
-        )
+            write(baseline_scores, object_path=outputs["baseline__scores"])
+            write(baseline_metrics, object_path=outputs["baseline__scores"])
+            write(uplift, object_path=make_path(prefix="uplift"))
 
         # Export artifacts for each model
         model_artifacts_keys = [
@@ -136,71 +160,26 @@ def flow(
             "residuals",
             "scores",
             "quantiles",
-            "risks",
         ]
-
         for key in model_artifacts_keys:
             model_artifacts = outputs[key]
-            paths = {}
-
             for model, df in model_artifacts.items():
-                output_path = _generate_output_path(
-                    policy_id=policy_id, updated_at=updated_at, prefix=f"{key}__{model}"
-                )
-                write(
-                    df,
-                    bucket_name=storage_bucket_name,
-                    object_path=output_path,
-                    **storage_creds,
-                )
-                paths[model] = output_path
-
-            outputs[key] = paths
+                output_path = make_path(prefix=f"{key}__{model}")
+                write(df, object_path=output_path)
+                outputs[key][model] = output_path
 
         # Export statistics
         for key, df in outputs["statistics"].items():
-            output_path = _generate_output_path(
-                policy_id=policy_id, updated_at=updated_at, prefix=f"statistics__{key}"
-            )
-            write(
-                df,
-                bucket_name=storage_bucket_name,
-                object_path=output_path,
-                **storage_creds,
-            )
-
+            output_path = make_path(prefix=f"statistics__{key}")
+            write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
 
-    except ClientError as exc:
-        updated_at = datetime.utcnow()
-        outputs = None
-        status = "FAILED"
-        error_code = exc.response["Error"]["Code"]
-
-        if error_code == "InvalidSignatureException":
-            msg = "Authentication secret errors"
-        elif error_code == "AccessDeniedException":
-            msg = "Insufficient permissions errors"
-        else:
-            msg = repr(exc)
-    except HTTPException as exc:
-        # Source file / table not found errors
-        updated_at = datetime.utcnow()
-        outputs = None
-        status = "FAILED"
-        msg = exc.detail
-    except ValueError as exc:
-        # Data cleaning errors
-        updated_at = datetime.utcnow()
-        outputs = None
-        status = "FAILED"
-        msg = exc
     except Exception as exc:
         updated_at = datetime.utcnow()
         outputs = None
-        status, msg = "FAILED", repr(exc)
-    else:
-        status, msg = "SUCCESS", "OK"
+        status = "FAILED"
+        msg = repr(exc)
+
     finally:
         _update_policy(
             policy_id=policy_id,
@@ -212,18 +191,16 @@ def flow(
 
 
 @stub.local_entrypoint
-def test():
-    user_id = "indexhub-demo"
+def test(user_id: str = "indexhub-demo"):
 
     # Policy
     policy_id = 1
     fields = {
         "sources": {"panel": "staging/1/20230411T093305.parquet", "baseline": None},
-        "direction": "over",
-        "risks": "low volatility",
+        "error_type": "over-forecast",
+        "segmentation_factor": "volatility",
         "target_col": "trips_in_000s",
         "level_cols": ["state"],
-        "description": "Reduce trips_in_000s over forecast error for low volatility state.",
         "min_lags": 6,
         "max_lags": 6,
         "fh": 3,
