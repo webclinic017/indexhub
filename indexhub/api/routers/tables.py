@@ -1,6 +1,7 @@
 from functools import partial
 from typing import List, Mapping
 
+import pandas as pd
 import polars as pl
 from fastapi import APIRouter
 from sqlmodel import Session
@@ -14,10 +15,10 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 router = APIRouter()
 
 # POLICY RESULT TABLES
-def _get_forecast_results(
-    outputs: Mapping[str, str],
-    user: User,
-) -> pl.DataFrame:
+def _get_forecast_table(
+    fields: Mapping[str, str], outputs: Mapping[str, str], user: User
+) -> pd.DataFrame:
+
     pl.toggle_string_cache(True)
 
     # Get credentials
@@ -33,86 +34,83 @@ def _get_forecast_results(
 
     # Read artifacts
     best_model = outputs["best_model"]
-    forecasts = read(
-        object_path=outputs["forecasts"][best_model],
-    ).lazy()
-    quantiles = read(
-        object_path=outputs["quantiles"][best_model],
-    ).lazy()
-    baseline = read(
-        object_path=outputs["baseline"],
-    ).lazy()
+    forecast = read(object_path=outputs["forecasts"][best_model])
+    quantiles = read(object_path=outputs["quantiles"][best_model])
+    baseline = read(object_path=outputs["baseline"])
 
-    index_cols = forecasts.columns[:-1]
-    target_col = forecasts.columns[-1]
-    entity_col = forecasts.columns[0]
+    entity_col, time_col, target_col = forecast.columns
+    idx_cols = entity_col, time_col
 
     # Pivot quantiles
     quantiles = (
-        quantiles.filter(pl.col("quantile").is_in([10, 90]))
+        quantiles.lazy()
+        .filter(pl.col("quantile").is_in([10, 90]))
         .collect(streaming=True)
-        .pivot(values=target_col, index=index_cols, columns="quantile")
-        .select([*index_cols, pl.all().exclude(index_cols).prefix("forecast_")])
+        .pivot(values=target_col, index=idx_cols, columns="quantile")
+        .select([*idx_cols, pl.all().exclude(idx_cols).prefix("forecast_")])
         .lazy()
     )
 
     # Concat dfs
-    recommendation = (
-        forecasts.rename({target_col: "forecast"})
-        .join(baseline.rename({target_col: "baseline"}), on=index_cols, how="left")
-        .join(quantiles, on=index_cols, how="left")
+    table = (
+        forecast.lazy()
+        .rename({target_col: "forecast"})
+        .join(baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left")
+        .join(quantiles, on=idx_cols, how="left")
         .with_columns(
             pl.col("time").rank("ordinal").over(entity_col).alias("fh"),
         )
+        # Reorder
+        .select(["time", "fh", "baseline", "forecast", "forecast_10", "forecast_90"])
         # Rename to label for FE
         .rename(
             {
-                "time": "Date",
+                "time": "",  # Empty string
+                "fh": "Forecast Period",
                 "forecast": "Forecast",
                 "baseline": "Baseline",
-                "forecast_10": "Forecast (10%)",
-                "forecast_90": "Forecast (90%)",
-                "fh": "FH",
+                "forecast_10": "Forecast (10% quantile)",
+                "forecast_90": "Forecast (90% quantile)",
             }
         )
+        # TODO: Sort table by segmentation factor
+        .groupby(entity_col)
+        .agg(pl.struct(pl.all().exclude(entity_col)).alias("table"))
     )
 
     pl.toggle_string_cache(False)
-    return recommendation
+    return table
 
 
-POLICY_TAG_TO_GETTER = {"forecast": _get_forecast_results}
+def _get_uplift_table():
+    pass
 
 
-@router.get("/tables/{policy_id}")
+TAGS_TO_GETTER = {
+    "forecast": {
+        "forecast": _get_forecast_table,
+        "uplift": _get_uplift_table,
+    }
+}
+
+
+@router.get("/tables/{policy_id}/{table_tag}")
 def get_policy_table(
-    policy_id: str, page: int, display_n: int = 5
+    policy_id: str,
+    table_tag: str,
+    page: int,
+    display_n: int = 5,
 ) -> List[Mapping[str, str]]:
     if page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
         policy = get_policy(policy_id)
-        getter = POLICY_TAG_TO_GETTER[policy.tag]
+        getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
-        table = getter(
-            policy.outputs, user
-        )  # TODO: Cache using an in memory key-value store
+        # TODO: Cache using an in memory key-value store
+        table = getter(policy.fields, policy.outputs, user)
 
     start = display_n * (page - 1)
     end = display_n * page
-    filtered_table = (
-        table[start:end]
-        .collect(streaming=True)
-        .to_pandas(use_pyarrow_extension_array=True)
-    )
-    entity_col = filtered_table.columns[0]
-
-    output = {
-        "recommendation": {
-            entity: filtered_table.loc[filtered_table[entity_col] == entity]
-            .drop(entity_col, axis=1)
-            .to_dict("records")
-            for entity in filtered_table[entity_col].unique()
-        },
-    }
-    return output
+    filtered_table = table[start:end].to_dicts()
+    return filtered_table
