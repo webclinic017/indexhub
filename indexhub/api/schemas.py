@@ -273,7 +273,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
                     "title": "Segmentation Factor",
                     "subtitle": "How do you want to segment the AI predictions?",
                     "values": [
-                        "volatlity",
+                        "volatility",
                         "total value",
                         "historical growth rate",
                         "predicted growth rate",
