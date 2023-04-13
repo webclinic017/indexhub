@@ -1,34 +1,60 @@
-import json
+from enum import Enum
+from typing import List, Mapping
+
+from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import Session
-from typing import Optional
-from fastapi import APIRouter
+
 from indexhub.api.db import engine
-from indexhub.api.services.io import read_data_from_s3
-from indexhub.api.services.chart_builders import create_trend_chart
+from indexhub.api.models.user import User
+from indexhub.api.routers.policies import get_policy
+from indexhub.api.services.chart_builders import (
+    _create_multi_forecast_chart,
+    _create_single_forecast_chart,
+)
 
 router = APIRouter()
 
+POLICY_TAG_TO_BUILDERS = {
+    "forecast": {
+        "single_forecast": _create_single_forecast_chart,
+        "multi_forecast": _create_multi_forecast_chart,
+    }
+}
+
+
+class AggregationMethod(str, Enum):
+    sum = "sum"
+    mean = "mean"
+
+
+class ChartTag(str, Enum):
+    single_forecast = "single_forecast"
+    multi_forecast = "multi_forecast"
+
+
 class TrendChartParams(BaseModel):
     policy_id: str
-    entity_id: Optional[str]
+    chart_tag: ChartTag
+    filter_by: Mapping[str, List[str]]
+    agg_by: str = None
+    agg_method: AggregationMethod = AggregationMethod.sum
 
-@router.post("/charts/trend_chart")
-def get_trend_chart(params: TrendChartParams):
+
+@router.post("/charts/{policy_id}/{chart_tag}")
+def get_chart(params: TrendChartParams):
     with Session(engine) as session:
+        # Get the metadata on tag to define which chart to return
+        policy = get_policy(params.policy_id)
+        build = POLICY_TAG_TO_BUILDERS[policy.tag][params.chart_tag]
+        user = session.get(User, policy.user_id)
+        trend_chart_json = build(
+            policy.fields,
+            policy.outputs,
+            user,
+            params.filter_by,
+            params.agg_by,
+            params.agg_method,
+        )
 
-        # Hardcoded values to be pulled from Policy.outputs and params.policy_id
-        policy_id = 2
-        bucket_name = "indexhub-demo"
-        actual_path = f"artifacts/{policy_id}/actual.parquet"
-        backtest_path = f"artifacts/{policy_id}/backtest.parquet"
-        forecast_path = f"artifacts/{policy_id}/forecast.parquet"
-        
-
-        actual_df = read_data_from_s3(bucket_name=bucket_name, object_path=actual_path, file_ext="parquet")
-        backtest_df = read_data_from_s3(bucket_name=bucket_name, object_path=backtest_path, file_ext="parquet")
-        forecast_df = read_data_from_s3(bucket_name=bucket_name, object_path=forecast_path, file_ext="parquet")
-
-        trend_chart_json = json.loads(create_trend_chart(actual=actual_df, backtest=backtest_df, forecast=forecast_df))
-        print(trend_chart_json)
         return trend_chart_json
