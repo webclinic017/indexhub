@@ -132,6 +132,7 @@ def flow(
             n_splits=n_splits,
             holiday_regions=holiday_regions,
         )
+        entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
         metadata["y"] = {"n_rows": y.shape[0]}
 
@@ -147,26 +148,31 @@ def flow(
                 file_ext="parquet",
                 **storage_creds,
             )
-            # Score baseline compared to best scores
-            uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
-            baseline_scores, baseline_metrics, uplift = uplift_flow(
-                outputs["scores"][outputs["best_model"]],
-                kwargs={"y": y, "y_baseline": y_baseline, "freq": freq},
-                order_outputs=True,
+        else:
+            y_baseline = (
+                outputs["backtests"]["snaive"]
+                .groupby([entity_col, time_col])
+                .agg(pl.mean(target_col))
             )
-            outputs["y_baseline"] = make_path(prefix="y_baseline")
-            outputs["baseline__scores"] = make_path(prefix="baseline__scores")
-            outputs["baseline__metrics"] = make_path(prefix="baseline__metrics")
-            outputs["uplift"] = make_path(prefix="uplift")
 
-            metadata["y_baseline"] = {"n_rows": y_baseline.shape[0]}
-            metadata["baseline__scores"] = {"n_rows": baseline_scores.shape[0]}
-            metadata["baseline__metrics"] = {"n_rows": baseline_metrics.shape[0]}
-            metadata["uplift"] = {"n_rows": uplift.shape[0]}
+        # Score baseline compared to best scores
+        uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
+        kwargs = {"y": y, "y_baseline": y_baseline, "freq": freq}
+        baseline_scores, baseline_metrics, uplift = uplift_flow.call(
+            outputs["scores"][outputs["best_model"]],
+            **kwargs,
+        )
+        outputs["y_baseline"] = make_path(prefix="y_baseline")
+        outputs["baseline__scores"] = make_path(prefix="baseline__scores")
+        outputs["baseline__metrics"] = baseline_metrics
+        outputs["uplift"] = make_path(prefix="uplift")
 
-            write(baseline_scores, object_path=outputs["baseline__scores"])
-            write(baseline_metrics, object_path=outputs["baseline__scores"])
-            write(uplift, object_path=make_path(prefix="uplift"))
+        metadata["y_baseline"] = {"n_rows": y_baseline.shape[0]}
+        metadata["baseline__scores"] = {"n_rows": baseline_scores.shape[0]}
+        metadata["uplift"] = {"n_rows": uplift.shape[0]}
+
+        write(baseline_scores, object_path=outputs["baseline__scores"])
+        write(uplift, object_path=make_path(prefix="uplift"))
 
         # Export artifacts for each model
         model_artifacts_keys = [
@@ -242,6 +248,7 @@ def test(user_id: str = "indexhub-demo"):
         user_id=user_id,
         policy_id=policy_id,
         panel_path=fields["sources"]["panel"],
+        baseline_path=fields["sources"]["baseline"],
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,
         level_cols=fields["level_cols"],

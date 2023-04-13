@@ -1,3 +1,4 @@
+from functools import partial
 from typing import List, Mapping
 
 import polars as pl
@@ -23,27 +24,23 @@ def _get_forecast_results(
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
     )
-    read = SOURCE_TAG_TO_READER[user.storage_tag]
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        file_ext="parquet",
+        **storage_creds,
+    )
 
     # Read artifacts
     best_model = outputs["best_model"]
     forecasts = read(
-        bucket_name=user.storage_bucket_name,
         object_path=outputs["forecasts"][best_model],
-        file_ext="parquet",
-        **storage_creds
     ).lazy()
     quantiles = read(
-        bucket_name=user.storage_bucket_name,
         object_path=outputs["quantiles"][best_model],
-        file_ext="parquet",
-        **storage_creds
     ).lazy()
     baseline = read(
-        bucket_name=user.storage_bucket_name,
         object_path=outputs["baseline"],
-        file_ext="parquet",
-        **storage_creds
     ).lazy()
 
     index_cols = forecasts.columns[:-1]
