@@ -58,14 +58,24 @@ def _get_forecast_table(
         .join(baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left")
         .join(quantiles, on=idx_cols, how="left")
         .with_columns(
-            pl.col("time").rank("ordinal").over(entity_col).alias("fh"),
+            pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
         )
         # Reorder
-        .select(["time", "fh", "baseline", "forecast", "forecast_10", "forecast_90"])
+        .select(
+            [
+                entity_col,
+                time_col,
+                "fh",
+                "baseline",
+                "forecast",
+                "forecast_10",
+                "forecast_90",
+            ]
+        )
         # Rename to label for FE
         .rename(
             {
-                "time": "",  # Empty string
+                time_col: "",  # Empty string
                 "fh": "Forecast Period",
                 "forecast": "Forecast",
                 "baseline": "Baseline",
@@ -112,5 +122,5 @@ def get_policy_table(
 
     start = display_n * (page - 1)
     end = display_n * page
-    filtered_table = table[start:end].to_dicts()
+    filtered_table = table[start:end].collect(streaming=True).to_dicts()
     return filtered_table

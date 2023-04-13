@@ -134,7 +134,10 @@ def flow(
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
-        metadata["y"] = {"n_rows": y.shape[0]}
+        metadata["y"] = {
+            "n_rows": y.shape[0],
+            "n_entities": y.get_column(entity_col).n_unique(),
+        }
 
         write(y, object_path=make_path(prefix="y"))
 
@@ -167,9 +170,18 @@ def flow(
         outputs["baseline__metrics"] = baseline_metrics
         outputs["uplift"] = make_path(prefix="uplift")
 
-        metadata["y_baseline"] = {"n_rows": y_baseline.shape[0]}
-        metadata["baseline__scores"] = {"n_rows": baseline_scores.shape[0]}
-        metadata["uplift"] = {"n_rows": uplift.shape[0]}
+        metadata["y_baseline"] = {
+            "n_rows": y_baseline.shape[0],
+            "n_entities": y_baseline.get_column(entity_col).n_unique(),
+        }
+        metadata["baseline__scores"] = {
+            "n_rows": baseline_scores.shape[0],
+            "n_entities": baseline_scores.get_column(entity_col).n_unique(),
+        }
+        metadata["uplift"] = {
+            "n_rows": uplift.shape[0],
+            "n_entities": uplift.get_column(entity_col).n_unique(),
+        }
 
         write(baseline_scores, object_path=outputs["baseline__scores"])
         write(uplift, object_path=make_path(prefix="uplift"))
@@ -191,7 +203,10 @@ def flow(
                 output_path = make_path(prefix=f"{key}__{model}")
                 write(df, object_path=output_path)
                 outputs[key][model] = output_path
-                model_artifacts_metadata[model] = {"n_rows": df.shape[0]}
+                model_artifacts_metadata[model] = {
+                    "n_rows": df.shape[0],
+                    "n_entities": df.get_column(entity_col).n_unique(),
+                }
             metadata[key] = model_artifacts_metadata
 
         # Export statistics
@@ -200,7 +215,10 @@ def flow(
             output_path = make_path(prefix=f"statistics__{key}")
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
-            statistics_metadata[key] = {"n_rows": df.shape[0]}
+            statistics_metadata[key] = {
+                "n_rows": df.shape[0],
+                "n_entities": df.get_column(entity_col).n_unique(),
+            }
         metadata["statistics"] = statistics_metadata
 
         outputs["metadata"] = metadata
