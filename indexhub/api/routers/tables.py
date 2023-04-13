@@ -14,6 +14,20 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 
 router = APIRouter()
 
+SEGMENTATION_FACTOR_TO_KEY = {
+    "volatility": "rolling__cv",
+    "total value": "groupby__sum",
+    "historical growth rate": "rolling__sum",
+    "predicted growth rate": "last_window__sum",
+}
+
+SEGMENTATION_FACTOR_TO_EXPR = {
+    "volatility": pl.mean("seg_factor"),
+    "total value": pl.sum("seg_factor"),
+    "historical growth rate": pl.col("seg_factor").diff().mean(),
+    "predicted growth rate": None,
+}
+
 # POLICY RESULT TABLES
 def _get_forecast_table(
     fields: Mapping[str, str], outputs: Mapping[str, str], user: User
@@ -41,6 +55,29 @@ def _get_forecast_table(
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
 
+    # Segmentation factor
+    segmentation_factor = fields["segmentation_factor"]
+    stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
+    stat = (
+        read(object_path=outputs["statistics"][stat_key])
+        .lazy()
+        .pipe(lambda df: df.rename({df.columns[-1]: "seg_factor"}))
+    )
+    if stat_key == "last_window__sum":
+        stat = stat.join(
+            forecast.lazy()
+            .groupby(entity_col)
+            .agg(pl.sum(target_col))
+            .rename({target_col: "seg_factor_forecast"}),
+            on=entity_col,
+        ).select(
+            entity_col,
+            (pl.col("seg_factor_forecast") - pl.col("seg_factor")).alias("seg_factor"),
+        )
+    else:
+        expr = SEGMENTATION_FACTOR_TO_EXPR[segmentation_factor]
+        stat = stat.groupby(entity_col).agg(expr)
+
     # Pivot quantiles
     quantiles = (
         quantiles.lazy()
@@ -51,7 +88,8 @@ def _get_forecast_table(
         .lazy()
     )
 
-    # Concat dfs
+    # Concat forecasts
+    desc_order = False if segmentation_factor == "volatility" else True
     table = (
         forecast.lazy()
         .rename({target_col: "forecast"})
@@ -72,6 +110,9 @@ def _get_forecast_table(
                 "forecast_90",
             ]
         )
+        # Sort table by segmentation factor
+        .join(stat, on=entity_col)
+        .sort(stat.columns[-1], descending=desc_order)
         # Rename to label for FE
         .rename(
             {
@@ -81,10 +122,10 @@ def _get_forecast_table(
                 "baseline": "Baseline",
                 "forecast_10": "Forecast (10% quantile)",
                 "forecast_90": "Forecast (90% quantile)",
+                "seg_factor": segmentation_factor,
             }
         )
-        # TODO: Sort table by segmentation factor
-        .groupby(entity_col)
+        .groupby(entity_col, maintain_order=True)
         .agg(pl.struct(pl.all().exclude(entity_col)).alias("table"))
     )
 

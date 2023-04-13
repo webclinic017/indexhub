@@ -42,6 +42,7 @@ def _get_forecast_results(
     best_model = outputs["best_model"]
     forecasts = read(object_path=outputs["forecasts"][best_model])
     backtests = read(object_path=outputs["backtests"][best_model])
+    statistics = read(object_path=outputs["statistics"]["last_window__sum"])
     uplift = read(object_path=outputs["uplift"])
 
     entity_col, time_col, target_col = y.columns
@@ -51,15 +52,8 @@ def _get_forecast_results(
     freq = FREQ_NAME_TO_LABEL[fields["freq"]]
     backtest_period = backtests.get_column(time_col).n_unique()
 
-    # Sales to date for last 12 months
-    target_to_date = (
-        y.groupby(entity_col, maintain_order=True)
-        .tail(fh)
-        .collect(streaming=True)
-        .get_column(target_col)
-        .sum()
-    )
-
+    # Target to date for last fh
+    target_to_date = statistics.get_column(target_col).sum()
     stats_target_to_date = {
         "title": f"{target_col} to date",
         "subtitle": f"Last {fh} {freq}",
