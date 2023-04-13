@@ -5,7 +5,8 @@ holidays
 httpx
 modal-client
 openpyxl
-polars==0.16.16
+pandas==2.0.0
+polars==0.17.2
 psycopg2-binary
 pyarrow
 pyarrow
