@@ -46,26 +46,27 @@ def create_policy(params: CreatePolicyParams):
         policy = Policy(**params.__dict__)
         user = session.get(User, policy.user_id)
         policy.status = "RUNNING"
-
+        policy_sources = json.loads(policy.sources)
+        policy_fields = json.loads(policy.fields)
         if policy.tag == "forecast":
             flow = modal.Function.lookup("indexhub-forecast", "flow")
             flow.call(
                 user_id=policy.user_id,
                 policy_id=policy.id,
-                panel_path=policy.sources["panel"],
-                baseline_path=policy.sources.get("baseline"),
+                panel_path=policy_sources["panel"],
+                baseline_path=policy_sources("baseline"),
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                level_cols=policy.fields["level_cols"],
-                target_col=policy.fields["target_col"],
-                min_lags=int(policy.fields["min_lags"]),
-                max_lags=int(policy.fields["max_lags"]),
-                fh=int(policy.fields["fh"]),
-                freq=FREQ_NAME_TO_ALIAS[policy.fields["freq"]],
-                n_splits=policy.fields["n_splits"],
+                level_cols=policy_fields["level_cols"],
+                target_col=policy_fields["target_col"],
+                min_lags=int(policy_fields["min_lags"]),
+                max_lags=int(policy_fields["max_lags"]),
+                fh=int(policy_fields["fh"]),
+                freq=FREQ_NAME_TO_ALIAS[policy_fields["freq"]],
+                n_splits=policy_fields["n_splits"],
                 holiday_regions=[
                     SUPPORTED_COUNTRIES[country]
-                    for country in policy.fields["holiday_regions"]
+                    for country in policy_fields["holiday_regions"]
                 ],
             )
         else:

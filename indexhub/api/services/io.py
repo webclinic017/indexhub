@@ -20,12 +20,12 @@ def read_data_from_s3(
     file_ext: str,
     n_rows: Optional[int] = None,
     AWS_ACCESS_KEY_ID: Optional[str] = None,
-    AWS_SECRET_ACCESS_KEY: Optional[str] = None,
+    AWS_SECRET_KEY_ID: Optional[str] = None,
 ):
     s3_client = boto3.client(
         "s3",
         aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY_ID,
     )
     try:
         obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)["Body"].read()
@@ -61,12 +61,12 @@ def write_data_to_s3(
     bucket_name: str,
     object_path: str,
     AWS_ACCESS_KEY_ID: Optional[str] = None,
-    AWS_SECRET_ACCESS_KEY: Optional[str] = None,
+    AWS_SECRET_KEY_ID: Optional[str] = None,
 ):
     s3_client = boto3.client(
         "s3",
         aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY_ID,
     )
     f = io.BytesIO()
     data.write_parquet(f)

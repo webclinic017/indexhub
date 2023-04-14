@@ -1,5 +1,6 @@
 from functools import partial
-from typing import List, Mapping
+from typing import List, Mapping, Any
+import json
 
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ import polars as pl
 from fastapi import APIRouter
 from sqlmodel import Session
 
+from pydantic import BaseModel
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
@@ -184,21 +186,25 @@ TAGS_TO_GETTER = {
 }
 
 
+class TableResponse(BaseModel):
+    pagination: Mapping[str, int]
+    results: List[Mapping[Any, Any]]
+
 @router.get("/tables/{policy_id}/{table_tag}")
 def get_policy_table(
     policy_id: str,
     table_tag: str,
     page: int,
     display_n: int = 5,
-) -> List[Mapping[str, str]]:
+) -> TableResponse:
     if page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
-        policy = get_policy(policy_id)
+        policy = get_policy(policy_id)["policy"]
         getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
         # TODO: Cache using an in memory key-value store
-        table = getter(policy.fields, policy.outputs, user)
+        table = getter(json.loads(policy.fields), json.loads(policy.outputs), user)
 
     start = display_n * (page - 1)
     end = display_n * page

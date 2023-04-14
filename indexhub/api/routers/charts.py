@@ -4,6 +4,7 @@ from typing import List, Mapping
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import Session
+import json
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
@@ -45,12 +46,12 @@ class TrendChartParams(BaseModel):
 def get_chart(params: TrendChartParams):
     with Session(engine) as session:
         # Get the metadata on tag to define which chart to return
-        policy = get_policy(params.policy_id)
+        policy = get_policy(params.policy_id)["policy"]
         build = POLICY_TAG_TO_BUILDERS[policy.tag][params.chart_tag]
         user = session.get(User, policy.user_id)
         trend_chart_json = build(
-            policy.fields,
-            policy.outputs,
+            json.loads(policy.fields),
+            json.loads(policy.outputs),
             user,
             params.filter_by,
             params.agg_by,

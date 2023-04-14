@@ -2,6 +2,7 @@ from functools import partial
 from typing import List, Mapping
 
 import polars as pl
+import json
 from fastapi import APIRouter
 from sqlmodel import Session
 
@@ -99,10 +100,10 @@ def get_stats(
     policy_id: str,
 ) -> List[Mapping[str, str]]:
     with Session(engine) as session:
-        policy = get_policy(policy_id)
+        policy = get_policy(policy_id)["policy"]
         getter = POLICY_TAG_TO_GETTER[policy.tag]
         user = session.get(User, policy.user_id)
         stats = getter(
-            policy.outputs, policy.fields, user
+            json.loads(policy.outputs), json.loads(policy.fields), user
         )  # TODO: Cache using an in memory key-value store
     return stats

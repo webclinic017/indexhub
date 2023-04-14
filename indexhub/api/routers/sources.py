@@ -39,6 +39,7 @@ def create_source(params: CreateSourceParams):
         source = Source(**params.__dict__)
         user = session.get(User, source.user_id)
         source.status = "RUNNING"
+        source_columns = json.loads(source.columns)
         flow = modal.Function.lookup("indexhub-preprocess", "flow")
         flow.call(
             user_id=source.user_id,
@@ -47,8 +48,8 @@ def create_source(params: CreateSourceParams):
             source_variables=source.variables,
             storage_tag=user.storage_tag,
             storage_bucket_name=user.storage_bucket_name,
-            entity_cols=source.columns["entity_cols"],
-            time_col=source.columns["time_col"],
+            entity_cols=source_columns["entity_cols"],
+            time_col=source_columns["time_col"],
             datetime_fmt=source.datetime_fmt,
         )
 
