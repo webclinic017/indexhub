@@ -20,6 +20,7 @@ import NewStorage from "./views/storage/new_storage";
 import NewPolicy from "./views/policies/new_policy";
 import Policies from "./views/policies/policies";
 import PoliciesDashboard from "./views/policies/policies_dashboard";
+import PolicyForecast from "./views/policies/forecast/forecast";
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
                 <Route index element={<PoliciesDashboard />} />
                 <Route path="new_policy" element={<NewPolicy />} />
               </Route>
+              <Route path="policies/forecast/:policy_id" element={<PolicyForecast />}/>
               <Route path="reports" element={<Reports />} />
               <Route
                 path="reports/profiling/:source_id"

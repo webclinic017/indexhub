@@ -45,12 +45,7 @@ def create_aws_secret(
         secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
         response = client.create_secret(
             Name=secret_name,
-            SecretString=json.dumps(secret),
-            Tags=[
-                {"Key": "owner", "Value": "user"},
-                {"Key": "user_id", "Value": user_id},
-            ],
-            ForceOverwriteReplicaSecret=True,
+            SecretString=json.dumps(secret)
         )
     except ClientError as e:
         # For a list of exceptions thrown, see

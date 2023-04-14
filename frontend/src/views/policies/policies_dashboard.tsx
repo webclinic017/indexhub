@@ -21,7 +21,7 @@ import { AppState } from "../..";
 import { colors } from "../../theme/theme";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 
-type Policy = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type Policy = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const policy_status_to_color: any = {
