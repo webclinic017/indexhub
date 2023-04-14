@@ -1,5 +1,8 @@
-from typing import Mapping
+from functools import partial
+from typing import List, Mapping
 
+import numpy as np
+import pandas as pd
 import polars as pl
 from fastapi import APIRouter
 from sqlmodel import Session
@@ -12,81 +15,204 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 
 router = APIRouter()
 
+SEGMENTATION_FACTOR_TO_KEY = {
+    "volatility": "rolling__cv",
+    "total value": "groupby__sum",
+    "historical growth rate": "rolling__sum",
+    "predicted growth rate": "last_window__sum",
+}
+
+SEGMENTATION_FACTOR_TO_EXPR = {
+    "volatility": pl.mean("seg_factor"),
+    "total value": pl.sum("seg_factor"),
+    "historical growth rate": pl.col("seg_factor").diff().mean(),
+    "predicted growth rate": None,
+}
+
 # POLICY RESULT TABLES
-def _get_forecast_results(
-    outputs: Mapping[str, str],
-    user: User,
-) -> pl.DataFrame:
+def _get_forecast_table(
+    fields: Mapping[str, str], outputs: Mapping[str, str], user: User
+) -> pd.DataFrame:
+
     pl.toggle_string_cache(True)
 
     # Get credentials
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
     )
-    read = SOURCE_TAG_TO_READER[user.storage_tag]
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        file_ext="parquet",
+        **storage_creds,
+    )
 
     # Read artifacts
     best_model = outputs["best_model"]
-    forecasts = read(
-        bucket_name=user.storage_bucket_name,
-        object_path=outputs["forecasts"][best_model],
-        file_ext="parquet",
-        **storage_creds
-    ).lazy()
-    quantiles = read(
-        bucket_name=user.storage_bucket_name,
-        object_path=outputs["quantiles"][best_model],
-        file_ext="parquet",
-        **storage_creds
-    ).lazy()
-    baseline = read(
-        bucket_name=user.storage_bucket_name,
-        object_path=outputs["baseline"],
-        file_ext="parquet",
-        **storage_creds
-    ).lazy()
+    forecast = read(object_path=outputs["forecasts"][best_model])
+    quantiles = read(object_path=outputs["quantiles"][best_model])
+    y_baseline = read(object_path=outputs["y_baseline"])
 
-    index_cols = forecasts.columns[:-1]
-    target_col = forecasts.columns[-1]
+    entity_col, time_col, target_col = forecast.columns
+    idx_cols = entity_col, time_col
+
+    # Create stats
+    stats = (
+        # Read last_window__sum from statistics
+        read(object_path=outputs["statistics"]["last_window__sum"])
+        .lazy()
+        .pipe(lambda df: df.rename({df.columns[-1]: "last_window__sum"}))
+        # Join with forecast to compute current_window__sum
+        .join(
+            forecast.lazy()
+            .groupby(entity_col)
+            .agg(pl.sum(target_col))
+            .rename({target_col: "current_window__sum"}),
+            on=entity_col,
+        )
+        # Select last_window__sum, current_window__sum, diff, pct_change as stats
+        .select(
+            entity_col,
+            pl.col("last_window__sum"),
+            pl.col("current_window__sum"),
+            (pl.col("current_window__sum") - pl.col("last_window__sum")).alias("diff"),
+            (
+                ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1) * 100
+            ).alias("pct_change"),
+        )
+    )
+
+    # Segmentation factor
+    segmentation_factor = fields["segmentation_factor"]
+    stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
+    if stat_key == "last_window__sum":
+        # pct_change = predicted growth rate
+        stats = stats.with_columns(pl.col("pct_change").alias("seg_factor"))
+    else:
+        seg_factor_stat = (
+            read(object_path=outputs["statistics"][stat_key])
+            .lazy()
+            .pipe(lambda df: df.rename({df.columns[-1]: "seg_factor"}))
+        )
+        expr = SEGMENTATION_FACTOR_TO_EXPR[segmentation_factor]
+        seg_factor_stat = seg_factor_stat.groupby(entity_col).agg(expr)
+        stats = stats.join(seg_factor_stat, on=entity_col)
 
     # Pivot quantiles
     quantiles = (
-        quantiles.filter(pl.col("quantile").is_in([10, 90]))
+        quantiles.lazy()
+        .filter(pl.col("quantile").is_in([10, 90]))
         .collect(streaming=True)
-        .pivot(values=target_col, index=index_cols, columns="quantile")
-        .select([*index_cols, pl.all().exclude(index_cols).prefix("forecast_")])
+        .pivot(values=target_col, index=idx_cols, columns="quantile")
+        .select([*idx_cols, pl.all().exclude(idx_cols).prefix("forecast_")])
         .lazy()
     )
 
-    # Concat dfs
-    recommendation = (
-        forecasts.rename({target_col: "forecast"})
-        .join(baseline.rename({target_col: "baseline"}), on=index_cols, how="left")
-        .join(quantiles, on=index_cols, how="left")
+    # Concat forecasts
+    desc_order = False if segmentation_factor == "volatility" else True
+    table = (
+        forecast.lazy()
+        .rename({target_col: "forecast"})
+        .join(
+            y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
+        )
+        .join(quantiles, on=idx_cols, how="left")
         .with_columns(
-            pl.col("time").rank("ordinal").over(index_cols[:-1]).alias("fh"),
+            [
+                pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
+                pl.lit(None).alias("override"),  # for FE
+            ]
+        )
+        # Reorder
+        .select(
+            [
+                entity_col,
+                time_col,
+                "fh",
+                "baseline",
+                "forecast",
+                "forecast_10",
+                "forecast_90",
+                "override",
+            ]
+        )
+        # Rename to label for FE
+        .rename(
+            {
+                time_col: "",  # Empty string
+                "fh": "Forecast Period",
+                "forecast": "Forecast",
+                "baseline": "Baseline",
+                "forecast_10": "Forecast (10% quantile)",
+                "forecast_90": "Forecast (90% quantile)",
+            }
+        )
+        # Round all floats to 2 decimal places
+        # NOTE: Rounding not working for Float32
+        .with_columns(pl.col([pl.Float64, pl.Float32]).cast(pl.Float64).round(2))
+        .groupby(entity_col, maintain_order=True)
+        .agg(pl.struct(pl.all().exclude(entity_col)).alias("tables"))
+        # Sort table by segmentation factor
+        .join(stats, on=entity_col)
+        .sort(stats.columns[-1], descending=desc_order)
+        .rename({entity_col: "entity", "seg_factor": segmentation_factor})
+        # Round all floats to 2 decimal places
+        # NOTE: Rounding not working for Float32
+        .with_columns(pl.col([pl.Float32, pl.Float64]).cast(pl.Float64).round(2))
+        .select(
+            [
+                pl.col("entity"),
+                pl.col("tables"),
+                pl.struct(pl.all().exclude(["entity", "tables"])).alias("stats"),
+            ]
         )
     )
 
     pl.toggle_string_cache(False)
-    return recommendation
+    return table
 
 
-POLICY_TAG_TO_GETTER = {"forecast": _get_forecast_results}
+def _get_uplift_table():
+    pass
 
 
-@router.get("/tables/{policy_id}")
-def get_policy_table(policy_id: str, page: int, display_n: int = 5):
+TAGS_TO_GETTER = {
+    "forecast": {
+        "forecast": _get_forecast_table,
+        "uplift": _get_uplift_table,
+    }
+}
+
+
+@router.get("/tables/{policy_id}/{table_tag}")
+def get_policy_table(
+    policy_id: str,
+    table_tag: str,
+    page: int,
+    display_n: int = 5,
+) -> List[Mapping[str, str]]:
     if page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
         policy = get_policy(policy_id)
-        getter = POLICY_TAG_TO_GETTER[policy.tag]
+        getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
-        table = getter(
-            policy.outputs, user
-        )  # TODO: Cache using an in memory key-value store
+        # TODO: Cache using an in memory key-value store
+        table = getter(policy.fields, policy.outputs, user)
+
     start = display_n * (page - 1)
     end = display_n * page
-    filtered_table = table[start:end]
-    return filtered_table.to_json()
+    max_page = int(
+        np.ceil(
+            table.collect(streaming=True).get_column("entity").n_unique() / display_n
+        )
+    )
+    filtered_table = {
+        "pagination": {
+            "current": page,
+            "end": max_page,
+        },
+        "results": table[start:end].collect(streaming=True).to_dicts(),
+    }
+
+    return filtered_table

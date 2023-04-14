@@ -115,8 +115,6 @@ def flow(
             **storage_creds,
         )
 
-        metadata = {}
-
         # Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
         time_col = y_panel.select(
@@ -134,10 +132,6 @@ def flow(
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
-        metadata["y"] = {
-            "n_rows": y.shape[0],
-            "n_entities": y.get_column(entity_col).n_unique(),
-        }
 
         write(y, object_path=make_path(prefix="y"))
 
@@ -170,19 +164,7 @@ def flow(
         outputs["baseline__metrics"] = baseline_metrics
         outputs["uplift"] = make_path(prefix="uplift")
 
-        metadata["y_baseline"] = {
-            "n_rows": y_baseline.shape[0],
-            "n_entities": y_baseline.get_column(entity_col).n_unique(),
-        }
-        metadata["baseline__scores"] = {
-            "n_rows": baseline_scores.shape[0],
-            "n_entities": baseline_scores.get_column(entity_col).n_unique(),
-        }
-        metadata["uplift"] = {
-            "n_rows": uplift.shape[0],
-            "n_entities": uplift.get_column(entity_col).n_unique(),
-        }
-
+        write(y_baseline, object_path=outputs["y_baseline"])
         write(baseline_scores, object_path=outputs["baseline__scores"])
         write(uplift, object_path=make_path(prefix="uplift"))
 
@@ -197,31 +179,18 @@ def flow(
 
         for key in model_artifacts_keys:
             model_artifacts = outputs[key]
-            model_artifacts_metadata = {}
 
             for model, df in model_artifacts.items():
                 output_path = make_path(prefix=f"{key}__{model}")
                 write(df, object_path=output_path)
                 outputs[key][model] = output_path
-                model_artifacts_metadata[model] = {
-                    "n_rows": df.shape[0],
-                    "n_entities": df.get_column(entity_col).n_unique(),
-                }
-            metadata[key] = model_artifacts_metadata
 
         # Export statistics
-        statistics_metadata = {}
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
-            statistics_metadata[key] = {
-                "n_rows": df.shape[0],
-                "n_entities": df.get_column(entity_col).n_unique(),
-            }
-        metadata["statistics"] = statistics_metadata
 
-        outputs["metadata"] = metadata
         outputs = json.dumps(outputs)
     except Exception as exc:
         updated_at = datetime.utcnow()
