@@ -1,3 +1,4 @@
+altair
 boto3==1.24.59
 botocore
 fastapi
@@ -9,7 +10,7 @@ pandas==2.0.0
 polars==0.17.2
 psycopg2-binary
 pyarrow
-pyarrow
+pyecharts
 PyJWT
 s3fs
 sqlmodel
