@@ -41,7 +41,9 @@ def _create_single_forecast_chart(
     # Read artifacts
     best_model = outputs["best_model"]
     forecast = read(object_path=outputs["forecasts"][best_model])
-    backtest = read(object_path=outputs["backtests"][best_model])
+    backtest = read(object_path=outputs["backtests"][best_model]).pipe(
+        lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
+    )
     actual = read(object_path=outputs["y"])
 
     entity_col, time_col, target_col = forecast.columns
@@ -161,7 +163,9 @@ def _create_multi_forecast_chart(
     # Read artifacts
     best_model = outputs["best_model"]
     forecast = read(object_path=outputs["forecasts"][best_model])
-    backtest = read(object_path=outputs["backtests"][best_model])
+    backtest = read(object_path=outputs["backtests"][best_model]).pipe(
+        lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
+    )
     actual = read(object_path=outputs["y"])
 
     entity_col, time_col, target_col = forecast.columns
