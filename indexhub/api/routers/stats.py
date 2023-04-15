@@ -1,8 +1,8 @@
+import json
 from functools import partial
 from typing import List, Mapping
 
 import polars as pl
-import json
 from fastapi import APIRouter
 from sqlmodel import Session
 
@@ -21,11 +21,10 @@ FREQ_NAME_TO_LABEL = {
     "Monthly": "months",
 }
 
+
 # STATS RESULT TABLES
 def _get_forecast_results(
-    outputs: Mapping[str, str],
-    fields: Mapping[str, str],
-    user: User,
+    outputs: Mapping[str, str], fields: Mapping[str, str], user: User, policy_id: str
 ) -> pl.DataFrame:
     # Get credentials
     storage_creds = get_aws_secret(
@@ -45,6 +44,7 @@ def _get_forecast_results(
     backtests = read(object_path=outputs["backtests"][best_model])
     statistics = read(object_path=outputs["statistics"]["last_window__sum"])
     uplift = read(object_path=outputs["uplift"])
+    rolling_uplift = read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
 
     entity_col, time_col, target_col = y.columns
 
@@ -89,6 +89,32 @@ def _get_forecast_results(
     }
     results.append(stats_uplift)
 
+    # AI predicted rolling_uplift for next fh
+    rolling_sum_uplift = (
+        rolling_uplift.sort([entity_col, "updated_at"])
+        .groupby([entity_col])
+        .tail(1)
+        .get_column("mae__uplift__rolling_sum")
+        .sum()
+    )
+    rolling_mean_uplift_pct = (
+        rolling_uplift.sort([entity_col, "updated_at"])
+        .groupby([entity_col])
+        .tail(1)
+        .get_column("mae__uplift_pct__rolling_mean")
+        .mean()
+    )
+
+    stats_uplift = {
+        "title": "AI Uplift (Cumulative)",
+        "subtitle": f"Cumulative backtest results over the last {backtest_period} {freq}",
+        "values": {
+            "rolling_sum": round(rolling_sum_uplift, 2),
+            "rolling_mean_pct": round(rolling_mean_uplift_pct, 2),
+        },
+    }
+    results.append(stats_uplift)
+
     return results
 
 
@@ -104,6 +130,6 @@ def get_stats(
         getter = POLICY_TAG_TO_GETTER[policy.tag]
         user = session.get(User, policy.user_id)
         stats = getter(
-            json.loads(policy.outputs), json.loads(policy.fields), user
+            json.loads(policy.outputs), json.loads(policy.fields), user, policy_id
         )  # TODO: Cache using an in memory key-value store
     return stats

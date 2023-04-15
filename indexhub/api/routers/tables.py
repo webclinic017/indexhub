@@ -1,14 +1,14 @@
-from functools import partial
-from typing import List, Mapping, Any
 import json
+from functools import partial
+from typing import Any, List, Mapping
 
 import numpy as np
 import pandas as pd
 import polars as pl
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlmodel import Session
 
-from pydantic import BaseModel
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
@@ -33,7 +33,7 @@ SEGMENTATION_FACTOR_TO_EXPR = {
 
 # POLICY RESULT TABLES
 def _get_forecast_table(
-    fields: Mapping[str, str], outputs: Mapping[str, str], user: User
+    fields: Mapping[str, str], outputs: Mapping[str, str], user: User, policy_id: str
 ) -> pd.DataFrame:
 
     pl.toggle_string_cache(True)
@@ -57,6 +57,16 @@ def _get_forecast_table(
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
+
+    # Read rolling uplift and take the latest stats
+    rolling_uplift = (
+        read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+        .lazy()
+        .sort(entity_col, "updated_at")
+        .groupby(entity_col)
+        .tail(1)
+        .select(entity_col, "mae__uplift__rolling_sum", "mae__uplift_pct__rolling_mean")
+    )
 
     # Create stats
     stats = (
@@ -82,6 +92,8 @@ def _get_forecast_table(
                 ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1) * 100
             ).alias("pct_change"),
         )
+        # Join with rolling uplift
+        .join(rolling_uplift, on=entity_col)
     )
 
     # Segmentation factor
@@ -190,6 +202,7 @@ class TableResponse(BaseModel):
     pagination: Mapping[str, int]
     results: List[Mapping[Any, Any]]
 
+
 @router.get("/tables/{policy_id}/{table_tag}")
 def get_policy_table(
     policy_id: str,
@@ -204,7 +217,9 @@ def get_policy_table(
         getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
         # TODO: Cache using an in memory key-value store
-        table = getter(json.loads(policy.fields), json.loads(policy.outputs), user)
+        table = getter(
+            json.loads(policy.fields), json.loads(policy.outputs), user, policy_id
+        )
 
     start = display_n * (page - 1)
     end = display_n * page

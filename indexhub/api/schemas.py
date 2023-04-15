@@ -308,6 +308,12 @@ def POLICY_SCHEMAS(sources: List[Source]):
                     "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
                     "values": list(SUPPORTED_COUNTRIES.keys()),
                 },
+                "goal": {
+                    "title": "Goal",
+                    "subtitle": "How much (%) do you want to reduce your forecast error by?",
+                    "values": list(range(1, 99)),
+                    "default": 15,
+                },
             },
         }
     }
