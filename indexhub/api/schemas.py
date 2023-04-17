@@ -242,7 +242,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
     schemas = {
         "forecast": {
             "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
-            "description": "Choose this policy to reduce .",
+            "description": "Choose this policy to reduce over and under forecast compared to your existing forecasts",
             "sources": {
                 "panel": {
                     "title": "Dataset",
@@ -277,6 +277,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
                         "total value",
                         "historical growth rate",
                         "predicted growth rate",
+                        # "predictability",  # should be probalistic measure (mase)
                     ],
                 },
                 "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
@@ -315,6 +316,74 @@ def POLICY_SCHEMAS(sources: List[Source]):
                     "default": 15,
                 },
             },
-        }
+        },
+        "reduce_churn": {
+            "objective": "Reduce churn rate for {level_cols} segmented by {segmentation_factor}.",
+            "description": "Choose this policy to track the churn rate across entities",
+            "sources": {
+                "panel": {
+                    "title": "Dataset",
+                    "subtitle": "Select one panel dataset of observed values to forecast.",
+                    "values": {src.name: src.id for src in sources},
+                },
+                "baseline": {
+                    "title": "Baseline Forecasts",
+                    "subtitle": (
+                        "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
+                        "Must have the same schema as `panel`."
+                    ),
+                    "values": {src.name: src.id for src in sources},
+                    "is_required": False,
+                },
+            },
+            "fields": {
+                "segmentation_factor": {
+                    "title": "Segmentation Factor",
+                    "subtitle": "How do you want to segment the AI predictions?",
+                    "values": [
+                        "volatility",
+                        "total value",
+                        "historical growth rate",
+                        "predicted growth rate",
+                        # "predictability",  # should be probalistic measure (mase)
+                    ],
+                },
+                "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
+                "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
+                "min_lags": {
+                    "title": "What is the minimum number lagged variables?",
+                    "subtitle": "`min_lags` must be less than `max_lags`.",
+                    "values": list(range(12, 25)),
+                    "default": 12,
+                },
+                "max_lags": {
+                    "title": "What is the maximum number of lagged variables?",
+                    "subtitle": "`max_lags` must be greater than `min_lags`.",
+                    "values": list(range(24, 49)),
+                    "default": 24,
+                },
+                "fh": {
+                    "title": "Forecast Horizon",
+                    "subtitle": "How many periods into the future do you want to track your churn rate?",
+                    "values": list(range(1, 30)),
+                },
+                "freq": {
+                    "title": "Frequency",
+                    "subtitle": "How often do you want to generate new predictions?",
+                    "values": ["Hourly", "Daily", "Weekly", "Monthly"],
+                },
+                "holiday_regions": {
+                    "title": "Holiday Regions",
+                    "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
+                    "values": list(SUPPORTED_COUNTRIES.keys()),
+                },
+                "goal": {
+                    "title": "Goal",
+                    "subtitle": "How much (%) do you want to reduce churn rate by?",
+                    "values": list(range(1, 99)),
+                    "default": 15,
+                },
+            },
+        },
     }
     return schemas
