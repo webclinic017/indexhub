@@ -3,9 +3,10 @@ from typing import Any, Literal, Mapping
 
 import polars as pl
 from pyecharts import options as opts
-from pyecharts.charts import Grid, Line
+from pyecharts.charts import Grid, Line, Scatter
 
 from indexhub.api.models.user import User
+from indexhub.api.routers.stats import ERROR_TYPE_TO_METRIC
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -14,6 +15,7 @@ def _create_single_forecast_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
+    policy_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
@@ -134,6 +136,7 @@ def _create_multi_forecast_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
+    policy_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
@@ -297,4 +300,149 @@ def _create_multi_forecast_chart(
         )
     # Export chart options to JSON
     chart_json = line_chart.dump_options()
+    return chart_json
+
+
+SEGMENTATION_FACTOR_TO_KEY = {
+    "volatility": "rolling__cv",
+    "total value": "groupby__sum",
+    "historical growth rate": "rolling__sum",
+    "predicted growth rate": "last_window__sum",
+}
+
+SEGMENTATION_FACTOR_TO_EXPR = {
+    "volatility": pl.mean("seg_factor"),
+    "total value": pl.sum("seg_factor"),
+    "historical growth rate": pl.col("seg_factor").diff().mean(),
+    "predicted growth rate": None,
+}
+
+
+def _create_segmentation_chart(
+    fields: Mapping[str, str],
+    outputs: Mapping[str, str],
+    user: User,
+    policy_id: str,
+    chart_height: str = "500px",
+    chart_width: str = "800px",
+    symbol_size: int = 12,
+):
+    pl.toggle_string_cache(True)
+
+    # Get credentials
+    storage_creds = get_aws_secret(
+        tag=user.storage_tag, secret_type="storage", user_id=user.id
+    )
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        file_ext="parquet",
+        **storage_creds,
+    )
+
+    # Read forecast
+    best_model = outputs["best_model"]
+    forecast = read(object_path=outputs["forecasts"][best_model])
+    entity_col, time_col, target_col = forecast.columns
+    entities = forecast.get_column(entity_col).unique()
+
+    # Read uplift
+    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
+    rolling_uplift = (
+        read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+        .lazy()
+        .sort(entity_col, "updated_at")
+        .groupby(entity_col)
+        .tail(1)
+        .select(
+            entity_col,
+            (pl.col(f"{metric}__uplift__rolling_sum") * 100).alias(
+                "score__uplift__rolling_sum"
+            ),
+        )
+    )
+
+    # Segmentation factor
+    segmentation_factor = fields["segmentation_factor"]
+    stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
+    seg_factor_stat = read(object_path=outputs["statistics"][stat_key]).lazy()
+    if stat_key == "last_window__sum":
+        seg_factor_stat = (
+            seg_factor_stat.pipe(
+                lambda df: df.rename({df.columns[-1]: "last_window__sum"})
+            )
+            # Join with forecast to compute current_window__sum
+            .join(
+                forecast.lazy()
+                .groupby(entity_col)
+                .agg(pl.sum(target_col))
+                .rename({target_col: "current_window__sum"}),
+                on=entity_col,
+            )
+            # Select last_window__sum, current_window__sum, diff, pct_change as stats
+            .select(
+                entity_col,
+                (
+                    ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1)
+                    * 100
+                ).alias("seg_factor"),
+            )
+        )
+    else:
+        seg_factor_stat = seg_factor_stat.pipe(
+            lambda df: df.rename({df.columns[-1]: "seg_factor"})
+        )
+        expr = SEGMENTATION_FACTOR_TO_EXPR[segmentation_factor]
+        seg_factor_stat = seg_factor_stat.groupby(entity_col).agg(expr)
+
+    # Join uplift and segmentation factor
+    data = rolling_uplift.join(seg_factor_stat, on=entity_col).collect(streaming=True)
+
+    # Create scatterplot
+    scatter = Scatter(
+        init_opts=opts.InitOpts(
+            bg_color="white", height=chart_height, width=chart_width
+        )
+    )
+
+    # Add x and y data for each entity
+    for entity in entities:
+        filtered = data.filter(pl.col(entity_col) == entity)
+        x_data = filtered.get_column("seg_factor").to_list()
+        y_data = filtered.get_column("score__uplift__rolling_sum").to_list()
+        scatter.add_xaxis(xaxis_data=x_data)
+        scatter.add_yaxis(
+            series_name=entity,
+            y_axis=y_data,
+            symbol_size=symbol_size,
+            label_opts=opts.LabelOpts(is_show=False),
+        )
+
+    scatter.set_global_opts(
+        legend_opts=opts.LegendOpts(is_show=False),
+        xaxis_opts=opts.AxisOpts(
+            name=f"Segmentation Factor ({segmentation_factor.title()})",
+            name_location="middle",
+            name_gap=30,
+            type_="value",
+        ),
+        yaxis_opts=opts.AxisOpts(
+            name="AI Uplift (Cumulative)",
+            type_="value",
+        ),
+        tooltip_opts=opts.TooltipOpts(formatter="{a}: {c}"),
+        visualmap_opts=opts.VisualMapOpts(
+            is_piecewise=True,
+            pieces=[
+                {"min": float("-inf"), "max": 0, "color": "red", "label": "Benchmark"},
+                {"min": 0, "max": float("inf"), "color": "green", "label": "AI"},
+            ],
+            pos_top="top",
+            pos_right="10%",
+        ),
+    )
+
+    # Export chart options to JSON
+    chart_json = scatter.dump_options()
+    pl.toggle_string_cache(False)
     return chart_json

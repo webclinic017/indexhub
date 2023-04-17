@@ -1,16 +1,17 @@
+import json
 from enum import Enum
 from typing import List, Mapping
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import Session
-import json
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
 from indexhub.api.services.chart_builders import (
     _create_multi_forecast_chart,
+    _create_segmentation_chart,
     _create_single_forecast_chart,
 )
 
@@ -20,6 +21,7 @@ POLICY_TAG_TO_BUILDERS = {
     "forecast": {
         "single_forecast": _create_single_forecast_chart,
         "multi_forecast": _create_multi_forecast_chart,
+        "segment": _create_segmentation_chart,
     }
 }
 
@@ -32,6 +34,7 @@ class AggregationMethod(str, Enum):
 class ChartTag(str, Enum):
     single_forecast = "single_forecast"
     multi_forecast = "multi_forecast"
+    segment = "segment"
 
 
 class TrendChartParams(BaseModel):
@@ -53,6 +56,7 @@ def get_chart(params: TrendChartParams):
             json.loads(policy.fields),
             json.loads(policy.outputs),
             user,
+            params.policy_id,
             params.filter_by,
             params.agg_by,
             params.agg_method,

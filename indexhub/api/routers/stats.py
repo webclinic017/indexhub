@@ -87,7 +87,18 @@ def _get_forecast_results(
     # AI predicted uplift for next fh
     metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
     uplift_value = uplift.get_column(f"{metric}__uplift").sum()
-    uplift_pct = uplift.get_column(f"{metric}__uplift_pct").mean() * 100
+    uplift_pct = (
+        uplift.with_columns(
+            # Replace inf with null
+            pl.when(pl.col(f"{metric}__uplift_pct").is_infinite())
+            .then(None)
+            .otherwise(pl.col(f"{metric}__uplift_pct"))
+            .keep_name()
+        )
+        .get_column(f"{metric}__uplift_pct")
+        .mean()
+        * 100
+    )
 
     stats_uplift = {
         "title": "AI Uplift",
