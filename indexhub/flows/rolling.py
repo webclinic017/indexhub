@@ -56,11 +56,15 @@ def groupby_rolling(data: pl.DataFrame, entity_col: str):
             ).suffix("__rolling_mean"),
             # Diff for both
             pl.col("^*__uplift.*$").diff().suffix("__diff"),
+            # Add window
+            pl.col("updated_at").rank("ordinal").alias("window"),
         )
         .pipe(lambda df: df.explode(df.columns[1:]))
         # Replace inf with null
         .with_columns(
-            pl.when(pl.all().exclude(entity_col, "updated_at").is_infinite())
+            pl.when(
+                pl.all().exclude([entity_col, "updated_at", "window"]).is_infinite()
+            )
             .then(None)
             .otherwise(pl.all())
             .keep_name()
@@ -167,7 +171,7 @@ def rolling_uplift(output_json: str, s3_bucket: str, policy_id: int):
         # Generate rolling stats by groupby entity col
         .pipe(groupby_rolling, entity_col)
         # Reorder columns
-        .select([*idx_cols, pl.all().exclude(idx_cols)])
+        .select([*idx_cols, "window", pl.all().exclude([*idx_cols, "window"])])
     )
 
     try:
@@ -194,12 +198,7 @@ def rolling_uplift(output_json: str, s3_bucket: str, policy_id: int):
                 # Generate rolling stats by groupby entity col
                 .pipe(groupby_rolling, entity_col)
                 # Reorder columns
-                .select(
-                    [
-                        *idx_cols,
-                        pl.all().exclude(idx_cols),
-                    ]
-                )
+                .select([*idx_cols, "window", pl.all().exclude([*idx_cols, "window"])])
             )
 
             # Export merged data as rolling uplift artifact

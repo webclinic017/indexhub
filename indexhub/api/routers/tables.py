@@ -1,5 +1,6 @@
 import json
-from functools import partial
+from enum import Enum
+from functools import partial, reduce
 from typing import Any, List, Mapping
 
 import numpy as np
@@ -12,31 +13,34 @@ from sqlmodel import Session
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.stats import ERROR_TYPE_TO_METRIC
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
 router = APIRouter()
 
-SEGMENTATION_FACTOR_TO_KEY = {
-    "volatility": "rolling__cv",
-    "total value": "groupby__sum",
-    "historical growth rate": "rolling__sum",
-    "predicted growth rate": "last_window__sum",
-}
 
-SEGMENTATION_FACTOR_TO_EXPR = {
-    "volatility": pl.mean("seg_factor"),
-    "total value": pl.sum("seg_factor"),
-    "historical growth rate": pl.col("seg_factor").diff().mean(),
-    "predicted growth rate": None,
-}
+class TableTag(str, Enum):
+    forecast = "forecast"
+    uplift = "uplift"
+
+
+class TableParams(BaseModel):
+    policy_id: str
+    table_tag: TableTag
+    filter_by: Mapping[str, List[str]]
+    page: int
+    display_n: int
+
 
 # POLICY RESULT TABLES
 def _get_forecast_table(
-    fields: Mapping[str, str], outputs: Mapping[str, str], user: User, policy_id: str
+    fields: Mapping[str, str],
+    outputs: Mapping[str, str],
+    user: User,
+    policy_id: str,
+    filter_by: Mapping[str, List[str]],
 ) -> pd.DataFrame:
-
-    pl.toggle_string_cache(True)
 
     # Get credentials
     storage_creds = get_aws_secret(
@@ -59,14 +63,19 @@ def _get_forecast_table(
     idx_cols = entity_col, time_col
 
     # Read rolling uplift and take the latest stats
+    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
     rolling_uplift = (
         read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
         .lazy()
         .sort(entity_col, "updated_at")
         .groupby(entity_col)
         .tail(1)
-        .select(entity_col, "mae__uplift__rolling_sum", "mae__uplift_pct__rolling_mean")
-        .with_columns(pl.col("mae__uplift_pct__rolling_mean") * 100)
+        .select(
+            entity_col,
+            (pl.col(f"{metric}__uplift_pct__rolling_mean") * 100).alias(
+                "score__uplift_pct__rolling_mean"
+            ),
+        )
     )
 
     # Create stats
@@ -97,22 +106,6 @@ def _get_forecast_table(
         .join(rolling_uplift, on=entity_col)
     )
 
-    # Segmentation factor
-    segmentation_factor = fields["segmentation_factor"]
-    stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
-    if stat_key == "last_window__sum":
-        # pct_change = predicted growth rate
-        stats = stats.with_columns(pl.col("pct_change").alias("seg_factor"))
-    else:
-        seg_factor_stat = (
-            read(object_path=outputs["statistics"][stat_key])
-            .lazy()
-            .pipe(lambda df: df.rename({df.columns[-1]: "seg_factor"}))
-        )
-        expr = SEGMENTATION_FACTOR_TO_EXPR[segmentation_factor]
-        seg_factor_stat = seg_factor_stat.groupby(entity_col).agg(expr)
-        stats = stats.join(seg_factor_stat, on=entity_col)
-
     # Pivot quantiles
     quantiles = (
         quantiles.lazy()
@@ -124,7 +117,6 @@ def _get_forecast_table(
     )
 
     # Concat forecasts
-    desc_order = False if segmentation_factor == "volatility" else True
     table = (
         forecast.lazy()
         .rename({target_col: "forecast"})
@@ -167,10 +159,10 @@ def _get_forecast_table(
         .with_columns(pl.col([pl.Float64, pl.Float32]).cast(pl.Float64).round(2))
         .groupby(entity_col, maintain_order=True)
         .agg(pl.struct(pl.all().exclude(entity_col)).alias("tables"))
-        # Sort table by segmentation factor
+        # Sort table by rolling uplift
         .join(stats, on=entity_col)
-        .sort(stats.columns[-1], descending=desc_order)
-        .rename({entity_col: "entity", "seg_factor": segmentation_factor})
+        .sort("score__uplift_pct__rolling_mean", descending=True)
+        .rename({entity_col: "entity"})
         # Round all floats to 2 decimal places
         # NOTE: Rounding not working for Float32
         .with_columns(pl.col([pl.Float32, pl.Float64]).cast(pl.Float64).round(2))
@@ -183,7 +175,13 @@ def _get_forecast_table(
         )
     )
 
-    pl.toggle_string_cache(False)
+    # Filter by specific columns
+    if filter_by:
+        expr = [pl.col(col).is_in(values) for col, values in filter_by.items()]
+        # Combine expressions with 'and'
+        filter_expr = reduce(lambda x, y: x & y, expr)
+        table = table.filter(filter_expr)
+
     return table
 
 
@@ -205,36 +203,32 @@ class TableResponse(BaseModel):
 
 
 @router.get("/tables/{policy_id}/{table_tag}")
-def get_policy_table(
-    policy_id: str,
-    table_tag: str,
-    page: int,
-    display_n: int = 5,
-) -> TableResponse:
-    if page < 1:
+def get_policy_table(params: TableParams) -> TableResponse:
+    if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
-        policy = get_policy(policy_id)["policy"]
-        getter = TAGS_TO_GETTER[policy.tag][table_tag]
+        policy = get_policy(params.policy_id)["policy"]
+        getter = TAGS_TO_GETTER[policy.tag][params.table_tag]
         user = session.get(User, policy.user_id)
         # TODO: Cache using an in memory key-value store
+        pl.toggle_string_cache(True)
         table = getter(
-            json.loads(policy.fields), json.loads(policy.outputs), user, policy_id
-        )
+            json.loads(policy.fields),
+            json.loads(policy.outputs),
+            user,
+            params.policy_id,
+        ).collect(streaming=True)
+        pl.toggle_string_cache(False)
 
-    start = display_n * (page - 1)
-    end = display_n * page
-    max_page = int(
-        np.ceil(
-            table.collect(streaming=True).get_column("entity").n_unique() / display_n
-        )
-    )
+    start = params.display_n * (params.page - 1)
+    end = params.display_n * params.page
+    max_page = int(np.ceil(table.get_column("entity").n_unique() / params.display_n))
     filtered_table = {
         "pagination": {
-            "current": page,
+            "current": params.page,
             "end": max_page,
         },
-        "results": table[start:end].collect(streaming=True).to_dicts(),
+        "results": table[start:end].to_dicts(),
     }
 
     return filtered_table

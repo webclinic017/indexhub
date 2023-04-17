@@ -21,6 +21,12 @@ FREQ_NAME_TO_LABEL = {
     "Monthly": "months",
 }
 
+ERROR_TYPE_TO_METRIC = {
+    "over-forecast": "overforecast",
+    "under-forecast": "underforecast",
+    "both over-forecast and under-forecast": "mae",
+}
+
 
 # STATS RESULT TABLES
 def _get_forecast_results(
@@ -79,8 +85,9 @@ def _get_forecast_results(
     results.append(stats_forecast)
 
     # AI predicted uplift for next fh
-    uplift_value = uplift.get_column("mae__uplift").sum()
-    uplift_pct = uplift.get_column("mae__uplift_pct").mean() * 100
+    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
+    uplift_value = uplift.get_column(f"{metric}__uplift").sum()
+    uplift_pct = uplift.get_column(f"{metric}__uplift_pct").mean() * 100
 
     stats_uplift = {
         "title": "AI Uplift",
@@ -90,27 +97,19 @@ def _get_forecast_results(
     results.append(stats_uplift)
 
     # AI predicted rolling_uplift for next fh
-    rolling_sum_uplift = (
-        rolling_uplift.sort([entity_col, "updated_at"])
-        .groupby([entity_col])
-        .tail(1)
-        .get_column("mae__uplift__rolling_sum")
-        .sum()
-    )
     rolling_mean_uplift_pct = (
         rolling_uplift.sort([entity_col, "updated_at"])
         .groupby([entity_col])
         .tail(1)
-        .get_column("mae__uplift_pct__rolling_mean")
+        .get_column(f"{metric}__uplift_pct__rolling_mean")
         .mean()
         * 100
     )
 
     stats_uplift = {
         "title": "AI Uplift (Cumulative)",
-        "subtitle": f"Cumulative backtest results over the last {backtest_period} {freq}",
+        "subtitle": f"Average uplift percentage over the last {backtest_period} {freq}",
         "values": {
-            "rolling_sum": round(rolling_sum_uplift, 2),
             "rolling_mean_pct": round(rolling_mean_uplift_pct, 2),
         },
     }
