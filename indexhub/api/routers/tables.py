@@ -66,6 +66,7 @@ def _get_forecast_table(
         .groupby(entity_col)
         .tail(1)
         .select(entity_col, "mae__uplift__rolling_sum", "mae__uplift_pct__rolling_mean")
+        .with_columns(pl.col("mae__uplift_pct__rolling_mean") * 100)
     )
 
     # Create stats

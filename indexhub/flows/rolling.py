@@ -52,7 +52,7 @@ def groupby_rolling(data: pl.DataFrame, entity_col: str):
             # Rolling mean for uplift pct
             (
                 pl.col("^*__uplift_pct$").cumsum()
-                / pl.col("^*__uplift_pct$").cumcount()
+                / (pl.col("^*__uplift_pct$").cumcount() + 1)
             ).suffix("__rolling_mean"),
             # Diff for both
             pl.col("^*__uplift.*$").diff().suffix("__diff"),

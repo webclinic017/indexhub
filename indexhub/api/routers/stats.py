@@ -80,7 +80,7 @@ def _get_forecast_results(
 
     # AI predicted uplift for next fh
     uplift_value = uplift.get_column("mae__uplift").sum()
-    uplift_pct = uplift.get_column("mae__uplift_pct").mean()
+    uplift_pct = uplift.get_column("mae__uplift_pct").mean() * 100
 
     stats_uplift = {
         "title": "AI Uplift",
@@ -103,6 +103,7 @@ def _get_forecast_results(
         .tail(1)
         .get_column("mae__uplift_pct__rolling_mean")
         .mean()
+        * 100
     )
 
     stats_uplift = {
