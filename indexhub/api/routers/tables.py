@@ -28,7 +28,7 @@ class TableTag(str, Enum):
 class TableParams(BaseModel):
     policy_id: str
     table_tag: TableTag
-    filter_by: Mapping[str, List[str]]
+    filter_by: Mapping[str, List[str]] = None
     page: int
     display_n: int
 
@@ -72,7 +72,7 @@ def _get_forecast_table(
         .tail(1)
         .select(
             entity_col,
-            (pl.col(f"{metric}__uplift_pct__rolling_mean") * 100).alias(
+            (pl.col(f"{metric}__uplift_pct__rolling_mean").fill_nan(None) * 100).alias(
                 "score__uplift_pct__rolling_mean"
             ),
         )
@@ -217,6 +217,7 @@ def get_policy_table(params: TableParams) -> TableResponse:
             json.loads(policy.outputs),
             user,
             params.policy_id,
+            params.filter_by,
         ).collect(streaming=True)
         pl.toggle_string_cache(False)
 

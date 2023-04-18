@@ -96,6 +96,7 @@ def _get_forecast_results(
             .keep_name()
         )
         .get_column(f"{metric}__uplift_pct")
+        .fill_nan(None)
         .mean()
         * 100
     )
@@ -108,23 +109,43 @@ def _get_forecast_results(
     results.append(stats_uplift)
 
     # AI predicted rolling_uplift for next fh
+    rolling_uplift_grouped = (
+        rolling_uplift.sort([entity_col, "updated_at"]).groupby([entity_col]).tail(1)
+    )
+    rolling_sum_uplift = rolling_uplift_grouped.get_column(
+        f"{metric}__uplift__rolling_sum"
+    ).sum()
     rolling_mean_uplift_pct = (
-        rolling_uplift.sort([entity_col, "updated_at"])
-        .groupby([entity_col])
-        .tail(1)
-        .get_column(f"{metric}__uplift_pct__rolling_mean")
+        rolling_uplift_grouped.get_column(f"{metric}__uplift_pct__rolling_mean")
+        .fill_nan(None)
         .mean()
         * 100
     )
+    last_window = rolling_uplift_grouped.get_column("window")[0]
 
-    stats_uplift = {
+    stats_rolling_uplift = {
         "title": "AI Uplift (Cumulative)",
-        "subtitle": f"Average uplift percentage over the last {backtest_period} {freq}",
+        "subtitle": f"Cumulative uplift over the last {last_window} runs",
         "values": {
+            "rolling_sum": round(rolling_sum_uplift, 2),
             "rolling_mean_pct": round(rolling_mean_uplift_pct, 2),
         },
     }
-    results.append(stats_uplift)
+    results.append(stats_rolling_uplift)
+
+    # Count of AI improvements
+    n_improvement = (
+        rolling_uplift_grouped.filter(pl.col(f"{metric}__uplift__rolling_sum") >= 0)
+        .get_column(entity_col)
+        .n_unique()
+    )
+    n_entities = rolling_uplift_grouped.get_column(entity_col).n_unique()
+    stats_improvement_count = {
+        "title": "AI Improvements",
+        "subtitle": "Number of entities with improvements",
+        "values": {"n_improvement": n_improvement, "n_entities": n_entities},
+    }
+    results.append(stats_improvement_count)
 
     return results
 

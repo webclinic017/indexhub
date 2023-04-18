@@ -323,6 +323,13 @@ def _create_segmentation_chart(
     outputs: Mapping[str, str],
     user: User,
     policy_id: str,
+    segmentation_factor: Literal[
+        "volatility",
+        "total value",
+        "historical growth rate",
+        "predicted growth rate",
+        "predictability",
+    ] = "volatility",
     chart_height: str = "500px",
     chart_width: str = "800px",
     symbol_size: int = 12,
@@ -363,7 +370,6 @@ def _create_segmentation_chart(
     )
 
     # Segmentation factor
-    segmentation_factor = fields["segmentation_factor"]
     stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
     seg_factor_stat = read(object_path=outputs["statistics"][stat_key]).lazy()
     if stat_key == "last_window__sum":

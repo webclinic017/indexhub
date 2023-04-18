@@ -269,17 +269,6 @@ def POLICY_SCHEMAS(sources: List[Source]):
                         "both over-forecast and under-forecast",
                     ],
                 },
-                "segmentation_factor": {
-                    "title": "Segmentation Factor",
-                    "subtitle": "How do you want to segment the AI predictions?",
-                    "values": [
-                        "volatility",
-                        "total value",
-                        "historical growth rate",
-                        "predicted growth rate",
-                        # "predictability",  # should be probalistic measure (mase)
-                    ],
-                },
                 "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
                 "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
                 "min_lags": {
