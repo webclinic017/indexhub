@@ -380,20 +380,6 @@ def POLICY_SCHEMAS(sources: List[Source]):
                 },
             },
         },
-        "reduce_churn": {
-            "objective": "Reduce churn rate for {level_cols} segmented by {segmentation_factor}.",
-            "description": "Choose this policy to track the churn rate across entities",
-            "sources": SOURCES_SCHEMA(sources),
-            "fields": {
-                **FIELDS_SCHEMA(sources),
-                "goal": {
-                    "title": "Goal",
-                    "subtitle": "How much (%) do you want to reduce churn rate by?",
-                    "values": list(range(1, 99)),
-                    "default": 15,
-                },
-            },
-        },
     }
 
     return schemas
