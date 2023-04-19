@@ -307,7 +307,8 @@ SEGMENTATION_FACTOR_TO_KEY = {
     "volatility": "rolling__cv",
     "total value": "groupby__sum",
     "historical growth rate": "rolling__sum",
-    "predicted growth rate": "last_window__sum",
+    "predicted growth rate": "predicted_growth_rate",
+    "predictability": None,
 }
 
 SEGMENTATION_FACTOR_TO_EXPR = {
@@ -315,6 +316,7 @@ SEGMENTATION_FACTOR_TO_EXPR = {
     "total value": pl.sum("seg_factor"),
     "historical growth rate": pl.col("seg_factor").diff().mean(),
     "predicted growth rate": None,
+    "predictability": None,
 }
 
 
@@ -350,6 +352,7 @@ def _create_segmentation_chart(
     # Read forecast
     best_model = outputs["best_model"]
     forecast = read(object_path=outputs["forecasts"][best_model])
+    scores = read(object_path=outputs["scores"][best_model])
     entity_col, time_col, target_col = forecast.columns
     entities = forecast.get_column(entity_col).unique()
 
@@ -370,36 +373,21 @@ def _create_segmentation_chart(
     )
 
     # Segmentation factor
-    stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
-    seg_factor_stat = read(object_path=outputs["statistics"][stat_key]).lazy()
-    if stat_key == "last_window__sum":
+    # Only predictability takes from `scores`, others take from `statistics`
+    if segmentation_factor == "predictability":
         seg_factor_stat = (
-            seg_factor_stat.pipe(
-                lambda df: df.rename({df.columns[-1]: "last_window__sum"})
-            )
-            # Join with forecast to compute current_window__sum
-            .join(
-                forecast.lazy()
-                .groupby(entity_col)
-                .agg(pl.sum(target_col))
-                .rename({target_col: "current_window__sum"}),
-                on=entity_col,
-            )
-            # Select last_window__sum, current_window__sum, diff, pct_change as stats
-            .select(
-                entity_col,
-                (
-                    ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1)
-                    * 100
-                ).alias("seg_factor"),
-            )
+            scores.lazy().select([entity_col, "crps"]).rename({"crps": "seg_factor"})
         )
     else:
-        seg_factor_stat = seg_factor_stat.pipe(
-            lambda df: df.rename({df.columns[-1]: "seg_factor"})
+        stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
+        seg_factor_stat = (
+            read(object_path=outputs["statistics"][stat_key])
+            .lazy()
+            .pipe(lambda df: df.rename({df.columns[-1]: "seg_factor"}))
         )
         expr = SEGMENTATION_FACTOR_TO_EXPR[segmentation_factor]
-        seg_factor_stat = seg_factor_stat.groupby(entity_col).agg(expr)
+        if expr is not None:
+            seg_factor_stat = seg_factor_stat.groupby(entity_col).agg(expr)
 
     # Join uplift and segmentation factor
     data = rolling_uplift.join(seg_factor_stat, on=entity_col).collect(streaming=True)

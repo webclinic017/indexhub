@@ -90,6 +90,7 @@ def flow(
     baseline_path: Optional[str] = None,
 ):
     try:
+        pl.toggle_string_cache(True)
         status, msg = "SUCCESS", "OK"
         # Get credentials
         storage_creds = get_aws_secret(
@@ -146,11 +147,13 @@ def flow(
                 **storage_creds,
             )
         else:
-            y_baseline = (
+            y_baseline_backtest = (
                 outputs["backtests"]["snaive"]
                 .groupby([entity_col, time_col])
                 .agg(pl.mean(target_col))
             )
+            y_baseline_forecast = outputs["forecasts"]["snaive"]
+            y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
@@ -199,6 +202,7 @@ def flow(
         msg = repr(exc)
 
     finally:
+        pl.toggle_string_cache(False)
         _update_policy(
             policy_id=policy_id,
             updated_at=updated_at,
