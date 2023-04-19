@@ -164,6 +164,16 @@ SUPPORTED_FILE_EXT = {
 }
 
 
+SUPPORTED_BASELINE_MODELS = {
+    "title": "Baseline models",
+    "subtitle": "",
+    "values": {
+        "Seasonal Naive": "snaive",
+        "Naive": "naive",
+    },
+}
+
+
 def SOURCE_SCHEMAS(user: User):
     return {
         "s3": {
@@ -229,7 +239,7 @@ def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
 def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Level column(s)",
-        "subtitle": "Run forecast by levels such as region, customer, product, etc.",
+        "subtitle": "Run forecast by levels such as region, customer, product category, etc.",
         # Probably won't scale but good enough for now
         "values": {src.id: json.loads(src.columns)["entity_cols"] for src in sources},
         "depends_on": depends_on,
@@ -238,66 +248,130 @@ def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     return schema
 
 
+def INVOICE_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
+    schema = {
+        "title": "Invoice ID column",
+        "subtitle": "Represents the ID for a basket of orders or a single trip",
+        "values": {src.id: json.loads(src.columns)["invoice_col"] for src in sources},
+        "depends_on": depends_on,
+    }
+    return schema
+
+
+def PRODUCT_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
+    schema = {
+        "title": "Product ID column",
+        "subtitle": "Represents the column of products / services (e.g. SKU)",
+        "values": {src.id: json.loads(src.columns)["product_col"] for src in sources},
+        "depends_on": depends_on,
+    }
+    return schema
+
+
+def SOURCES_SCHEMA(sources: List[Source]):
+    return {
+        "panel": {
+            "title": "Dataset",
+            "subtitle": "Select one panel dataset of observed values to forecast.",
+            "values": {src.name: src.id for src in sources},
+        },
+        "baseline": {
+            "title": "Baseline Forecasts",
+            "subtitle": (
+                "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
+                " Must have the same schema as `panel`."
+                " Note: If this is not specified, a seasonal naive/naive forecast will be automatically generated and used as a baseline."
+            ),
+            "values": {src.name: src.id for src in sources},
+            "is_required": False,
+        },
+    }
+
+
+def FIELDS_SCHEMA(sources: List[Source]):
+    return {
+        "fields": {
+            "error_type": {
+                "title": "Forecast Error Type",
+                "subtitle": "Which type of forecast error do you want to reduce?",
+                "values": [
+                    "over-forecast",
+                    "under-forecast",
+                    "both over-forecast and under-forecast",
+                ],
+            },
+            "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
+            "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
+            "min_lags": {
+                "title": "What is the minimum number lagged variables?",
+                "subtitle": "`min_lags` must be less than `max_lags`.",
+                "values": list(range(12, 25)),
+                "default": 12,
+            },
+            "max_lags": {
+                "title": "What is the maximum number of lagged variables?",
+                "subtitle": "`max_lags` must be greater than `min_lags`.",
+                "values": list(range(24, 49)),
+                "default": 24,
+            },
+            "fh": {
+                "title": "Forecast Horizon",
+                "subtitle": "How many periods into the future do you want to predict?",
+                "values": list(range(1, 30)),
+            },
+            "freq": {
+                "title": "Frequency",
+                "subtitle": "How often do you want to generate new predictions?",
+                "values": ["Hourly", "Daily", "Weekly", "Monthly"],
+            },
+            "holiday_regions": {
+                "title": "Holiday Regions",
+                "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
+                "values": list(SUPPORTED_COUNTRIES.keys()),
+            },
+            "baseline_model": {
+                "title": "Baseline Model",
+                "subtitle": "Which model do you want to use to train the baseline forecasts?",
+                "values": list(SUPPORTED_BASELINE_MODELS.keys()),
+            },
+        }
+    }
+
+
 def POLICY_SCHEMAS(sources: List[Source]):
     schemas = {
-        "forecast": {
+        "forecast_panel": {
+            "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
+            "description": "Choose this policy to reduce over and under forecast compared to your existing forecasts",
+            "sources": SOURCES_SCHEMA(sources),
+            "fields": {
+                **FIELDS_SCHEMA(sources),
+                "goal": {
+                    "title": "Goal",
+                    "subtitle": "How much (%) do you want to reduce your forecast error by?",
+                    "values": list(range(1, 99)),
+                    "default": 15,
+                },
+            },
+        },
+        "forecast_transaction": {
             "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
             "description": "Choose this policy to reduce over and under forecast compared to your existing forecasts",
             "sources": {
-                "panel": {
-                    "title": "Dataset",
-                    "subtitle": "Select one panel dataset of observed values to forecast.",
-                    "values": {src.name: src.id for src in sources},
-                },
-                "baseline": {
-                    "title": "Baseline Forecasts",
+                **SOURCES_SCHEMA(sources),
+                "transaction": {
+                    "title": "Transaction Dataset",
                     "subtitle": (
-                        "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
-                        " Must have the same schema as `panel`."
+                        "Select one dataset of transactions (e.g. point-of-sales data) to forecast."
+                        " Must include columns specifying the invoice ID and the product ID."
                     ),
                     "values": {src.name: src.id for src in sources},
-                    "is_required": False,
                 },
             },
             "fields": {
-                "error_type": {
-                    "title": "Forecast Error Type",
-                    "subtitle": "Which type of forecast error do you want to reduce?",
-                    "values": [
-                        "over-forecast",
-                        "under-forecast",
-                        "both over-forecast and under-forecast",
-                    ],
-                },
-                "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
-                "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
-                "min_lags": {
-                    "title": "What is the minimum number lagged variables?",
-                    "subtitle": "`min_lags` must be less than `max_lags`.",
-                    "values": list(range(12, 25)),
-                    "default": 12,
-                },
-                "max_lags": {
-                    "title": "What is the maximum number of lagged variables?",
-                    "subtitle": "`max_lags` must be greater than `min_lags`.",
-                    "values": list(range(24, 49)),
-                    "default": 24,
-                },
-                "fh": {
-                    "title": "Forecast Horizon",
-                    "subtitle": "How many periods into the future do you want to predict?",
-                    "values": list(range(1, 30)),
-                },
-                "freq": {
-                    "title": "Frequency",
-                    "subtitle": "How often do you want to generate new predictions?",
-                    "values": ["Hourly", "Daily", "Weekly", "Monthly"],
-                },
-                "holiday_regions": {
-                    "title": "Holiday Regions",
-                    "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
-                    "values": list(SUPPORTED_COUNTRIES.keys()),
-                },
+                **FIELDS_SCHEMA(sources),
+                "invoice_col": INVOICE_COL_SCHEMA(sources=sources, depends_on="panel"),
+                "product_col": PRODUCT_COL_SCHEMA(sources=sources, depends_on="panel"),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "How much (%) do you want to reduce your forecast error by?",
@@ -309,63 +383,9 @@ def POLICY_SCHEMAS(sources: List[Source]):
         "reduce_churn": {
             "objective": "Reduce churn rate for {level_cols} segmented by {segmentation_factor}.",
             "description": "Choose this policy to track the churn rate across entities",
-            "sources": {
-                "panel": {
-                    "title": "Dataset",
-                    "subtitle": "Select one panel dataset of observed values to forecast.",
-                    "values": {src.name: src.id for src in sources},
-                },
-                "baseline": {
-                    "title": "Baseline Forecasts",
-                    "subtitle": (
-                        "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
-                        "Must have the same schema as `panel`."
-                    ),
-                    "values": {src.name: src.id for src in sources},
-                    "is_required": False,
-                },
-            },
+            "sources": SOURCES_SCHEMA(sources),
             "fields": {
-                "segmentation_factor": {
-                    "title": "Segmentation Factor",
-                    "subtitle": "How do you want to segment the AI predictions?",
-                    "values": [
-                        "volatility",
-                        "total value",
-                        "historical growth rate",
-                        "predicted growth rate",
-                        # "predictability",  # should be probalistic measure (mase)
-                    ],
-                },
-                "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
-                "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
-                "min_lags": {
-                    "title": "What is the minimum number lagged variables?",
-                    "subtitle": "`min_lags` must be less than `max_lags`.",
-                    "values": list(range(12, 25)),
-                    "default": 12,
-                },
-                "max_lags": {
-                    "title": "What is the maximum number of lagged variables?",
-                    "subtitle": "`max_lags` must be greater than `min_lags`.",
-                    "values": list(range(24, 49)),
-                    "default": 24,
-                },
-                "fh": {
-                    "title": "Forecast Horizon",
-                    "subtitle": "How many periods into the future do you want to track your churn rate?",
-                    "values": list(range(1, 30)),
-                },
-                "freq": {
-                    "title": "Frequency",
-                    "subtitle": "How often do you want to generate new predictions?",
-                    "values": ["Hourly", "Daily", "Weekly", "Monthly"],
-                },
-                "holiday_regions": {
-                    "title": "Holiday Regions",
-                    "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
-                    "values": list(SUPPORTED_COUNTRIES.keys()),
-                },
+                **FIELDS_SCHEMA(sources),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "How much (%) do you want to reduce churn rate by?",
@@ -375,4 +395,5 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
         },
     }
+
     return schemas
