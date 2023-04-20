@@ -13,7 +13,7 @@ from sqlmodel import Session
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
-from indexhub.api.routers.stats import ERROR_TYPE_TO_METRIC
+from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -55,7 +55,7 @@ def _get_forecast_table(
     idx_cols = entity_col, time_col
 
     # Read rolling uplift and take the latest stats
-    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
+    metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     rolling_uplift = (
         read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
         .lazy()
@@ -183,7 +183,7 @@ def _get_uplift_table():
 
 
 TAGS_TO_GETTER = {
-    "forecast": {
+    "forecast_panel": {
         "forecast": _get_forecast_table,
         "uplift": _get_uplift_table,
     }

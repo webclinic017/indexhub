@@ -14,7 +14,11 @@ from sqlmodel import Session, select
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.user import User
-from indexhub.api.schemas import FREQ_NAME_TO_ALIAS, SUPPORTED_COUNTRIES
+from indexhub.api.schemas import (
+    SUPPORTED_COUNTRIES,
+    SUPPORTED_ERROR_TYPE,
+    SUPPORTED_FREQ,
+)
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.deployment import IMAGE
@@ -277,6 +281,23 @@ def _update_policy(
         return policy
 
 
+def _merge_multilevels(X: pl.DataFrame) -> pl.DataFrame:
+    level_cols = X.columns[:-2]
+    entity_col = "__".join(level_cols)
+    time_col, target_col = X.columns[-2:]
+    X_new = (
+        # Combine subset of entity columns
+        X.lazy()
+        .with_columns(pl.concat_str(level_cols, separator="__").alias(entity_col))
+        # Select and sort columns
+        .select([entity_col, time_col, target_col])
+        .sort([entity_col, time_col])
+        .with_columns([pl.col(entity_col).set_sorted(), pl.col(time_col).set_sorted()])
+        .collect()
+    )
+    return X_new
+
+
 @stub.function(
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
@@ -297,7 +318,11 @@ def run_forecast(
     freq: str,
     n_splits: int,
     holiday_regions: Optional[List[str]] = None,
+    objective: Optional[str] = "mae",
+    agg_method: Optional[str] = "mean",
+    baseline_model: Optional[str] = "snaive",
     baseline_path: Optional[str] = None,
+    inventory_path: Optional[str] = None,
 ):
     try:
         pl.toggle_string_cache(True)
@@ -342,6 +367,8 @@ def run_forecast(
             freq=freq,
             n_splits=n_splits,
             holiday_regions=holiday_regions,
+            objective=objective,
+            agg_method=agg_method,
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
@@ -350,17 +377,46 @@ def run_forecast(
 
         # 6. Compute uplift
         # NOTE: Only compares against BEST MODEL
+        agg_exprs = {
+            "sum": pl.sum(target_col),
+            "mean": pl.mean(target_col),
+            "median": pl.median(target_col),
+        }
         if baseline_path:
             # Read baseline from storage
-            y_baseline = read(object_path=baseline_path)
+            y_baseline = (
+                read(object_path=baseline_path)
+                .select([*level_cols, time_col, target_col])
+                .pipe(_merge_multilevels)
+                .groupby([entity_col, time_col])
+                .agg(agg_exprs[agg_method])
+            )
         else:
             y_baseline_backtest = (
-                outputs["backtests"]["snaive"]
+                outputs["backtests"][baseline_model]
                 .groupby([entity_col, time_col])
                 .agg(pl.mean(target_col))
             )
-            y_baseline_forecast = outputs["forecasts"]["snaive"]
+            y_baseline_forecast = outputs["forecasts"][baseline_model]
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
+
+        if inventory_path:
+            inventory = (
+                read(
+                    bucket_name=bucket_name,
+                    object_path=inventory_path,
+                    file_ext="parquet",
+                    **storage_creds,
+                )
+                .select([*level_cols, time_col, target_col])
+                .pipe(_merge_multilevels)
+                .groupby([entity_col, time_col])
+                .agg(agg_exprs[agg_method])
+            )
+            outputs["inventory"] = make_path(prefix="inventory")
+            write(inventory, object_path=outputs["inventory"])
+        else:
+            outputs["inventory"] = None
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
@@ -498,13 +554,14 @@ def flow():
 
         # 4. Run forecast flow
         current_datetime = datetime.now().replace(microsecond=0)
-        if current_datetime >= run_dt:
+        if (current_datetime >= run_dt) or policy.status == "FAILED":
             # Spawn forecast flow for policy
             futures[policy.id] = run_forecast.spawn(
                 user_id=policy.user_id,
                 policy_id=policy.id,
                 panel_path=sources["panel"],
                 baseline_path=sources["baseline"],
+                inventory_path=sources["inventory"],
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
                 level_cols=fields["level_cols"],
@@ -512,12 +569,15 @@ def flow():
                 min_lags=fields["min_lags"],
                 max_lags=fields["max_lags"],
                 fh=fields["fh"],
-                freq=FREQ_NAME_TO_ALIAS[fields["freq"]],
+                freq=SUPPORTED_FREQ[fields["freq"]],
                 n_splits=fields["n_splits"],
                 holiday_regions=[
                     SUPPORTED_COUNTRIES[country]
                     for country in fields["holiday_regions"]
                 ],
+                objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
+                agg_method=fields["agg_method"],
+                baseline_model=fields["baseline_model"],
             )
 
     # 5. Get future for each policy
@@ -535,7 +595,11 @@ def test(user_id: str = "indexhub-demo"):
     # Policy
     policy_id = 1
     fields = {
-        "sources": {"panel": "staging/1/20230411T093305.parquet", "baseline": None},
+        "sources": {
+            "panel": "staging/1/20230411T093305.parquet",
+            "baseline": None,
+            "inventory": "staging/1/inventory_20230411T093305.parquet",
+        },
         "error_type": "over-forecast",
         "segmentation_factor": "volatility",
         "target_col": "trips_in_000s",
@@ -546,6 +610,9 @@ def test(user_id: str = "indexhub-demo"):
         "freq": "1mo",
         "n_splits": 3,
         "holiday_regions": ["AU"],
+        "objective": "mae",
+        "agg_method": "sum",
+        "baseline_model": "snaive",
     }
 
     # User
@@ -557,6 +624,7 @@ def test(user_id: str = "indexhub-demo"):
         policy_id=policy_id,
         panel_path=fields["sources"]["panel"],
         baseline_path=fields["sources"]["baseline"],
+        inventory_path=fields["sources"]["inventory"],
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,
         level_cols=fields["level_cols"],
@@ -567,4 +635,7 @@ def test(user_id: str = "indexhub-demo"):
         freq=fields["freq"],
         n_splits=fields["n_splits"],
         holiday_regions=fields["holiday_regions"],
+        objective=fields["error_type"],  # default is mae
+        agg_method=fields["agg_method"],  # default is mean
+        baseline_mode=fields["baseline_model"],  # default is snaive
     )

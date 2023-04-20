@@ -10,7 +10,12 @@ from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.schemas import FREQ_NAME_TO_ALIAS, POLICY_SCHEMAS, SUPPORTED_COUNTRIES
+from indexhub.api.schemas import (
+    POLICY_SCHEMAS,
+    SUPPORTED_COUNTRIES,
+    SUPPORTED_ERROR_TYPE,
+    SUPPORTED_FREQ,
+)
 
 
 router = APIRouter()
@@ -41,13 +46,14 @@ def create_policy(params: CreatePolicyParams):
         policy.status = "RUNNING"
         policy_sources = json.loads(policy.sources)
         policy_fields = json.loads(policy.fields)
-        if policy.tag == "forecast":
+        if policy.tag == "forecast_panel":
             flow = modal.Function.lookup("indexhub-forecast", "flow")
             flow.call(
                 user_id=policy.user_id,
                 policy_id=policy.id,
                 panel_path=policy_sources["panel"],
-                baseline_path=policy_sources("baseline"),
+                baseline_path=policy_sources["baseline"],
+                inventory_path=policy_sources["inventory"],
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
                 level_cols=policy_fields["level_cols"],
@@ -55,12 +61,14 @@ def create_policy(params: CreatePolicyParams):
                 min_lags=int(policy_fields["min_lags"]),
                 max_lags=int(policy_fields["max_lags"]),
                 fh=int(policy_fields["fh"]),
-                freq=FREQ_NAME_TO_ALIAS[policy_fields["freq"]],
+                freq=SUPPORTED_FREQ[policy_fields["freq"]],
                 n_splits=policy_fields["n_splits"],
                 holiday_regions=[
                     SUPPORTED_COUNTRIES[country]
                     for country in policy_fields["holiday_regions"]
                 ],
+                objective=SUPPORTED_ERROR_TYPE[policy_fields["error_type"]],
+                agg_method=policy_fields["agg_method"],
             )
         else:
             raise ValueError(f"Policy tag `{policy.tag}` not found")

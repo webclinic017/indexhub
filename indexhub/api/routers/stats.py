@@ -9,6 +9,7 @@ from sqlmodel import Session
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
+from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -19,12 +20,6 @@ FREQ_NAME_TO_LABEL = {
     "Daily": "days",
     "Weekly": "weeks",
     "Monthly": "months",
-}
-
-ERROR_TYPE_TO_METRIC = {
-    "over-forecast": "overforecast",
-    "under-forecast": "underforecast",
-    "both over-forecast and under-forecast": "mae",
 }
 
 
@@ -85,7 +80,7 @@ def _get_forecast_results(
     results.append(stats_forecast)
 
     # AI predicted uplift for next fh
-    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
+    metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     uplift_value = uplift.get_column(f"{metric}__uplift").sum()
     uplift_pct = (
         uplift.with_columns(
@@ -150,7 +145,7 @@ def _get_forecast_results(
     return results
 
 
-POLICY_TAG_TO_GETTER = {"forecast": _get_forecast_results}
+POLICY_TAG_TO_GETTER = {"forecast_panel": _get_forecast_results}
 
 
 @router.get("/stats/{policy_id}")

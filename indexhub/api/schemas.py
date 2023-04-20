@@ -128,7 +128,13 @@ SUPPORTED_COUNTRIES = {
     "Zimbabwe": "ZW",
 }
 
-FREQ_NAME_TO_ALIAS = {
+SUPPORTED_ERROR_TYPE = {
+    "over-forecast": "overforecast",
+    "under-forecast": "underforecast",
+    "over and under forecast": "mae",
+}
+
+SUPPORTED_FREQ = {
     "Hourly": "1h",
     "Daily": "1d",
     "Weekly": "1w",
@@ -292,6 +298,14 @@ def SOURCES_SCHEMA(sources: List[Source]):
             "values": {src.name: src.id for src in sources},
             "is_required": False,
         },
+        "inventory": {
+            "title": "Inventory",
+            "subtitle": (
+                "Select one inventory dataset." " Must have the same schema as `panel`."
+            ),
+            "values": {src.name: src.id for src in sources},
+            "is_required": False,
+        },
     }
 
 
@@ -301,11 +315,7 @@ def FIELDS_SCHEMA(sources: List[Source]):
             "error_type": {
                 "title": "Forecast Error Type",
                 "subtitle": "Which type of forecast error do you want to reduce?",
-                "values": [
-                    "over-forecast",
-                    "under-forecast",
-                    "both over-forecast and under-forecast",
-                ],
+                "values": list(SUPPORTED_ERROR_TYPE.keys()),
             },
             "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
             "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
@@ -329,7 +339,7 @@ def FIELDS_SCHEMA(sources: List[Source]):
             "freq": {
                 "title": "Frequency",
                 "subtitle": "How often do you want to generate new predictions?",
-                "values": ["Hourly", "Daily", "Weekly", "Monthly"],
+                "values": list(SUPPORTED_FREQ.keys()),
             },
             "holiday_regions": {
                 "title": "Holiday Regions",
@@ -340,6 +350,11 @@ def FIELDS_SCHEMA(sources: List[Source]):
                 "title": "Baseline Model",
                 "subtitle": "Which model do you want to use to train the baseline forecasts?",
                 "values": list(SUPPORTED_BASELINE_MODELS.keys()),
+            },
+            "agg_method": {
+                "title": "Aggregation Method",
+                "subtitle": "How do you want to aggregate the target after group by levels?",
+                "values": ["sum", "mean", "median"],
             },
         }
     }

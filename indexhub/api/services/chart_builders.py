@@ -6,7 +6,7 @@ from pyecharts import options as opts
 from pyecharts.charts import Grid, Line, Scatter
 
 from indexhub.api.models.user import User
-from indexhub.api.routers.stats import ERROR_TYPE_TO_METRIC
+from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -26,13 +26,6 @@ def _create_single_forecast_chart(
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
     )
-    read = partial(
-        SOURCE_TAG_TO_READER[user.storage_tag],
-        bucket_name=user.storage_bucket_name,
-        file_ext="parquet",
-        **storage_creds,
-    )
-
     read = partial(
         SOURCE_TAG_TO_READER[user.storage_tag],
         bucket_name=user.storage_bucket_name,
@@ -72,6 +65,13 @@ def _create_single_forecast_chart(
         .sort("time")
         .rename({entity_col: "entity"})
     )
+    inventory_path = outputs["inventory"]
+    if inventory_path:
+        inventory_data = read(object_path=inventory_path).pipe(
+            lambda df: df.rename({df.columns[-1]: "inventory"})
+        )
+        joined = joined.join(inventory_data, on=idx_cols, how="outer")
+
     # Filter by specific columns
     if filter_by:
         expr = [pl.col(col).is_in(values) for col, values in filter_by.items()]
@@ -100,7 +100,7 @@ def _create_single_forecast_chart(
     )
 
     # Set color scheme based on guidelines
-    colors = ["#0a0a0a", "#194fdc"]
+    colors = ["#0a0a0a", "#194fdc", "#44aa7e"]
 
     # Generate the chart options
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
@@ -112,6 +112,10 @@ def _create_single_forecast_chart(
     line_chart.add_yaxis(
         "Indexhub", chart_data["indexhub"].to_list(), color=colors[1], symbol=None
     )
+    if inventory_path:
+        line_chart.add_yaxis(
+            "Inventory", chart_data["inventory"].to_list(), color=colors[2], symbol=None
+        )
 
     line_chart.set_series_opts(
         label_opts=opts.LabelOpts(is_show=False)
@@ -336,11 +340,10 @@ def _create_segmentation_chart(
     chart_height: str = "500px",
     chart_width: str = "800px",
     symbol_size: int = 12,
-
     # Added following params to silence undefined params error, might have to think of a better solution here
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
-    agg_method: Literal["sum", "mean"] = "sum"
+    agg_method: Literal["sum", "mean"] = "sum",
 ):
     pl.toggle_string_cache(True)
 
@@ -363,7 +366,7 @@ def _create_segmentation_chart(
     entities = forecast.get_column(entity_col).unique()
 
     # Read uplift
-    metric = ERROR_TYPE_TO_METRIC[fields["error_type"]]
+    metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     rolling_uplift = (
         read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
         .lazy()
