@@ -1,6 +1,6 @@
 import json
 from functools import partial
-from typing import List, Mapping
+from typing import List, Mapping, Any
 
 import polars as pl
 from fastapi import APIRouter
@@ -153,10 +153,10 @@ def _get_forecast_results(
 POLICY_TAG_TO_GETTER = {"forecast": _get_forecast_results}
 
 
-@router.get("/tables/{policy_id}")
+@router.get("/stats/{policy_id}")
 def get_stats(
     policy_id: str,
-) -> List[Mapping[str, str]]:
+) -> List[Mapping[str, Any]]:
     with Session(engine) as session:
         policy = get_policy(policy_id)["policy"]
         getter = POLICY_TAG_TO_GETTER[policy.tag]

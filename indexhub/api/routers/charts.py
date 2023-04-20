@@ -2,7 +2,7 @@ import json
 from enum import Enum
 from typing import List, Mapping, Union
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -66,16 +66,13 @@ POLICY_TAG_TO_PARAMS = {
 
 
 @router.post("/charts/{policy_id}/{chart_tag}")
-def get_chart(
-    params: Union[TrendChartParams, SegChartParams], policy_id: str, chart_tag: ChartTag
+async def get_chart(
+    policy_id: str, chart_tag: ChartTag, request: Request
 ):
     with Session(engine) as session:
         # Get the metadata on tag to define which chart to return
         policy = get_policy(policy_id)["policy"]
-        params_class = POLICY_TAG_TO_PARAMS[policy.tag][chart_tag]
-        if not isinstance(params, params_class):
-            raise ValueError(f"Wrong params class for {chart_tag}")
-
+        params = json.loads(await request.body())
         build = POLICY_TAG_TO_BUILDERS[policy.tag][chart_tag]
         user = session.get(User, policy.user_id)
         chart_json = build(
@@ -83,7 +80,7 @@ def get_chart(
             outputs=json.loads(policy.outputs),
             user=user,
             policy_id=policy_id,
-            **params.__dict__,
+            **params,
         )
 
         return chart_json

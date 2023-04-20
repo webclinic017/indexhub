@@ -73,10 +73,6 @@ const PoliciesDashboard = () => {
     }
   }, [lastMessage]);
 
-  useEffect(() => {
-    console.log(policies);
-  }, [policies]);
-
   return (
     <VStack>
       {policies.length > 0 ? (
@@ -89,9 +85,9 @@ const PoliciesDashboard = () => {
                   boxShadow="md"
                   borderRadius="lg"
                   key={idx}
-                  // onClick={() => {
-                  //   props.submitSourceType(source_type);
-                  // }}
+                // onClick={() => {
+                //   props.submitSourceType(source_type);
+                // }}
                 >
                   <CardBody>
                     <VStack p="4">

@@ -55,7 +55,7 @@ const PolicyConfigs = (props: {
   const updateDescription = (internal_policy_configs: Record<string, any>) => {
     let internal_description: string =
       props.policies_schema[internal_policy_configs["policy_type"]][
-        "description"
+      "description"
       ];
     internal_description = internal_description
       .replace(
@@ -124,7 +124,6 @@ const PolicyConfigs = (props: {
                 ]
                   ? true
                   : false;
-                console.log(is_multiple);
                 return (
                   <FormControl isRequired key={idx}>
                     <FormLabel>
@@ -144,13 +143,13 @@ const PolicyConfigs = (props: {
                       options={
                         has_depends_on
                           ? getOptionsArray(
-                              schema_config_fields[config_field]["values"][
-                                policy_configs[depends_on]
-                              ]
-                            )
+                            schema_config_fields[config_field]["values"][
+                            policy_configs[depends_on]
+                            ]
+                          )
                           : getOptionsArray(
-                              schema_config_fields[config_field]["values"]
-                            )
+                            schema_config_fields[config_field]["values"]
+                          )
                       }
                     />
                   </FormControl>

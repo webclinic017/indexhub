@@ -25,14 +25,6 @@ class TableTag(str, Enum):
     uplift = "uplift"
 
 
-class TableParams(BaseModel):
-    policy_id: str
-    table_tag: TableTag
-    filter_by: Mapping[str, List[str]] = None
-    page: int
-    display_n: int
-
-
 # POLICY RESULT TABLES
 def _get_forecast_table(
     fields: Mapping[str, str],
@@ -146,12 +138,13 @@ def _get_forecast_table(
         # Rename to label for FE
         .rename(
             {
-                time_col: "",  # Empty string
+                time_col: "Time",  # Empty string
                 "fh": "Forecast Period",
                 "forecast": "Forecast",
                 "baseline": "Baseline",
                 "forecast_10": "Forecast (10% quantile)",
                 "forecast_90": "Forecast (90% quantile)",
+                "override": "Override",
             }
         )
         # Round all floats to 2 decimal places
@@ -202,13 +195,18 @@ class TableResponse(BaseModel):
     results: List[Mapping[Any, Any]]
 
 
-@router.get("/tables/{policy_id}/{table_tag}")
-def get_policy_table(params: TableParams) -> TableResponse:
+class TableParams(BaseModel):
+    filter_by: Mapping[str, List[str]]
+    page: int
+    display_n: int
+
+@router.post("/tables/{policy_id}/{table_tag}")
+def get_policy_table(params: TableParams, policy_id: str, table_tag: TableTag) -> TableResponse:
     if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
-        policy = get_policy(params.policy_id)["policy"]
-        getter = TAGS_TO_GETTER[policy.tag][params.table_tag]
+        policy = get_policy(policy_id)["policy"]
+        getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
         # TODO: Cache using an in memory key-value store
         pl.toggle_string_cache(True)
@@ -216,8 +214,8 @@ def get_policy_table(params: TableParams) -> TableResponse:
             json.loads(policy.fields),
             json.loads(policy.outputs),
             user,
-            params.policy_id,
-            params.filter_by,
+            policy_id,
+            params.filter_by
         ).collect(streaming=True)
         pl.toggle_string_cache(False)
 

@@ -70,6 +70,7 @@ def _create_single_forecast_chart(
         .join(indexhub, on=idx_cols, how="outer")
         .select(pl.exclude("^target.*$"))
         .sort("time")
+        .rename({entity_col: "entity"})
     )
     # Filter by specific columns
     if filter_by:
@@ -335,6 +336,11 @@ def _create_segmentation_chart(
     chart_height: str = "500px",
     chart_width: str = "800px",
     symbol_size: int = 12,
+
+    # Added following params to silence undefined params error, might have to think of a better solution here
+    filter_by: Mapping[str, Any] = None,
+    agg_by: str = None,
+    agg_method: Literal["sum", "mean"] = "sum"
 ):
     pl.toggle_string_cache(True)
 
