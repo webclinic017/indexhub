@@ -3,7 +3,6 @@ import { Outlet } from "react-router-dom";
 import {
   Grid,
   GridItem,
-  VStack,
   Container,
   Text,
   useDisclosure,
@@ -13,24 +12,16 @@ import {
   PopoverContent,
   Stack,
   Link as ChakraLink,
+  Box,
 } from "@chakra-ui/react";
-import { ReactComponent as IndexHubLogo } from "../../assets/images/svg/indexhub_icon.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faBell,
-  faBook,
-  faChartLine,
-  faDatabase,
-  faGear,
-  faPlusCircle,
-  faRightFromBracket,
-  faRightToBracket,
-} from "@fortawesome/free-solid-svg-icons";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { colors } from "../../theme/theme";
 import Breadcrumbs from "../../components/breadcrumbs";
 import { useNavigate } from "react-router-dom";
+import { Sidebar } from "./sidebar/sidebar";
+import { faChartLine, faDatabase, faPlusCircle } from "@fortawesome/pro-light-svg-icons";
 
 export const PopoverIcon = (props: { isOpen: boolean }) => {
   const iconStyles = {
@@ -43,7 +34,7 @@ export const PopoverIcon = (props: { isOpen: boolean }) => {
     <FontAwesomeIcon
       size="2x"
       cursor="pointer"
-      icon={faPlusCircle}
+      icon={faPlusCircle as any}
       style={iconStyles}
     />
   );
@@ -65,13 +56,13 @@ export default function Layout() {
     {
       title: "Add Source",
       description: "Add and configure a new Source to generate reports from",
-      icon: faDatabase,
+      icon: faDatabase as any,
       onClick: () => navigate("/sources/new_source"),
     },
     {
       title: "Add Policy",
       description: "Add and configure a new Policy from your available Sources",
-      icon: faChartLine,
+      icon: faChartLine as any,
       onClick: () => navigate("/policies/new_policy"),
     },
   ];
@@ -82,7 +73,7 @@ export default function Layout() {
         templateAreas={`"nav header"
                         "nav main"`}
         gridTemplateRows={"100px 1fr"}
-        gridTemplateColumns={"100px 1fr"}
+        gridTemplateColumns={"278.22px 1fr"}
         h="100vh"
       >
         <GridItem
@@ -90,7 +81,6 @@ export default function Layout() {
           bg="header.background"
           area={"header"}
           color="header.text"
-          // alignItems="center"
           display="flex"
           flexDirection="column"
         >
@@ -98,10 +88,12 @@ export default function Layout() {
           <Container
             display="flex"
             alignItems="center"
-            justifyContent="flex-end"
+            justifyContent="space-between"
             margin="0 0 0 auto"
             py="1rem"
+            maxW="unset"
           >
+            <Breadcrumbs current_path={current_path} />
             <Popover
               trigger="hover"
               onClose={onClose}
@@ -134,11 +126,13 @@ export default function Layout() {
                           onClick={item.onClick}
                         >
                           <Stack spacing="4" direction="row" p="3">
-                            <FontAwesomeIcon
-                              size="lg"
-                              cursor="pointer"
-                              icon={item.icon}
-                            />
+                            <Box width="1rem">
+                              <FontAwesomeIcon
+                                size="lg"
+                                cursor="pointer"
+                                icon={item.icon}
+                              />
+                            </Box>
                             <Stack spacing="1">
                               <Text fontWeight="bold">{item.title}</Text>
                               <Text fontSize="sm" color="muted">
@@ -153,194 +147,16 @@ export default function Layout() {
                 </>
               )}
             </Popover>
-            {user?.sub ? (
-              <FontAwesomeIcon
-                cursor="pointer"
-                icon={faRightFromBracket}
-                onClick={() => logout({ returnTo: window.location.origin })}
-              />
-            ) : (
-              <FontAwesomeIcon
-                cursor="pointer"
-                icon={faRightToBracket}
-                onClick={() =>
-                  loginWithRedirect({
-                    appState: { returnTo: current_path },
-                  })
-                }
-              />
-            )}
-          </Container>
-
-          {/* Lower container */}
-          <Container
-            display="flex"
-            justifyContent="flex-start"
-            margin="unset"
-            padding="unset"
-          >
-            <Breadcrumbs current_path={current_path} />
           </Container>
         </GridItem>
         <GridItem
           pl="2"
           bg="navbar.background"
           area={"nav"}
-          color="white"
           paddingLeft="unset"
           fontWeight="bold"
         >
-          <VStack
-            justifyContent="space-between"
-            alignItems="center"
-            height="100vh"
-          >
-            <VStack
-              padding="30px 0"
-              height="70%"
-              justifyContent="space-between"
-              width="100%"
-            >
-              <VStack>
-                <Link to="/">
-                  <Container paddingBottom="20px">
-                    <IndexHubLogo width="3rem" height="100%" />
-                  </Container>
-                </Link>
-              </VStack>
-              <VStack width="100%">
-                <Link style={{ width: "100%" }} to="/sources">
-                  <Container
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    flexDirection="column"
-                    width="100%"
-                    padding="1rem"
-                  >
-                    <FontAwesomeIcon
-                      style={{ transition: "color 0.3s ease-out" }}
-                      icon={faDatabase}
-                      size="lg"
-                      color={getIconColor("sources")}
-                    />
-                    <Text
-                      transition="color 0.3s ease-out"
-                      color={getIconColor("sources")}
-                      fontSize="sm"
-                      marginTop="0.5rem"
-                    >
-                      Sources
-                    </Text>
-                  </Container>
-                </Link>
-                <Link style={{ width: "100%" }} to="/policies">
-                  <Container
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    flexDirection="column"
-                    width="100%"
-                    padding="1rem"
-                  >
-                    <FontAwesomeIcon
-                      style={{ transition: "color 0.3s ease-out" }}
-                      icon={faChartLine}
-                      size="lg"
-                      color={getIconColor("policies")}
-                    />
-                    <Text
-                      transition="color 0.3s ease-out"
-                      color={getIconColor("policies")}
-                      fontSize="sm"
-                      marginTop="0.5rem"
-                    >
-                      Policies
-                    </Text>
-                  </Container>
-                </Link>
-                <Link style={{ width: "100%" }} to="/alerts">
-                  <Container
-                    display="flex"
-                    justifyContent="center"
-                    alignItems="center"
-                    flexDirection="column"
-                    width="100%"
-                    padding="1rem"
-                  >
-                    <FontAwesomeIcon
-                      style={{ transition: "color 0.3s ease-out" }}
-                      icon={faBell}
-                      size="lg"
-                      color={getIconColor("alerts")}
-                    />
-                    <Text
-                      transition="color 0.3s ease-out"
-                      color={getIconColor("alerts")}
-                      fontSize="sm"
-                      marginTop="0.5rem"
-                    >
-                      Alerts
-                    </Text>
-                  </Container>
-                </Link>
-              </VStack>
-            </VStack>
-            <VStack padding="30px" height="50%" justifyContent="flex-end">
-              <Link to="/settings">
-                <Container
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  width="100%"
-                  padding="1rem"
-                  flexDirection="column"
-                >
-                  <FontAwesomeIcon
-                    icon={faGear}
-                    overlineThickness="bold"
-                    size="lg"
-                    color={getIconColor("settings")}
-                    style={{ transition: "color 0.3s ease-out" }}
-                  />
-                  <Text
-                    transition="color 0.3s ease-out"
-                    color={getIconColor("settings")}
-                    fontSize="sm"
-                    marginTop="0.5rem"
-                  >
-                    Settings
-                  </Text>
-                </Container>
-              </Link>
-              <Link to="/docs">
-                <Container
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  width="100%"
-                  padding="1rem"
-                  flexDirection="column"
-                >
-                  <FontAwesomeIcon
-                    icon={faBook}
-                    overlineThickness="bold"
-                    size="lg"
-                    color={getIconColor("docs")}
-                    style={{ transition: "color 0.3s ease-out" }}
-                  />
-                  <Text
-                    transition="color 0.3s ease-out"
-                    color={getIconColor("docs")}
-                    fontSize="sm"
-                    marginTop="0.5rem"
-                  >
-                    Docs
-                  </Text>
-                </Container>
-              </Link>
-            </VStack>
-          </VStack>
+          <Sidebar />
         </GridItem>
         <GridItem pl="2" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet />

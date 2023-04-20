@@ -21,6 +21,7 @@ import NewPolicy from "./views/policies/new_policy";
 import Policies from "./views/policies/policies";
 import PoliciesDashboard from "./views/policies/policies_dashboard";
 import PolicyForecast from "./views/policies/forecast/forecast";
+import Dashboard from "./views/dashboard";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="docs" element={<Docs />} />
               <Route path="sources" element={<Sources />}>
                 <Route index element={<SourcesTable />} />
@@ -40,7 +42,7 @@ function App() {
                 <Route index element={<PoliciesDashboard />} />
                 <Route path="new_policy" element={<NewPolicy />} />
               </Route>
-              <Route path="policies/forecast/:policy_id" element={<PolicyForecast />}/>
+              <Route path="policies/forecast/:policy_id" element={<PolicyForecast />} />
               <Route path="reports" element={<Reports />} />
               <Route
                 path="reports/profiling/:source_id"

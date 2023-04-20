@@ -53,11 +53,11 @@ const default_theme = extendTheme({
       status_busy: colors.supplementary.indicators.main_red,
     },
     header: {
-      background: colors.primary.brand_colors.white,
+      background: "#f7fafc",
       text: colors.primary.brand_colors.not_black_black,
     },
     body: {
-      background: colors.primary.brand_colors.white,
+      background: "#f7fafc",
       header: colors.primary.brand_colors.not_black_black,
     },
     indicator: {
