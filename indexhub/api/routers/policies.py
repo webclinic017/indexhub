@@ -10,7 +10,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.schemas import POLICY_SCHEMAS, SUPPORTED_COUNTRIES
+from indexhub.api.schemas import FREQ_NAME_TO_ALIAS, POLICY_SCHEMAS, SUPPORTED_COUNTRIES
 
 
 router = APIRouter()
@@ -34,13 +34,6 @@ class CreatePolicyParams(BaseModel):
 
 @router.post("/policies")
 def create_policy(params: CreatePolicyParams):
-
-    FREQ_NAME_TO_ALIAS = {
-        "Hourly": "1h",
-        "Daily": "1d",
-        "Weekly": "1w",
-        "Monthly": "1mo",
-    }
 
     with Session(engine) as session:
         policy = Policy(**params.__dict__)

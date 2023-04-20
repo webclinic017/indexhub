@@ -128,6 +128,13 @@ SUPPORTED_COUNTRIES = {
     "Zimbabwe": "ZW",
 }
 
+FREQ_NAME_TO_ALIAS = {
+    "Hourly": "1h",
+    "Daily": "1d",
+    "Weekly": "1w",
+    "Monthly": "1mo",
+}
+
 STORAGE_SCHEMAS = {
     "s3": {
         "AWS_ACCESS_KEY_ID": {
