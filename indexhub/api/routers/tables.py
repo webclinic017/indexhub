@@ -64,6 +64,9 @@ def _get_forecast_table(
         .tail(1)
         .select(
             entity_col,
+            pl.col(f"{metric}__uplift__rolling_sum").alias(
+                "score__uplift__rolling_sum"
+            ),
             (pl.col(f"{metric}__uplift_pct__rolling_mean").fill_nan(None) * 100).alias(
                 "score__uplift_pct__rolling_mean"
             ),
@@ -76,12 +79,18 @@ def _get_forecast_table(
         read(object_path=outputs["statistics"]["last_window__sum"])
         .lazy()
         .pipe(lambda df: df.rename({df.columns[-1]: "last_window__sum"}))
-        # Join with forecast to compute current_window__sum
+        # Read current_window__sum from statistics
         .join(
-            forecast.lazy()
-            .groupby(entity_col)
-            .agg(pl.sum(target_col))
-            .rename({target_col: "current_window__sum"}),
+            read(object_path=outputs["statistics"]["current_window__sum"])
+            .lazy()
+            .pipe(lambda df: df.rename({df.columns[-1]: "current_window__sum"})),
+            on=entity_col,
+        )
+        # Read predicted_growth_rate from statistics
+        .join(
+            read(object_path=outputs["statistics"]["predicted_growth_rate"])
+            .lazy()
+            .pipe(lambda df: df.rename({df.columns[-1]: "pct_change"})),
             on=entity_col,
         )
         # Select last_window__sum, current_window__sum, diff, pct_change as stats
@@ -90,12 +99,16 @@ def _get_forecast_table(
             pl.col("last_window__sum"),
             pl.col("current_window__sum"),
             (pl.col("current_window__sum") - pl.col("last_window__sum")).alias("diff"),
-            (
-                ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1) * 100
-            ).alias("pct_change"),
+            pl.col("pct_change"),
+            pl.lit(fields["goal"]).alias("goal"),
         )
         # Join with rolling uplift
         .join(rolling_uplift, on=entity_col)
+        .with_columns(
+            (pl.col("score__uplift_pct__rolling_mean") / pl.col("goal") * 100).alias(
+                "progress"
+            )
+        )
     )
 
     # Pivot quantiles
@@ -196,12 +209,15 @@ class TableResponse(BaseModel):
 
 
 class TableParams(BaseModel):
-    filter_by: Mapping[str, List[str]]
+    filter_by: Mapping[str, List[str]] = None
     page: int
     display_n: int
 
+
 @router.post("/tables/{policy_id}/{table_tag}")
-def get_policy_table(params: TableParams, policy_id: str, table_tag: TableTag) -> TableResponse:
+def get_policy_table(
+    params: TableParams, policy_id: str, table_tag: TableTag
+) -> TableResponse:
     if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
@@ -215,7 +231,7 @@ def get_policy_table(params: TableParams, policy_id: str, table_tag: TableTag) -
             json.loads(policy.outputs),
             user,
             policy_id,
-            params.filter_by
+            params.filter_by,
         ).collect(streaming=True)
         pl.toggle_string_cache(False)
 

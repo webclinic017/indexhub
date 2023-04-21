@@ -63,7 +63,6 @@ def _create_single_forecast_chart(
         .join(indexhub, on=idx_cols, how="outer")
         .select(pl.exclude("^target.*$"))
         .sort("time")
-        .rename({entity_col: "entity"})
     )
     inventory_path = outputs["inventory"]
     if inventory_path:
