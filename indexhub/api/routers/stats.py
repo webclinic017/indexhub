@@ -1,6 +1,6 @@
 import json
 from functools import partial
-from typing import List, Mapping, Any
+from typing import Any, List, Mapping
 
 import polars as pl
 from fastapi import APIRouter
@@ -20,6 +20,13 @@ FREQ_NAME_TO_LABEL = {
     "Daily": "days",
     "Weekly": "weeks",
     "Monthly": "months",
+}
+
+FREQ_TO_SP = {
+    "Hourly": 24,
+    "Daily": 30,
+    "Weekly": 52,
+    "Monthly": 12,
 }
 
 
@@ -52,6 +59,7 @@ def _get_forecast_results(
     results = []
     fh = forecasts.get_column(time_col).n_unique()
     freq = FREQ_NAME_TO_LABEL[fields["freq"]]
+    sp = FREQ_TO_SP[fields["freq"]]
     backtest_period = backtests.get_column(time_col).n_unique()
 
     # Target to date for last fh
@@ -105,7 +113,10 @@ def _get_forecast_results(
 
     # AI predicted rolling_uplift for next fh
     rolling_uplift_grouped = (
-        rolling_uplift.sort([entity_col, "updated_at"]).groupby([entity_col]).tail(1)
+        rolling_uplift.sort([entity_col, "updated_at"])
+        .groupby([entity_col])
+        .tail(1)
+        .with_columns(pl.col(f"{metric}__uplift_pct__rolling_mean") * 100)
     )
     rolling_sum_uplift = rolling_uplift_grouped.get_column(
         f"{metric}__uplift__rolling_sum"
@@ -114,13 +125,11 @@ def _get_forecast_results(
         rolling_uplift_grouped.get_column(f"{metric}__uplift_pct__rolling_mean")
         .fill_nan(None)
         .mean()
-        * 100
     )
-    last_window = rolling_uplift_grouped.get_column("window")[0]
 
     stats_rolling_uplift = {
         "title": "AI Uplift (Cumulative)",
-        "subtitle": f"Cumulative uplift over the last {last_window} runs",
+        "subtitle": f"Cumulative uplift (last {sp} {freq})",
         "values": {
             "rolling_sum": round(rolling_sum_uplift, 2),
             "rolling_mean_pct": round(rolling_mean_uplift_pct, 2),
@@ -130,7 +139,9 @@ def _get_forecast_results(
 
     # Count of AI improvements
     n_improvement = (
-        rolling_uplift_grouped.filter(pl.col(f"{metric}__uplift__rolling_sum") >= 0)
+        rolling_uplift_grouped.filter(
+            pl.col(f"{metric}__uplift_pct__rolling_mean") >= 0
+        )
         .get_column(entity_col)
         .n_unique()
     )
@@ -141,6 +152,38 @@ def _get_forecast_results(
         "values": {"n_improvement": n_improvement, "n_entities": n_entities},
     }
     results.append(stats_improvement_count)
+
+    # Goal
+    goal = fields["goal"]
+    stats_goal = {
+        "title": "Goal",
+        "subtitle": f"Goal for average uplift % (last {sp} {freq})",
+        "values": {"goal": goal},
+    }
+    results.append(stats_goal)
+
+    # Progress
+    stats_progress = {
+        "title": "Progress",
+        "subtitle": "Average uplift % over goal",
+        "values": {"progress": round(rolling_mean_uplift_pct / goal * 100, 2)},
+    }
+    results.append(stats_progress)
+
+    # Count of entities achieved goal
+    n_achievement = (
+        rolling_uplift_grouped.filter(
+            pl.col(f"{metric}__uplift_pct__rolling_mean") >= goal
+        )
+        .get_column(entity_col)
+        .n_unique()
+    )
+    stats_achievement = {
+        "title": "Achievement",
+        "subtitle": "Number of entities achieved goal",
+        "values": {"n_achievement": n_achievement, "n_entities": n_entities},
+    }
+    results.append(stats_achievement)
 
     return results
 

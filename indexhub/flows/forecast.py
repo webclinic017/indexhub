@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.user import User
+from indexhub.api.routers.stats import FREQ_TO_SP
 from indexhub.api.schemas import (
     SUPPORTED_COUNTRIES,
     SUPPORTED_ERROR_TYPE,
@@ -85,10 +86,20 @@ def compute_rolling_forecast(
     )
 
     # Combine forecast and actual artifacts
-    latest_forecasts = forecast.join(
-        actual, on=forecast.columns[:2], how="left"
-    ).with_columns(
-        [(pl.col("forecast") - pl.col("actual")).alias("residual").cast(pl.Float32)]
+    latest_forecasts = (
+        forecast.join(actual, on=forecast.columns[:2], how="left").with_columns(
+            [(pl.col("forecast") - pl.col("actual")).alias("residual").cast(pl.Float32)]
+        )
+        # Reorder columns
+        .select(
+            [
+                pl.all().exclude(["forecast", "actual", "residual", "best_model"]),
+                "forecast",
+                "actual",
+                "residual",
+                "best_model",
+            ]
+        )
     )
 
     try:
@@ -135,9 +146,13 @@ def compute_rolling_forecast(
         pl.toggle_string_cache(False)
 
 
-def _groupby_rolling(data: pl.DataFrame, entity_col: str):
+def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
     new_data = (
-        data.groupby(entity_col, maintain_order=True)
+        data
+        # Select rows from last sp
+        .groupby(entity_col, maintain_order=True)
+        .tail(sp)
+        .groupby(entity_col, maintain_order=True)
         .agg(
             pl.all(),
             # Rolling sum for absolute uplift
@@ -176,6 +191,7 @@ def compute_rolling_uplift(
     output_json: Mapping[str, Any],
     policy_id: int,
     updated_at: datetime,
+    sp: int,
     read: Callable,
     write: Callable,
 ):
@@ -197,7 +213,7 @@ def compute_rolling_uplift(
             pl.lit(dt).alias(time_col),
         )
         # Generate rolling stats by groupby entity col
-        .pipe(_groupby_rolling, entity_col)
+        .pipe(_groupby_rolling, entity_col, sp)
         # Reorder columns
         .select([*idx_cols, "window", pl.all().exclude([*idx_cols, "window"])])
     )
@@ -222,7 +238,7 @@ def compute_rolling_uplift(
                     ]
                 )
                 # Generate rolling stats by groupby entity col
-                .pipe(_groupby_rolling, entity_col)
+                .pipe(_groupby_rolling, entity_col, sp)
                 # Reorder columns
                 .select([*idx_cols, "window", pl.all().exclude([*idx_cols, "window"])])
             )
@@ -316,6 +332,7 @@ def run_forecast(
     max_lags: int,
     fh: int,
     freq: str,
+    sp: int,
     n_splits: int,
     holiday_regions: Optional[List[str]] = None,
     objective: Optional[str] = "mae",
@@ -471,6 +488,7 @@ def run_forecast(
             output_json=outputs,
             policy_id=policy_id,
             updated_at=updated_at,
+            sp=sp,
             read=read,
             write=write,
         )
@@ -570,6 +588,7 @@ def flow():
                 max_lags=fields["max_lags"],
                 fh=fields["fh"],
                 freq=SUPPORTED_FREQ[fields["freq"]],
+                sp=FREQ_TO_SP[fields["freq"]],
                 n_splits=fields["n_splits"],
                 holiday_regions=[
                     SUPPORTED_COUNTRIES[country]
@@ -633,6 +652,7 @@ def test(user_id: str = "indexhub-demo"):
         max_lags=fields["max_lags"],
         fh=fields["fh"],
         freq=fields["freq"],
+        sp=FREQ_TO_SP[fields["freq"]],
         n_splits=fields["n_splits"],
         holiday_regions=fields["holiday_regions"],
         objective=fields["error_type"],  # default is mae
