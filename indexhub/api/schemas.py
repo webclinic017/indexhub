@@ -131,7 +131,11 @@ SUPPORTED_COUNTRIES = {
 SUPPORTED_ERROR_TYPE = {
     "over-forecast": "overforecast",
     "under-forecast": "underforecast",
-    "over and under forecast": "mae",
+    "mean absolute error (MAE)": "mae",
+    "over and under forecast (mean forecast error)": "mfe",
+    "symmetric mean absolute percentage error (SMAPE)": "smape",
+    "mean absolute scaled error (MASE)": "mase",
+    "root mean scaled squared error (RMSSE)": "rmsse",
 }
 
 SUPPORTED_FREQ = {
@@ -363,22 +367,22 @@ def FIELDS_SCHEMA(sources: List[Source]):
 def POLICY_SCHEMAS(sources: List[Source]):
     schemas = {
         "forecast_panel": {
-            "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
-            "description": "Choose this policy to reduce over and under forecast compared to your existing forecasts",
+            "objective": "Reduce {target_col} {error_type} for {level_cols}.",
+            "description": "Choose this policy if you have panel data (i.e. time-series data across multiple entities).",
             "sources": SOURCES_SCHEMA(sources),
             "fields": {
                 **FIELDS_SCHEMA(sources),
                 "goal": {
                     "title": "Goal",
-                    "subtitle": "How much (%) do you want to reduce your forecast error by?",
+                    "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
                     "values": list(range(1, 99)),
                     "default": 15,
                 },
             },
         },
         "forecast_transaction": {
-            "objective": "Reduce {target_col} {error_type} for {level_cols} segmented by {segmentation_factor}.",
-            "description": "Choose this policy to reduce over and under forecast compared to your existing forecasts",
+            "objective": "Reduce {target_col} {error_type} for {level_cols}.",
+            "description": "Choose this policy if you have transactions data (e.g. point-of-sales).",
             "sources": {
                 **SOURCES_SCHEMA(sources),
                 "transaction": {
@@ -396,7 +400,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
                 "product_col": PRODUCT_COL_SCHEMA(sources=sources, depends_on="panel"),
                 "goal": {
                     "title": "Goal",
-                    "subtitle": "How much (%) do you want to reduce your forecast error by?",
+                    "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
                     "values": list(range(1, 99)),
                     "default": 15,
                 },
