@@ -107,7 +107,15 @@ def _get_forecast_table(
         .with_columns(
             (pl.col("score__uplift_pct__rolling_mean") / pl.col("goal") * 100).alias(
                 "progress"
-            )
+            ),
+            pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
+            .then(True)
+            .otherwise(False)
+            .alias("use_ai"),
+            pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
+            .then(True)
+            .otherwise(False)
+            .alias("use_benchmark"),
         )
     )
 
