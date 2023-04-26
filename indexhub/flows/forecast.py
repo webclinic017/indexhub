@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.user import User
+from indexhub.api.routers.sources import get_source
 from indexhub.api.routers.stats import FREQ_TO_SP
 from indexhub.api.schemas import (
     SUPPORTED_COUNTRIES,
@@ -519,7 +520,7 @@ def _get_all_policies() -> List[Policy]:
         return policies
 
 
-def _get_user(user_id: str) -> User:
+def get_user(user_id: str) -> User:
     with Session(engine) as session:
         query = select(User).where(User.id == user_id)
         user = session.exec(query).first()
@@ -544,10 +545,10 @@ FREQ_TO_DURATION = {
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
     ],
-    schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
+    schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
 def flow():
-    logger.info("Cron job started")
+    logger.info("Flow started")
     # 1. Get all policies
     policies = _get_all_policies()
 
@@ -558,7 +559,7 @@ def flow():
         sources = json.loads(policy.sources)
 
         # 2. Get user
-        user = _get_user(policy.user_id)
+        user = get_user(policy.user_id)
 
         # 3. Check freq from source for schedule
         duration = FREQ_TO_DURATION[fields["freq"]]
@@ -573,13 +574,23 @@ def flow():
         # 4. Run forecast flow
         current_datetime = datetime.now().replace(microsecond=0)
         if (current_datetime >= run_dt) or policy.status == "FAILED":
+            # Get staging path for each source
+            panel_path = get_source(sources["panel"])["source"].output_path
+            if sources["baseline"]:
+                baseline_path = get_source(sources["baseline"])["source"].output_path
+            else:
+                baseline_path = None
+            if sources["inventory"]:
+                inventory_path = get_source(sources["inventory"])["source"].output_path
+            else:
+                inventory_path = None
             # Spawn forecast flow for policy
             futures[policy.id] = run_forecast.spawn(
                 user_id=policy.user_id,
                 policy_id=policy.id,
-                panel_path=sources["panel"],
-                baseline_path=sources["baseline"],
-                inventory_path=sources["inventory"],
+                panel_path=panel_path,
+                baseline_path=baseline_path,
+                inventory_path=inventory_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
                 level_cols=fields["level_cols"],
@@ -605,7 +616,7 @@ def flow():
         future.get()
         logger.info(f"Forecast flow completed for policy: {policy_id}")
 
-    logger.info("Cron job completed")
+    logger.info("Flow completed")
 
 
 @stub.local_entrypoint
@@ -615,9 +626,9 @@ def test(user_id: str = "indexhub-demo"):
     policy_id = 1
     fields = {
         "sources": {
-            "panel": "staging/1/20230411T093305.parquet",
+            "panel": 1,
             "baseline": None,
-            "inventory": "staging/1/inventory_20230411T093305.parquet",
+            "inventory": 2,
         },
         "error_type": "over-forecast",
         "segmentation_factor": "volatility",
@@ -638,12 +649,24 @@ def test(user_id: str = "indexhub-demo"):
     storage_tag = "s3"
     storage_bucket_name = "indexhub-demo"
 
+    # Get staging path for each source
+    sources = fields["sources"]
+    panel_path = get_source(sources["panel"])["source"].output_path
+    if sources["baseline"]:
+        baseline_path = get_source(sources["baseline"])["source"].output_path
+    else:
+        baseline_path = None
+    if sources["inventory"]:
+        inventory_path = get_source(sources["inventory"])["source"].output_path
+    else:
+        inventory_path = None
+
     flow.call(
         user_id=user_id,
         policy_id=policy_id,
-        panel_path=fields["sources"]["panel"],
-        baseline_path=fields["sources"]["baseline"],
-        inventory_path=fields["sources"]["inventory"],
+        panel_path=panel_path,
+        baseline_path=baseline_path,
+        inventory_path=inventory_path,
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,
         level_cols=fields["level_cols"],

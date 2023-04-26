@@ -1,10 +1,13 @@
+import json
 import logging
 from datetime import datetime
 from typing import Any, List, Mapping, Union
 
 import modal
+import pandas as pd
 import polars as pl
 from botocore.exceptions import ClientError
+from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -13,6 +16,7 @@ from indexhub.api.models.source import Source
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.deployment import IMAGE
+from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
 
 
 def _logger(name, level=logging.INFO):
@@ -99,7 +103,7 @@ def _update_source(
         modal.Secret.from_name("aws-credentials"),
     ]
 )
-def flow(
+def run_preprocess(
     user_id: int,
     source_id: int,
     source_tag: str,
@@ -179,6 +183,73 @@ def flow(
         )
 
 
+def _get_all_sources() -> List[Source]:
+    with Session(engine) as session:
+        query = select(Source)
+        sources = session.exec(query).all()
+        if not sources:
+            raise HTTPException(status_code=404, detail="Source not found")
+        return sources
+
+
+@stub.function(
+    memory=5120,
+    cpu=4.0,
+    timeout=900,
+    secrets=[
+        modal.Secret.from_name("postgres-credentials"),
+        modal.Secret.from_name("aws-credentials"),
+    ],
+    schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
+)
+def flow():
+    logger.info("Flow started")
+    # 1. Get all sources
+    sources = _get_all_sources()
+
+    futures = {}
+    for source in sources:
+        logger.info(f"Checking source: {source.id}")
+        columns = json.loads(source.columns)
+
+        # 2. Get user
+        user = get_user(source.user_id)
+
+        # 3. Check freq from source for schedule
+        duration = FREQ_TO_DURATION[source.freq]
+        updated_at = source.updated_at.replace(microsecond=0)
+        if duration == "1mo":
+            new_dt = updated_at + relativedelta(months=1)
+            run_dt = datetime(new_dt.year, new_dt.month, 1)
+        else:
+            run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
+        logger.info(f"Next run at: {run_dt}")
+
+        # 4. Run preprocess flow
+        current_datetime = datetime.now().replace(microsecond=0)
+        if (current_datetime >= run_dt) or source.status == "FAILED":
+            # Spawn preprocess flow for source
+            futures[source.id] = run_preprocess.spawn(
+                user_id=source.user_id,
+                source_id=source.id,
+                source_tag=source.tag,
+                source_variables=json.loads(source.variables),
+                storage_tag=user.storage_tag,
+                storage_bucket_name=user.storage_bucket_name,
+                entity_cols=columns["entity_cols"],
+                time_col=columns["time_col"],
+                datetime_fmt=source.datetime_fmt,
+            )
+
+    # 5. Get future for each source
+    for source_id, future in futures.items():
+        logger.info(f"Running preprocess flow for source: {source_id}")
+        future.get()
+        logger.info(f"Preprocess flow completed for source: {source_id}")
+
+    logger.info("Flow completed")
+
+
 @stub.local_entrypoint
 def test():
     user_id = "indexhub-demo"
@@ -191,14 +262,18 @@ def test():
         "object_path": "tourism/tourism_20221212.parquet",
         "file_ext": "parquet",
     }
-    columns = {"entity_cols": ["state"], "time_col": "time", "feature_cols": []}
+    columns = {
+        "entity_cols": ["country", "territory", "state"],
+        "time_col": "time",
+        "feature_cols": ["trips_in_000s"],
+    }
     datetime_fmt = "%Y-%m-%d"
 
     # User
     storage_tag = "s3"
     storage_bucket_name = "indexhub-demo"
 
-    flow.call(
+    run_preprocess.call(
         user_id=user_id,
         source_id=source_id,
         source_tag=source_tag,
