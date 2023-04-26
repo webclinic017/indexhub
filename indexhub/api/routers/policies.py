@@ -34,6 +34,7 @@ class CreatePolicyParams(BaseModel):
     user_id: str
     tag: str
     name: str
+    sources: str
     fields: str
 
 
