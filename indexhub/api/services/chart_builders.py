@@ -1,5 +1,5 @@
 from functools import partial, reduce
-from typing import Any, Literal, Mapping
+from typing import Any, List, Literal, Mapping
 
 import polars as pl
 from pyecharts import options as opts
@@ -477,3 +477,26 @@ def _create_segmentation_chart(
     chart_json = scatter.dump_options()
     pl.toggle_string_cache(False)
     return chart_json
+
+
+def _create_sparkline(y_data: List[int]):
+    sparkline = Line()
+    sparkline.add_xaxis(list(range(len(y_data))))
+    sparkline.add_yaxis(
+        "",
+        y_data,
+        is_symbol_show=False,
+        linestyle_opts=opts.LineStyleOpts(width=3),
+        color="#194fdc",
+    )
+
+    sparkline.set_global_opts(
+        legend_opts=opts.LegendOpts(is_show=False),
+        xaxis_opts=opts.AxisOpts(is_show=False),
+        yaxis_opts=opts.AxisOpts(is_show=False),
+        tooltip_opts=opts.TooltipOpts(is_show=False),
+    )
+
+    # Export chart options to JSON
+    sparkline_json = sparkline.dump_options()
+    return sparkline_json, sparkline

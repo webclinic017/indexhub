@@ -14,6 +14,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
+from indexhub.api.services.chart_builders import _create_sparkline
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -33,7 +34,6 @@ def _get_forecast_table(
     policy_id: str,
     filter_by: Mapping[str, List[str]],
 ) -> pd.DataFrame:
-
     # Get credentials
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -135,6 +135,12 @@ def _get_forecast_table(
         .lazy()
     )
 
+    # Create sparklines based on forecast panel
+    sparklines = {}
+    for entity, df in forecast:
+        y_data = df.get_column("trips_in_000s").to_list()
+        sparklines[entity] = _create_sparkline(y_data)
+
     # Concat forecasts
     table = (
         forecast.lazy()
@@ -196,6 +202,14 @@ def _get_forecast_table(
                 pl.col("tables"),
                 pl.struct(pl.all().exclude(["entity", "tables"])).alias("stats"),
             ]
+        )
+        # Append sparklines to table
+        .pipe(
+            lambda df: df.with_columns(
+                df["entity"]
+                .apply(lambda x: sparklines.get(x, "N/A"))
+                .alias("sparklines")
+            )
         )
     )
 
