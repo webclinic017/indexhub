@@ -61,6 +61,18 @@ const NewPolicy = () => {
       policy_configs["baseline_name"] = policy_sources["baseline_name"]
         ? policy_sources["baseline_name"]
         : "";
+      policy_configs["inventory"] = policy_sources["inventory"]
+        ? policy_sources["inventory"]
+        : "";
+      policy_configs["inventory_name"] = policy_sources["inventory_name"]
+        ? policy_sources["inventory_name"]
+        : "";
+      policy_configs["transaction"] = policy_sources["transaction"]
+        ? policy_sources["transaction"]
+        : "";
+      policy_configs["transaction_name"] = policy_sources["transaction_name"]
+        ? policy_sources["transaction_name"]
+        : "";
       setPolicyConfigs(policy_configs);
       goToNextStep();
     } else {

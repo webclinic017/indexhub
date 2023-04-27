@@ -17,3 +17,4 @@ sqlmodel
 uvicorn==0.20.0
 pyecharts
 xlsx2csv
+websockets

@@ -48,14 +48,14 @@ const PolicyConfigs = (props: {
     props.policies_schema[props.policy_configs["policy_type"]]["fields"];
 
   const [description, setDescription] = useState<string>(
-    props.policies_schema[policy_configs["policy_type"]]["description"]
+    props.policies_schema[policy_configs["policy_type"]]["objective"]
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateDescription = (internal_policy_configs: Record<string, any>) => {
     let internal_description: string =
       props.policies_schema[internal_policy_configs["policy_type"]][
-      "description"
+      "objective"
       ];
     internal_description = internal_description
       .replace(
@@ -71,17 +71,11 @@ const PolicyConfigs = (props: {
           : "{level_cols}"
       )
       .replace(
-        "{risks}",
-        internal_policy_configs["risks"]
-          ? internal_policy_configs["risks"]
-          : "{risks}"
+        "{error_type}",
+        internal_policy_configs["error_type"]?.length > 0
+          ? internal_policy_configs["error_type"]
+          : "{error_type}"
       )
-      .replace(
-        "{direction}",
-        internal_policy_configs["direction"]
-          ? internal_policy_configs["direction"]
-          : "{direction}"
-      );
     policy_configs["policy_description"] = internal_description;
     setDescription(internal_description);
   };

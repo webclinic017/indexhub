@@ -182,12 +182,8 @@ SUPPORTED_FILE_EXT = {
 
 
 SUPPORTED_BASELINE_MODELS = {
-    "title": "Baseline models",
-    "subtitle": "",
-    "values": {
-        "Seasonal Naive": "snaive",
-        "Naive": "naive",
-    },
+    "Seasonal Naive": "snaive",
+    "Naive": "naive",
 }
 
 
@@ -269,7 +265,7 @@ def INVOICE_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Invoice ID column",
         "subtitle": "Represents the ID for a basket of orders or a single trip",
-        "values": {src.id: json.loads(src.columns)["invoice_col"] for src in sources},
+        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
         "depends_on": depends_on,
     }
     return schema
@@ -279,7 +275,7 @@ def PRODUCT_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
     schema = {
         "title": "Product ID column",
         "subtitle": "Represents the column of products / services (e.g. SKU)",
-        "values": {src.id: json.loads(src.columns)["product_col"] for src in sources},
+        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
         "depends_on": depends_on,
     }
     return schema
@@ -315,7 +311,6 @@ def SOURCES_SCHEMA(sources: List[Source]):
 
 def FIELDS_SCHEMA(sources: List[Source]):
     return {
-        "fields": {
             "error_type": {
                 "title": "Forecast Error Type",
                 "subtitle": "Which type of forecast error do you want to reduce?",
@@ -361,7 +356,7 @@ def FIELDS_SCHEMA(sources: List[Source]):
                 "values": ["sum", "mean", "median"],
             },
         }
-    }
+    
 
 
 def POLICY_SCHEMAS(sources: List[Source]):
@@ -396,8 +391,8 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
             "fields": {
                 **FIELDS_SCHEMA(sources),
-                "invoice_col": INVOICE_COL_SCHEMA(sources=sources, depends_on="panel"),
-                "product_col": PRODUCT_COL_SCHEMA(sources=sources, depends_on="panel"),
+                "invoice_col": INVOICE_COL_SCHEMA(sources=sources, depends_on="transaction"),
+                "product_col": PRODUCT_COL_SCHEMA(sources=sources, depends_on="transaction"),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
@@ -407,5 +402,4 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
         },
     }
-
     return schemas

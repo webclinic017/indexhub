@@ -27,6 +27,7 @@ export type Policy = Record<string, any>; // eslint-disable-line @typescript-esl
 const policy_status_to_color: any = {
   RUNNING: colors.supplementary.diverging_color.main_yellow,
   COMPLETED: colors.supplementary.indicators.main_green,
+  SUCCESS: colors.supplementary.indicators.main_green,
   FAILED: colors.supplementary.indicators.main_red,
 };
 
@@ -51,6 +52,7 @@ const PoliciesDashboard = () => {
   }, [user_details, readyState, wsCallStarted]);
 
   useEffect(() => {
+    console.log(lastMessage)
     if (lastMessage?.data) {
       const policies: Record<"policies", Policy[]> = JSON.parse(
         lastMessage.data
@@ -85,9 +87,10 @@ const PoliciesDashboard = () => {
                   boxShadow="md"
                   borderRadius="lg"
                   key={idx}
-                // onClick={() => {
-                //   props.submitSourceType(source_type);
-                // }}
+                  bgColor="white"
+                  onClick={() => {
+                    navigate(`forecast/${policy["id"]}`)
+                  }}
                 >
                   <CardBody>
                     <VStack p="4">

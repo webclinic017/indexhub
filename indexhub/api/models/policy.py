@@ -15,5 +15,5 @@ class Policy(SQLModel, table=True):
     sources: str
     fields: str
     # Outputs
-    outputs: str
+    outputs: Optional[str] = None
     msg: Optional[str] = None

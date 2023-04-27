@@ -33,18 +33,34 @@ export const createPolicy = async (
       user_id: user_id,
       tag: policy_configs["policy_type"],
       name: policy_configs["policy_name"],
+      sources: JSON.stringify({
+        panel: policy_configs["panel"],
+        baseline: policy_configs["baseline"]
+          ? policy_configs["baseline"]
+          : "",
+        inventory: policy_configs["inventory"]
+          ? policy_configs["inventory"]
+          : "",
+        transaction: policy_configs["transaction"]
+          ? policy_configs["transaction"]
+          : "",
+      }),
       fields: JSON.stringify({
-        sources: {
-          panel: policy_configs["panel"],
-          baseline: policy_configs["baseline"]
-            ? policy_configs["baseline"]
-            : "",
-        },
         direction: policy_configs["direction"],
         risks: policy_configs["risks"],
         target_col: policy_configs["target_col"],
         level_cols: policy_configs["level_cols"],
         description: policy_configs["policy_description"],
+        agg_method: policy_configs["agg_method"],
+        error_type: policy_configs["error_type"],
+        fh: policy_configs["fh"],
+        freq: policy_configs["freq"],
+        goal: policy_configs["goal"],
+        holiday_regions: policy_configs["holiday_regions"],
+        max_lags: policy_configs["max_lags"],
+        min_lags: policy_configs["min_lags"],
+        invoice_col: policy_configs["invoice_col"] ? policy_configs["invoice_col"] : "",
+        product_col: policy_configs["product_col"] ? policy_configs["product_col"] : ""
       }),
     }),
   });
