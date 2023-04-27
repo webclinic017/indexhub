@@ -19,6 +19,8 @@ def _create_single_forecast_chart(
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
+    quantile_lower: int = 10,
+    quantile_upper: int = 90,
 ):
     pl.toggle_string_cache(True)
 
@@ -40,34 +42,47 @@ def _create_single_forecast_chart(
         lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
     )
     actual = read(object_path=outputs["y"])
+    quantiles = read(object_path=outputs["quantiles"][best_model])
+    quantiles_lower = quantiles.filter(pl.col("quantile") == quantile_lower).drop(
+        "quantile"
+    )
+    quantiles_upper = quantiles.filter(pl.col("quantile") == quantile_upper).drop(
+        "quantile"
+    )
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
 
-    # Postproc - join data together and rename colname
-    dfs = {"actual": actual, "backtest": backtest, "forecast": forecast}
-
-    data = []
-    for colname, df in dfs.items():
-        if colname in ["backtest", "forecast"]:
-            colname = "indexhub"
-        data.append(
-            df.with_columns(
-                [pl.col(entity_col).cast(pl.Utf8), pl.col(target_col).alias(colname)]
-            )
-        )
-
-    indexhub = pl.concat([data[1], data[2]])
+    # Postproc - join data together
+    indexhub = pl.concat(
+        [
+            backtest.rename({target_col: "indexhub"}),
+            forecast.rename({target_col: "indexhub"}),
+        ]
+    )
     joined = (
-        data[0]
+        actual.rename({target_col: "actual"})
         .join(indexhub, on=idx_cols, how="outer")
+        # Join quantiles
+        .join(
+            quantiles_lower.rename({target_col: f"indexhub_{quantile_lower}"}),
+            on=idx_cols,
+            how="outer",
+        )
+        .join(
+            quantiles_upper.rename({target_col: f"indexhub_{quantile_upper}"}),
+            on=idx_cols,
+            how="outer",
+        )
         .select(pl.exclude("^target.*$"))
         .sort("time")
     )
     inventory_path = outputs["inventory"]
     if inventory_path:
-        inventory_data = read(object_path=inventory_path).pipe(
-            lambda df: df.rename({df.columns[-1]: "inventory"})
+        inventory_data = (
+            read(object_path=inventory_path)
+            .pipe(lambda df: df.rename({target_col: "inventory"}))
+            .with_columns(pl.col(entity_col).cast(pl.Categorical))
         )
         joined = joined.join(inventory_data, on=idx_cols, how="outer")
 
@@ -110,6 +125,20 @@ def _create_single_forecast_chart(
     )
     line_chart.add_yaxis(
         "Indexhub", chart_data["indexhub"].to_list(), color=colors[1], symbol=None
+    )
+    line_chart.add_yaxis(
+        "",
+        chart_data[f"indexhub_{quantile_upper}"].to_list(),
+        color="lightblue",
+        symbol=None,
+        is_symbol_show=False,
+    )
+    line_chart.add_yaxis(
+        "",
+        chart_data[f"indexhub_{quantile_lower}"].to_list(),
+        color="lightblue",
+        symbol=None,
+        is_symbol_show=False,
     )
     if inventory_path:
         line_chart.add_yaxis(
