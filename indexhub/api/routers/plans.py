@@ -5,6 +5,7 @@ from typing import Any, List, Mapping
 import polars as pl
 from fastapi import APIRouter
 from sqlmodel import Session
+from pydantic import BaseModel
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
@@ -140,10 +141,13 @@ def _execute_forecast_plan(
 TAGS_TO_GETTER = {"forecast_panel": _execute_forecast_plan}
 
 
+class ExecutePlanParams(BaseModel):
+    updated_plans: List[Mapping[str, Any]] = None
+
 @router.post("/plans/{policy_id}")
 def execute_plan(
     policy_id: str,
-    updated_plans: List[Mapping[str, Any]] = None,
+    params: ExecutePlanParams
 ):
     with Session(engine) as session:
         policy = get_policy(policy_id)["policy"]
@@ -155,8 +159,8 @@ def execute_plan(
             json.loads(policy.outputs),
             user,
             policy_id,
-            updated_plans,
+            params.updated_plans,
         )
         pl.toggle_string_cache(False)
 
-    return path
+    return {"path": path}

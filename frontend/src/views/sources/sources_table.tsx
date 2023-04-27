@@ -201,7 +201,7 @@ export default function SourcesTable() {
   return (
     <>
       <Flex width="100%" justifyContent="center">
-        <Card boxShadow="md" borderRadius="lg" width="50%" p="6">
+        <Card boxShadow="md" borderRadius="lg" width="50%" p="6" backgroundColor="white">
           <CardBody>
             <HStack>
               <Text fontSize="small" fontWeight="bold" pr="2">
@@ -274,7 +274,7 @@ export default function SourcesTable() {
           Sources
         </Text>
         {sources?.sources?.length > 0 ? (
-          <TableContainer width="100%" backgroundColor="white">
+          <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
             <DataTable
               columns={columns}
               data={sources.sources}

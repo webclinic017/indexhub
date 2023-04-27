@@ -71,9 +71,10 @@ const default_theme = extendTheme({
       red_3: colors.supplementary.indicators.red_3,
     },
     table: {
-      header_background: "#f7fafc",
+      header_background: "#e2e8f0",
       font: "#4a5568",
       border: "#edf2f8",
+      icon_highlight: "#e2e8f0"
     },
     steps: {
       active: colors.primary.brand_colors.blue_3,

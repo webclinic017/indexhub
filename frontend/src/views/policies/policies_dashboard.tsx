@@ -52,7 +52,6 @@ const PoliciesDashboard = () => {
   }, [user_details, readyState, wsCallStarted]);
 
   useEffect(() => {
-    console.log(lastMessage)
     if (lastMessage?.data) {
       const policies: Record<"policies", Policy[]> = JSON.parse(
         lastMessage.data

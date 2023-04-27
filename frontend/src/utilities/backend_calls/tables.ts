@@ -23,3 +23,26 @@ export const getAIRecommendationTable = async (
     const response_json = await get_ai_recommendation_table_response.json();
     return response_json;
 };
+
+export const exportAIRecommendationTable = async (
+    policy_id: string,
+    updated_plans: Record<string, any>[] | null,
+    access_token_indexhub_api: string,
+
+) => {
+    const execute_plan_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/plans/${policy_id}`;
+
+    const execute_plan_response = await fetch(execute_plan_url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token_indexhub_api}`,
+        },
+        body: JSON.stringify({
+            updated_plans: updated_plans,
+        })
+    });
+
+    const response_json = await execute_plan_response.json();
+    return response_json;
+};
