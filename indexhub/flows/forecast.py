@@ -341,6 +341,8 @@ def run_forecast(
     baseline_model: Optional[str] = "snaive",
     baseline_path: Optional[str] = None,
     inventory_path: Optional[str] = None,
+    product_col: Optional[str] = None,
+    invoice_col: Optional[str] = None,
 ):
     try:
         pl.toggle_string_cache(True)
@@ -371,11 +373,53 @@ def run_forecast(
         # 4. Read y from storage
         y_panel = read(object_path=panel_path)
 
-        # 5. Run automl flow
-        automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
+        # 5. Create embeddings using y_panel
         time_col = y_panel.select(
             pl.col([pl.Date, pl.Datetime, pl.Datetime("ns")])
         ).columns[0]
+        agg_exprs = {
+            "sum": pl.sum(target_col),
+            "mean": pl.mean(target_col),
+            "median": pl.median(target_col),
+        }
+        product_emb_flow = modal.Function.lookup(
+            "functime-embeddings", "product_emb_flow"
+        )
+        ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
+        cluster_emb_flow = modal.Function.lookup(
+            "functime-embeddings", "cluster_emb_flow"
+        )
+        if product_col:
+            embeddings = product_emb_flow.call(
+                y_panel,
+                product_col,
+                invoice_col,
+                target_col,
+                s3_bucket=bucket_name,
+                s3_key=f"embeddings/{policy_id}/products/",
+            )
+            cluster_emb_flow.call(
+                embeddings["2D"],
+                product_col,
+                s3_bucket=bucket_name,
+                s3_key=f"embeddings/{policy_id}/cluster/",
+            )
+        else:
+            emb_panel = (
+                y_panel.groupby([*level_cols, time_col])
+                .agg(agg_exprs[agg_method])
+                .pipe(_merge_multilevels)
+            )
+            ts_emb_flow.call(
+                emb_panel,
+                entity_col="__".join(level_cols),
+                target_col=target_col,
+                s3_bucket=bucket_name,
+                s3_key=f"embeddings/{policy_id}/ts/",
+            )
+
+        # 6. Run automl flow
+        automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
 
         y, outputs = automl_flow.call(
             y=y_panel.select([*level_cols, time_col, target_col]),
@@ -393,13 +437,8 @@ def run_forecast(
 
         write(y, object_path=make_path(prefix="y"))
 
-        # 6. Compute uplift
+        # 7. Compute uplift
         # NOTE: Only compares against BEST MODEL
-        agg_exprs = {
-            "sum": pl.sum(target_col),
-            "mean": pl.mean(target_col),
-            "median": pl.median(target_col),
-        }
         if baseline_path:
             # Read baseline from storage
             y_baseline = (
@@ -452,7 +491,7 @@ def run_forecast(
         write(baseline_scores, object_path=outputs["baseline__scores"])
         write(uplift, object_path=make_path(prefix="uplift"))
 
-        # 7. Export artifacts for each model
+        # 8. Export artifacts for each model
         model_artifacts_keys = [
             "forecasts",
             "backtests",
@@ -469,13 +508,13 @@ def run_forecast(
                 write(df, object_path=output_path)
                 outputs[key][model] = output_path
 
-        # 8. Export statistics
+        # 9. Export statistics
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
 
-        # 9. Run rolling forecast
+        # 10. Run rolling forecast
         compute_rolling_forecast.call(
             output_json=outputs,
             policy_id=policy_id,
@@ -484,7 +523,7 @@ def run_forecast(
             write=write,
         )
 
-        # 10. Run rolling uplift
+        # 11. Run rolling uplift
         compute_rolling_uplift.call(
             output_json=outputs,
             policy_id=policy_id,
@@ -608,6 +647,8 @@ def flow():
                 objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
                 agg_method=fields["agg_method"],
                 baseline_model=fields["baseline_model"],
+                product_col=fields.get("product_col", None),
+                invoice_col=fields.get("invoice_col", None),
             )
 
     # 5. Get future for each policy
@@ -621,7 +662,6 @@ def flow():
 
 @stub.local_entrypoint
 def test(user_id: str = "indexhub-demo"):
-
     # Policy
     policy_id = 1
     fields = {
@@ -681,4 +721,6 @@ def test(user_id: str = "indexhub-demo"):
         objective=fields["error_type"],  # default is mae
         agg_method=fields["agg_method"],  # default is mean
         baseline_mode=fields["baseline_model"],  # default is snaive
+        product_col=fields.get("product_col", None),
+        invoice_col=fields.get("invoice_col", None),
     )
