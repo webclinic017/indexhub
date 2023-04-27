@@ -24,11 +24,12 @@ def _execute_forecast_plan(
     updated_plans: List[Mapping[str, Any]],
 ):
     # Create dataframe from updated_plans
-    updated_plans = (
-        pl.DataFrame(updated_plans)
-        .lazy()
-        .with_columns(pl.col("entity").cast(pl.Categorical))
-    )
+    if updated_plans is not None:
+        updated_plans = (
+            pl.DataFrame(updated_plans)
+            .lazy()
+            .with_columns(pl.col("entity").cast(pl.Categorical))
+        )
 
     # Get credentials
     storage_creds = get_aws_secret(
@@ -91,18 +92,22 @@ def _execute_forecast_plan(
         .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
         .pipe(lambda df: df.explode(df.columns[1:]))
         .rename({entity_col: "entity"})
-        # Join with updated plan
-        .join(updated_plans, on=["entity", "fh"], how="left")
-        .select(
-            [
-                "entity",
-                time_col,
+        .with_columns(
+            pl.when(pl.col("use_ai"))
+            .then(pl.col("forecast"))
+            .otherwise(pl.col("baseline"))
+            .alias("forecast_plan")
+        )
+    )
+
+    if updated_plans is not None:
+        forecast_plans = (
+            forecast_plans
+            # Join with updated plan
+            .join(updated_plans, on=["entity", "fh"], how="left").with_columns(
                 # If "use" is null, use default
-                pl.when(pl.col("use").is_null()).then(
-                    pl.when(pl.col("use_ai"))
-                    .then(pl.col("forecast"))
-                    .otherwise(pl.col("baseline"))
-                )
+                pl.when(pl.col("use").is_null())
+                .then(pl.col("forecast_plan"))
                 # Otherwise, override default
                 .otherwise(
                     pl.when(pl.col("use") == "override")
@@ -112,10 +117,13 @@ def _execute_forecast_plan(
                         .then(pl.col("forecast"))
                         .otherwise(pl.col("baseline"))
                     )
-                ).alias("forecast_plan"),
-            ]
+                )
+                .alias("forecast_plan"),
+            )
         )
-    )
+
+    forecast_plans = forecast_plans.select(["entity", time_col, "forecast_plan"])
+
     # Export to parquet
     path = f"artifacts/{policy_id}/forecast_plan.parquet"
     write = STORAGE_TAG_TO_WRITER[user.storage_tag]
@@ -135,7 +143,7 @@ TAGS_TO_GETTER = {"forecast_panel": _execute_forecast_plan}
 @router.post("/plans/{policy_id}")
 def execute_plan(
     policy_id: str,
-    updated_plans: List[Mapping[str, Any]],
+    updated_plans: List[Mapping[str, Any]] = None,
 ):
     with Session(engine) as session:
         policy = get_policy(policy_id)["policy"]
