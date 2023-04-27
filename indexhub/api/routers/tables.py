@@ -107,16 +107,22 @@ def _get_forecast_table(
         .with_columns(
             (pl.col("score__uplift_pct__rolling_mean") / pl.col("goal") * 100).alias(
                 "progress"
-            ),
-            pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
-            .then(True)
-            .otherwise(False)
-            .alias("use_ai"),
-            pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
-            .then(True)
-            .otherwise(False)
-            .alias("use_benchmark"),
+            )
         )
+    )
+
+    # Set default `use_ai`, `use_benchmark`, and `use_override`
+    plans = stats.select(
+        entity_col,
+        pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
+        .then(True)
+        .otherwise(False)
+        .alias("use_ai"),
+        pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
+        .then(True)
+        .otherwise(False)
+        .alias("use_benchmark"),
+        pl.lit(False).alias("use_override"),
     )
 
     # Pivot quantiles
@@ -137,6 +143,7 @@ def _get_forecast_table(
             y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
         )
         .join(quantiles, on=idx_cols, how="left")
+        .join(plans, on=entity_col, how="left")
         .with_columns(
             [
                 pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
@@ -153,6 +160,9 @@ def _get_forecast_table(
                 "forecast",
                 "forecast_10",
                 "forecast_90",
+                "use_ai",
+                "use_benchmark",
+                "use_override",
                 "override",
             ]
         )
