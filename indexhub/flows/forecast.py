@@ -625,6 +625,14 @@ def flow():
                 inventory_path = get_source(sources["inventory"])["source"].output_path
             else:
                 inventory_path = None
+
+            holiday_regions = fields["holiday_regions"]
+            if holiday_regions is not None:
+                holiday_regions = [
+                    SUPPORTED_COUNTRIES[country]
+                    for country in fields["holiday_regions"]
+                ]
+
             # Spawn forecast flow for policy
             futures[policy.id] = run_forecast.spawn(
                 user_id=policy.user_id,
@@ -642,10 +650,7 @@ def flow():
                 freq=SUPPORTED_FREQ[fields["freq"]],
                 sp=FREQ_TO_SP[fields["freq"]],
                 n_splits=fields["n_splits"],
-                holiday_regions=[
-                    SUPPORTED_COUNTRIES[country]
-                    for country in fields["holiday_regions"]
-                ],
+                holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
                 agg_method=fields["agg_method"],
                 baseline_model=fields["baseline_model"],

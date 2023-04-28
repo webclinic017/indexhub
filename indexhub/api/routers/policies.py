@@ -49,6 +49,12 @@ def create_policy(params: CreatePolicyParams):
         policy_fields = json.loads(policy.fields)
         if policy.tag == "forecast_panel":
             flow = modal.Function.lookup("indexhub-forecast", "flow")
+            holiday_regions = policy_fields["holiday_regions"]
+            if holiday_regions is not None:
+                holiday_regions = [
+                    SUPPORTED_COUNTRIES[country]
+                    for country in policy_fields["holiday_regions"]
+                ]
             flow.call(
                 user_id=policy.user_id,
                 policy_id=policy.id,
@@ -64,10 +70,7 @@ def create_policy(params: CreatePolicyParams):
                 fh=int(policy_fields["fh"]),
                 freq=SUPPORTED_FREQ[policy_fields["freq"]],
                 n_splits=policy_fields["n_splits"],
-                holiday_regions=[
-                    SUPPORTED_COUNTRIES[country]
-                    for country in policy_fields["holiday_regions"]
-                ],
+                holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[policy_fields["error_type"]],
                 agg_method=policy_fields["agg_method"],
             )
