@@ -744,8 +744,8 @@ const PolicyForecast = () => {
                                           <Text color="muted">
                                             Policy Tracker
                                           </Text>
-                                          <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} color='indicator.main_green'>
-                                            <CircularProgressLabel fontSize="xs">{Math.round(entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0)}%</CircularProgressLabel>
+                                          <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0} color='indicator.main_green'>
+                                            <CircularProgressLabel fontSize="xs">{Math.floor(entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0)}%</CircularProgressLabel>
                                           </CircularProgress>
                                         </HStack>
                                         <VStack align="baseline">
