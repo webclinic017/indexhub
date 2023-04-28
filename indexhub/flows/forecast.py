@@ -316,10 +316,13 @@ def _merge_multilevels(X: pl.DataFrame) -> pl.DataFrame:
 
 
 @stub.function(
+    memory=5120,
+    cpu=4.0,
+    timeout=900,
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
-    ]
+    ],
 )
 def run_forecast(
     user_id: int,

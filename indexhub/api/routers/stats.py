@@ -163,10 +163,13 @@ def _get_forecast_results(
     results.append(stats_goal)
 
     # Progress
+    progress = round(rolling_mean_uplift_pct / goal * 100, 2)
+    if progress > 100:
+        progress = 100
     stats_progress = {
         "title": "Progress",
         "subtitle": "Average uplift % over goal",
-        "values": {"progress": round(rolling_mean_uplift_pct / goal * 100, 2)},
+        "values": {"progress": progress},
     }
     results.append(stats_progress)
 

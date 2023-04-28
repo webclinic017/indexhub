@@ -110,6 +110,13 @@ def _get_forecast_table(
                 "progress"
             )
         )
+        # Progress cap at 100
+        .with_columns(
+            pl.when(pl.col("progress") > 100)
+            .then(100)
+            .otherwise(pl.col("progress"))
+            .keep_name()
+        )
     )
 
     # Set default `use_ai`, `use_benchmark`, and `use_override`
@@ -228,7 +235,6 @@ def _get_forecast_table(
             )
         )
     )
-    print(f"table: {table.collect()}")
 
     # Filter by specific columns
     if filter_by:
