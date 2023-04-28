@@ -86,6 +86,9 @@ def _create_single_forecast_chart(
         )
         joined = joined.join(inventory_data, on=idx_cols, how="outer")
 
+    # Rename entity col
+    joined = joined.rename({entity_col: "entity"})
+
     # Filter by specific columns
     if filter_by:
         expr = [pl.col(col).is_in(values) for col, values in filter_by.items()]
