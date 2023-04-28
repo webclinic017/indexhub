@@ -174,6 +174,8 @@ def run_preprocess(
     else:
         status, msg = "SUCCESS", "OK"
     finally:
+        if status == "FAILED":
+            logger.error(msg)
         _update_source(
             source_id=source_id,
             updated_at=updated_at,

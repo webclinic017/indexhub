@@ -541,6 +541,8 @@ def run_forecast(
 
     finally:
         pl.toggle_string_cache(False)
+        if status == "FAILED":
+            logger.error(msg)
         _update_policy(
             policy_id=policy_id,
             updated_at=updated_at,
@@ -670,8 +672,7 @@ def test(user_id: str = "indexhub-demo"):
             "baseline": None,
             "inventory": 2,
         },
-        "error_type": "over-forecast",
-        "segmentation_factor": "volatility",
+        "error_type": "mae",
         "target_col": "trips_in_000s",
         "level_cols": ["state"],
         "min_lags": 6,
@@ -680,7 +681,6 @@ def test(user_id: str = "indexhub-demo"):
         "freq": "1mo",
         "n_splits": 3,
         "holiday_regions": ["AU"],
-        "objective": "mae",
         "agg_method": "sum",
         "baseline_model": "snaive",
     }
@@ -720,7 +720,7 @@ def test(user_id: str = "indexhub-demo"):
         holiday_regions=fields["holiday_regions"],
         objective=fields["error_type"],  # default is mae
         agg_method=fields["agg_method"],  # default is mean
-        baseline_mode=fields["baseline_model"],  # default is snaive
+        baseline_model=fields["baseline_model"],  # default is snaive
         product_col=fields.get("product_col", None),
         invoice_col=fields.get("invoice_col", None),
     )
