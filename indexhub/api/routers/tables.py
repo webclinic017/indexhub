@@ -50,6 +50,7 @@ def _get_forecast_table(
     forecast = read(object_path=outputs["forecasts"][best_model])
     quantiles = read(object_path=outputs["quantiles"][best_model])
     y_baseline = read(object_path=outputs["y_baseline"])
+    y = read(object_path=outputs["y"])
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
@@ -135,10 +136,25 @@ def _get_forecast_table(
         .lazy()
     )
 
-    # Create sparklines based on forecast panel
+    # Create sparklines
+    # Filter y to last 12 datetimes
+    y_last12 = (
+        y.with_columns(
+            [
+                pl.col(time_col).rank("ordinal").over(entity_col).alias("i"),
+                pl.col(target_col).cast(pl.Float64),
+            ]
+        )
+        .filter(pl.col("i") > pl.col("i").max() - 12)
+        .select(pl.all().exclude("i"))
+    )
+    # Join with forecast and groupby entity_col
+    groupby = pl.concat([y_last12, forecast]).groupby(entity_col)
+
     sparklines = {}
-    for entity, df in forecast:
-        y_data = df.get_column("trips_in_000s").to_list()
+    for entity, df in groupby:
+        # Cast to f64 for rounding
+        y_data = df.get_column(target_col).round(1).to_list()
         sparklines[entity] = _create_sparkline(y_data)
 
     # Concat forecasts
@@ -206,12 +222,13 @@ def _get_forecast_table(
         # Append sparklines to table
         .pipe(
             lambda df: df.with_columns(
-                df["entity"]
+                pl.col("entity")
                 .apply(lambda x: sparklines.get(x, "N/A"))
                 .alias("sparklines")
             )
         )
     )
+    print(f"table: {table.collect()}")
 
     # Filter by specific columns
     if filter_by:
