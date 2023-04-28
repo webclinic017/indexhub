@@ -484,7 +484,7 @@ def _create_segmentation_chart(
 
 def _create_sparkline(y_data: List[int]):
     # Define sparkline color based on first and last values
-    if y_data[0] >= y_data[-1]:
+    if y_data[0] <= y_data[-1]:
         color = "#44aa7e"  # green
     else:
         color = "#9e2b2b"  # red
