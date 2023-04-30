@@ -18,12 +18,15 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
     volumes:
-       - ./indexhub:/app/indexhub
+      - ./indexhub:/app/indexhub
     ports:
       - 8000:8000
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        FONTAWESOME_NPM_AUTH_TOKEN: ${FONTAWESOME_NPM_AUTH_TOKEN}
     container_name: frontend
     environment:
       REACT_APP_AUTH0_DOMAIN: ${REACT_APP_AUTH0_DOMAIN}
@@ -34,11 +37,12 @@ services:
       REACT_APP_INDEXHUB_API_DOMAIN: ${REACT_APP_INDEXHUB_API_DOMAIN}
       REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET: ${REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}
       REACT_APP_AUTH0_MGMT_API_AUDIENCE: ${REACT_APP_AUTH0_MGMT_API_AUDIENCE}
+      FONTAWESOME_NPM_AUTH_TOKEN: ${FONTAWESOME_NPM_AUTH_TOKEN}
     stdin_open: true
     tty: true
     volumes:
-       - ./frontend:/app
-       - /app/node_modules
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - fastapi
     ports:
