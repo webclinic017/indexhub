@@ -509,8 +509,8 @@ def _create_sparkline(y_data: List[int]):
         markpoint_opts=opts.MarkPointOpts(
             data=markpoint_data,
             symbol="circle",
-            symbol_size=15,
-            label_opts=opts.LabelOpts(position="outside", font_size=15),
+            symbol_size=7,
+            label_opts=opts.LabelOpts(position="outside", font_size=12),
         ),
     )
     # Remove legends, axis, tooltip

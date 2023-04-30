@@ -297,8 +297,6 @@ const PolicyForecast = () => {
         access_token_indexhub_api
       );
       policy["policy"]["fields"] = JSON.parse(policy["policy"]["fields"])
-      policy["policy"]["outputs"] = JSON.parse(policy["policy"]["outputs"])
-      policy["policy"]["sources"] = JSON.parse(policy["policy"]["sources"])
       setPolicy(policy["policy"]);
     };
 
@@ -699,70 +697,75 @@ const PolicyForecast = () => {
                                 </Button>
                               </VStack>
 
-                              <HStack width="80%">
-                                <HStack width="70%" alignItems="stretch">
-                                  <Box
-                                    px={{ base: '4', md: '6' }}
-                                    py={{ base: '5', md: '6' }}
-                                    bg="bg-surface"
-                                    borderRadius="lg"
-                                    boxShadow="sm"
-                                    width="50%"
-                                  >
-                                    <Stack>
-                                      <HStack justify="space-between">
-                                        <Text color="muted">
-                                          AI Forecast (Next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]})
-                                        </Text>
-                                      </HStack>
-                                      <HStack justify="space-between">
-                                        <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["current_window__sum"]}</Text>
-                                        <Badge variant="subtle" colorScheme={entity_data["stats"]["pct_change"] > 0 ? "green" : "red"}>
-                                          <HStack spacing="1">
-                                            <FontAwesomeIcon
-                                              color={entity_data["stats"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}
-                                              icon={entity_data["stats"]["pct_change"] > 0 ? faArrowTrendUp : faArrowTrendDown}
-                                            />
-                                            <Text>{entity_data["stats"]["pct_change"]}</Text>
-                                          </HStack>
-                                        </Badge>
-                                      </HStack>
-                                      <Text fontSize="sm">Predicted to {entity_data["stats"]["pct_change"] > 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__sum"]}</b> over the next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]}</Text>
-                                    </Stack>
-                                  </Box>
-                                  <Stack
-                                    bg="bg-surface"
-                                    borderRadius="lg"
-                                    boxShadow="sm"
-                                    width="50%"
-                                    direction="column"
-                                    justifyContent="space-between"
-                                  >
-                                    <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
-                                      <Stack>
-                                        <HStack justify="space-between" alignItems="flex-start">
-                                          <Text color="muted">
-                                            Policy Tracker
-                                          </Text>
-                                          <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0} color='indicator.main_green'>
-                                            <CircularProgressLabel fontSize="xs">{Math.floor(entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0)}%</CircularProgressLabel>
-                                          </CircularProgress>
+                              <HStack width="80%" alignItems="stretch">
+
+                                <Box
+                                  px={{ base: '4', md: '6' }}
+                                  py={{ base: '5', md: '6' }}
+                                  bg="bg-surface"
+                                  borderRadius="lg"
+                                  boxShadow="sm"
+                                  width={`${100 / 3}%`}
+                                >
+                                  <Stack>
+                                    <HStack justify="space-between">
+                                      <Text color="muted">
+                                        AI Forecast (Next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]})
+                                      </Text>
+                                    </HStack>
+                                    <HStack justify="space-between">
+                                      <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["current_window__sum"]}</Text>
+                                      <Badge variant="subtle" colorScheme={entity_data["stats"]["pct_change"] > 0 ? "green" : "red"}>
+                                        <HStack spacing="1">
+                                          <FontAwesomeIcon
+                                            color={entity_data["stats"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}
+                                            icon={entity_data["stats"]["pct_change"] > 0 ? faArrowTrendUp : faArrowTrendDown}
+                                          />
+                                          <Text>{entity_data["stats"]["pct_change"]}</Text>
                                         </HStack>
-                                        <VStack align="baseline">
-                                          {/* <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} %</Text> */}
-                                          {/* <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} color='indicator.main_green'>
+                                      </Badge>
+                                    </HStack>
+                                    <Text fontSize="sm">Predicted to {entity_data["stats"]["pct_change"] > 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__sum"]}</b> over the next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]}</Text>
+                                  </Stack>
+                                </Box>
+                                <Stack
+                                  bg="bg-surface"
+                                  borderRadius="lg"
+                                  boxShadow="sm"
+                                  width={`${100 / 3}%`}
+                                  direction="column"
+                                  justifyContent="space-between"
+                                >
+                                  <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
+                                    <Stack>
+                                      <HStack justify="space-between" alignItems="flex-start">
+                                        <Text color="muted">
+                                          Policy Tracker
+                                        </Text>
+                                        <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0} color='indicator.main_green'>
+                                          <CircularProgressLabel fontSize="xs">{Math.floor(entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0)}%</CircularProgressLabel>
+                                        </CircularProgress>
+                                      </HStack>
+                                      <VStack align="baseline">
+                                        {/* <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} %</Text> */}
+                                        {/* <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} color='indicator.main_green'>
                                             <CircularProgressLabel fontSize="small">{entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0}%</CircularProgressLabel>
                                           </CircularProgress> */}
-                                          <Text fontSize="sm">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[policy["fields"]["freq"]]} months</Text>
-                                        </VStack>
-                                      </Stack>
-                                    </Box>
-                                    {/* <Progress value={entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} size="xs" borderRadius="none" bg="bg-surface" /> */}
-                                  </Stack>
-                                </HStack>
-                                <HStack width="30%" justify="center">
-
-                                </HStack>
+                                        <Text fontSize="sm">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[policy["fields"]["freq"]]} months</Text>
+                                      </VStack>
+                                    </Stack>
+                                  </Box>
+                                  {/* <Progress value={entity_data["stats"]["score__uplift_pct__rolling_mean"] > 0 ? entity_data["stats"]["score__uplift_pct__rolling_mean"] : 0} size="xs" borderRadius="none" bg="bg-surface" /> */}
+                                </Stack>
+                                <Stack width={`${100 / 3}%`} justify="center">
+                                  <ReactEcharts
+                                    option={JSON.parse(entity_data["sparklines"])}
+                                    style={{
+                                      height: "100%",
+                                      width: "100%",
+                                    }}
+                                  />
+                                </Stack>
                               </HStack>
                             </HStack>
                             <AccordionIcon />
