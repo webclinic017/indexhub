@@ -66,7 +66,7 @@ def _get_forecast_results(
     target_to_date = statistics.get_column(target_col).sum()
     stats_target_to_date = {
         "title": f"{target_col} to date",
-        "subtitle": f"Last {fh} {freq}",
+        "subtitle": f"Over the last {fh} {freq}",
         "values": {"sum": round(target_to_date, 2)},
     }
     results.append(stats_target_to_date)
@@ -77,8 +77,8 @@ def _get_forecast_results(
     forecast_pct_change = (forecast_change / target_to_date) * 100
 
     stats_forecast = {
-        "title": "AI Predicted (Forecast)",
-        "subtitle": f"Next {fh} {freq}",
+        "title": f"AI Forecast of {target_col}",
+        "subtitle": f"Over next {fh} {freq}",
         "values": {
             "sum": round(forecast_value, 2),
             "diff": round(forecast_change, 2),
@@ -106,7 +106,7 @@ def _get_forecast_results(
 
     stats_uplift = {
         "title": "AI Uplift",
-        "subtitle": f"Backtest results over the last {backtest_period} {freq}",
+        "subtitle": f"Backtest results over past {backtest_period} {freq}",
         "values": {"sum": round(uplift_value, 2), "mean_pct": round(uplift_pct, 2)},
     }
     results.append(stats_uplift)
@@ -148,7 +148,7 @@ def _get_forecast_results(
     n_entities = rolling_uplift_grouped.get_column(entity_col).n_unique()
     stats_improvement_count = {
         "title": "AI Improvements",
-        "subtitle": "Number of entities with improvements",
+        "subtitle": "Number of entities with improvements using AI",
         "values": {"n_improvement": n_improvement, "n_entities": n_entities},
     }
     results.append(stats_improvement_count)
@@ -168,7 +168,7 @@ def _get_forecast_results(
         progress = 100
     stats_progress = {
         "title": "Progress",
-        "subtitle": "Average uplift % over goal",
+        "subtitle": "Average uplift % towards goal",
         "values": {"progress": progress},
     }
     results.append(stats_progress)
