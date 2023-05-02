@@ -72,7 +72,7 @@ export default function Layout() {
       <Grid
         templateAreas={`"nav header"
                         "nav main"`}
-        gridTemplateRows={"100px 1fr"}
+        gridTemplateRows={"70px 1fr"}
         gridTemplateColumns={"278.22px 1fr"}
         h="100vh"
       >
@@ -158,7 +158,7 @@ export default function Layout() {
         >
           <Sidebar />
         </GridItem>
-        <GridItem pl="2" bg="body.background" area={"main"} overflowY="scroll">
+        <GridItem px="3" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet />
         </GridItem>
       </Grid>

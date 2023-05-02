@@ -38,12 +38,12 @@ const PolicyType = (props: {
                     {/* <Box p="6">{logos[source_type]}</Box> */}
                     <Box p="4">
                       <Text textAlign="center" fontWeight="bold">
-                        {capitalizeFirstLetter(policy_type)}
+                        {capitalizeFirstLetter(policy_type).replaceAll("_", " ")}
                       </Text>
                     </Box>
                     <Box p="1" width="100%" borderBottomRadius="lg">
                       <Text textAlign="center" fontSize="small">
-                        {props.policies_schema[policy_type]["subtitle"]}
+                        {props.policies_schema[policy_type]["description"]}
                       </Text>
                     </Box>
                   </VStack>
