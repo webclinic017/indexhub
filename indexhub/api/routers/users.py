@@ -1,5 +1,7 @@
+import boto3
+import json
 from datetime import datetime
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Union, List
 
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, Response, status
@@ -160,3 +162,32 @@ def add_storage_credentials(params: CreateStorageCreds, user_id: str):
 @router.get("/users/schema/storage")
 def list_storage_schemas():
     return STORAGE_SCHEMAS
+
+
+class UserContextParams(BaseModel):
+    user_id: str
+    persona: Mapping[str, Union[str, List[str]]]
+    company: Mapping[str, Union[str, List[str]]]
+
+# FOR DEMO PURPOSE ONLY
+@router.post("/users/context")
+def store_user_context(params: UserContextParams):
+
+    # Set up the S3 client
+    s3 = boto3.client('s3')
+
+    # Define the S3 bucket and JSON file names
+    bucket_name = 'indexhub-demo'
+    json_file_name = f'users-context/{params.user_id}.json'
+
+    # Define the JSON data to be stored
+    json_data = {
+        "persona": params.persona,
+        "company": params.company
+    }
+    # Serialize the JSON data
+    serialized_data = json.dumps(json_data)
+
+    # Store the serialized JSON data in the S3 bucket
+    s3.put_object(Bucket=bucket_name, Key=json_file_name, Body=serialized_data)
+    return {"msg": "OK"}

@@ -18,6 +18,7 @@ import { getSegmentationChart, getTrendChart } from "../../../utilities/backend_
 import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { faCircleInfo, faFileChartColumn, faFileExport, faMicrochipAi, faPenToSquare, faWrench } from "@fortawesome/pro-light-svg-icons";
 import Toast from "../../../components/toast";
+import AiAnalysisModal from "./_includes/ai_analysis_modal";
 
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
@@ -364,13 +365,7 @@ const PolicyForecast = () => {
     }
   }, [segmentationFactor, access_token_indexhub_api, policy_id])
 
-  useEffect(() => {
-    console.log(mainStats)
-  }, [mainStats])
 
-  useEffect(() => {
-    console.log(policy)
-  }, [policy])
 
   if (policy) {
     return (
@@ -801,58 +796,14 @@ const PolicyForecast = () => {
 
         </VStack>
 
-        {/* Modal for trends */}
-        <Modal isOpen={isOpenTrendModal} onClose={onCloseTrendModal} size="6xl">
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>
-            </ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <Stack>
-                <HStack>
-                  {Object.keys(chartFilter).map((filter_key, idx) => {
-                    return (
-                      <Box
-                        key={idx}
-                        px={{ base: '4', md: '6' }}
-                        py={{ base: '5', md: '6' }}
-                        bg="lists.bg_grey"
-                        borderRadius="lg"
-                        boxShadow="lg"
-                        minWidth="15rem"
-                      >
-                        <Stack>
-                          <Text fontSize="sm" color="muted">
-                            {filter_key}
-                          </Text>
-                          <Heading size={{ base: 'sm', md: 'md' }}>{chartFilter[filter_key]}</Heading>
-                        </Stack>
-                      </Box>
-                    )
-                  })}
-                </HStack>
-                <Box my="1.5rem !important" width="100%" height="27rem">
-                  {entityTrendChart ? (
-                    <ReactEcharts
-                      option={entityTrendChart}
-                      style={{
-                        height: "27rem",
-                        width: "100%",
-                      }}
-                    />
-                  ) : (
-                    <Stack alignItems="center" justifyContent="center" height="full">
-                      <Spinner />
-                      <Text>Loading...</Text>
-                    </Stack>
-                  )}
-
-                </Box>
-              </Stack>
-            </ModalBody>
-          </ModalContent>
-        </Modal>
+        <AiAnalysisModal
+          cutoff={AIRecommendationTable ? AIRecommendationTable["results"][expandedEntityIndex]["tables"] : ""}
+          policy={policy}
+          isOpenTrendModal={isOpenTrendModal}
+          onCloseTrendModal={onCloseTrendModal}
+          chartFilter={chartFilter}
+          entityTrendChart={entityTrendChart}
+        />
 
         {/* Modal for manual overrides */}
         <Modal isOpen={isOpenManualOverrideModal} onClose={onCloseManualOverrideModal}>

@@ -16,6 +16,7 @@ import {
     PopoverContent,
     PopoverHeader,
     PopoverTrigger,
+    Progress,
     Stack,
     Text
 } from '@chakra-ui/react'
@@ -98,7 +99,7 @@ export const Sidebar = () => {
                             <NavButton label="Help" icon={faBell} />
                             <NavButton label="Settings" icon={faBell} />
                         </Stack> */}
-                        {/* <Box bg="bg-subtle" px="4" py="5" borderRadius="lg">
+                        <Box bg="bg-subtle" px="4" py="5" borderRadius="lg">
                             <Stack spacing="4">
                                 <Stack spacing="1">
                                     <Text fontSize="sm" fontWeight="medium">
@@ -118,7 +119,7 @@ export const Sidebar = () => {
                                     </Button>
                                 </HStack>
                             </Stack>
-                        </Box> */}
+                        </Box>
                         <Divider />
                         <Menu matchWidth>
                             <MenuButton cursor="pointer" borderRadius="5">
