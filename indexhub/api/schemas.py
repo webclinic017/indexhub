@@ -145,6 +145,11 @@ SUPPORTED_FREQ = {
     "Monthly": "1mo",
 }
 
+SUPPORTED_DIRECTION = {
+    "Maximize": "max",
+    "Minimize": "min",
+}
+
 STORAGE_SCHEMAS = {
     "s3": {
         "AWS_ACCESS_KEY_ID": {
@@ -311,58 +316,62 @@ def SOURCES_SCHEMA(sources: List[Source]):
 
 def FIELDS_SCHEMA(sources: List[Source]):
     return {
-            "error_type": {
-                "title": "Forecast Error Type",
-                "subtitle": "Which type of forecast error do you want to reduce?",
-                "values": list(SUPPORTED_ERROR_TYPE.keys()),
-            },
-            "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
-            "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
-            "min_lags": {
-                "title": "What is the minimum number lagged variables?",
-                "subtitle": "`min_lags` must be less than `max_lags`.",
-                "values": list(range(12, 25)),
-                "default": 12,
-            },
-            "max_lags": {
-                "title": "What is the maximum number of lagged variables?",
-                "subtitle": "`max_lags` must be greater than `min_lags`.",
-                "values": list(range(24, 49)),
-                "default": 24,
-            },
-            "fh": {
-                "title": "Forecast Horizon",
-                "subtitle": "How many periods into the future do you want to predict?",
-                "values": list(range(1, 30)),
-            },
-            "freq": {
-                "title": "Frequency",
-                "subtitle": "How often do you want to generate new predictions?",
-                "values": list(SUPPORTED_FREQ.keys()),
-            },
-            "holiday_regions": {
-                "title": "Holiday Regions",
-                "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
-                "values": list(SUPPORTED_COUNTRIES.keys()),
-            },
-            "baseline_model": {
-                "title": "Baseline Model",
-                "subtitle": "Which model do you want to use to train the baseline forecasts?",
-                "values": list(SUPPORTED_BASELINE_MODELS.keys()),
-            },
-            "agg_method": {
-                "title": "Aggregation Method",
-                "subtitle": "How do you want to aggregate the target after group by levels?",
-                "values": ["sum", "mean", "median"],
-            },
-        }
-    
+        "direction": {
+            "title": "Forecast Direction",
+            "subtitle": "What should the forecasting model focus on?",
+            "values": list(SUPPORTED_DIRECTION.keys()),
+        },
+        "error_type": {
+            "title": "Forecast Error Type",
+            "subtitle": "Which type of forecast error do you want to reduce?",
+            "values": list(SUPPORTED_ERROR_TYPE.keys()),
+        },
+        "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
+        "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
+        "min_lags": {
+            "title": "What is the minimum number lagged variables?",
+            "subtitle": "`min_lags` must be less than `max_lags`.",
+            "values": list(range(12, 25)),
+            "default": 12,
+        },
+        "max_lags": {
+            "title": "What is the maximum number of lagged variables?",
+            "subtitle": "`max_lags` must be greater than `min_lags`.",
+            "values": list(range(24, 49)),
+            "default": 24,
+        },
+        "fh": {
+            "title": "Forecast Horizon",
+            "subtitle": "How many periods into the future do you want to predict?",
+            "values": list(range(1, 30)),
+        },
+        "freq": {
+            "title": "Frequency",
+            "subtitle": "How often do you want to generate new predictions?",
+            "values": list(SUPPORTED_FREQ.keys()),
+        },
+        "holiday_regions": {
+            "title": "Holiday Regions",
+            "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
+            "values": list(SUPPORTED_COUNTRIES.keys()),
+        },
+        "baseline_model": {
+            "title": "Baseline Model",
+            "subtitle": "Which model do you want to use to train the baseline forecasts?",
+            "values": list(SUPPORTED_BASELINE_MODELS.keys()),
+        },
+        "agg_method": {
+            "title": "Aggregation Method",
+            "subtitle": "How do you want to aggregate the target after group by levels?",
+            "values": ["sum", "mean", "median"],
+        },
+    }
 
 
 def POLICY_SCHEMAS(sources: List[Source]):
     schemas = {
         "forecast_panel": {
-            "objective": "Reduce {target_col} {error_type} for {level_cols}.",
+            "objective": "{direction} {target_col} {error_type} for {level_cols}.",
             "description": "Choose this policy if you have panel data (i.e. time-series data across multiple entities).",
             "sources": SOURCES_SCHEMA(sources),
             "fields": {
@@ -376,7 +385,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
         },
         "forecast_transaction": {
-            "objective": "Reduce {target_col} {error_type} for {level_cols}.",
+            "objective": "{direction} {target_col} {error_type} for {level_cols}.",
             "description": "Choose this policy if you have transactions data (e.g. point-of-sales).",
             "sources": {
                 **SOURCES_SCHEMA(sources),
@@ -391,8 +400,12 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
             "fields": {
                 **FIELDS_SCHEMA(sources),
-                "invoice_col": INVOICE_COL_SCHEMA(sources=sources, depends_on="transaction"),
-                "product_col": PRODUCT_COL_SCHEMA(sources=sources, depends_on="transaction"),
+                "invoice_col": INVOICE_COL_SCHEMA(
+                    sources=sources, depends_on="transaction"
+                ),
+                "product_col": PRODUCT_COL_SCHEMA(
+                    sources=sources, depends_on="transaction"
+                ),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",

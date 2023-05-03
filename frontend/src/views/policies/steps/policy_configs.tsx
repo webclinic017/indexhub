@@ -59,6 +59,12 @@ const PolicyConfigs = (props: {
       ];
     internal_description = internal_description
       .replace(
+        "{direction}",
+        internal_policy_configs["direction"]
+          ? internal_policy_configs["direction"]
+          : "{direction}"
+      )
+      .replace(
         "{target_col}",
         internal_policy_configs["target_col"]
           ? internal_policy_configs["target_col"]
