@@ -4,6 +4,9 @@ services:
     build:
       context: ./
       dockerfile: ./indexhub/Dockerfile
+      args:
+        MODAL_TOKEN_ID: ${MODAL_TOKEN_ID}
+        MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET}
     container_name: fastapi
     environment:
       DEBUG: true
