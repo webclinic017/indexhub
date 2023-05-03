@@ -42,6 +42,7 @@ def _create_single_forecast_chart(
         lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
     )
     actual = read(object_path=outputs["y"])
+    y_baseline = read(object_path=outputs["y_baseline"])
     quantiles = read(object_path=outputs["quantiles"][best_model])
     quantiles_lower = quantiles.filter(pl.col("quantile") == quantile_lower).drop(
         "quantile"
@@ -62,6 +63,11 @@ def _create_single_forecast_chart(
     )
     joined = (
         actual.rename({target_col: "actual"})
+        .join(
+            y_baseline.rename({target_col: "baseline"}),
+            on=idx_cols,
+            how="outer",
+        )
         .join(indexhub, on=idx_cols, how="outer")
         # Join quantiles
         .join(
@@ -117,7 +123,7 @@ def _create_single_forecast_chart(
     )
 
     # Set color scheme based on guidelines
-    colors = ["#0a0a0a", "#194fdc", "#44aa7e"]
+    colors = ["#0a0a0a", "#194fdc", "#44aa7e", "#b56321"]
 
     # Generate the chart options
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
@@ -128,6 +134,12 @@ def _create_single_forecast_chart(
     )
     line_chart.add_yaxis(
         "Indexhub", chart_data["indexhub"].to_list(), color=colors[1], symbol=None
+    )
+    line_chart.add_yaxis(
+        "Baseline",
+        chart_data["baseline"].to_list(),
+        color=colors[3],
+        symbol=None,
     )
     line_chart.add_yaxis(
         "",
@@ -151,7 +163,11 @@ def _create_single_forecast_chart(
     line_chart.set_series_opts(
         label_opts=opts.LabelOpts(is_show=False)
     ).set_global_opts(
-        legend_opts=opts.LegendOpts(orient="right", align="right", pos_right=100),
+        legend_opts=opts.LegendOpts(
+            orient="horizontal",
+            align="right",
+            pos_right=100,
+        ),
         xaxis_opts=opts.AxisOpts(
             type_=time_col,
             splitline_opts=opts.SplitLineOpts(is_show=False),
