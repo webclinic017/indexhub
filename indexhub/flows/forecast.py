@@ -396,6 +396,7 @@ def run_forecast(
         cluster_emb_flow = modal.Function.lookup(
             "functime-embeddings", "cluster_emb_flow"
         )
+        embeddings_paths = {}
         if product_col:
             embeddings = product_emb_flow.call(
                 y_panel,
@@ -403,14 +404,22 @@ def run_forecast(
                 invoice_col,
                 target_col,
                 s3_bucket=bucket_name,
-                s3_key=f"embeddings/{policy_id}/products/",
+                s3_key=f"embeddings/{policy_id}/product/",
             )
+            for name in embeddings.key():
+                embeddings_paths[
+                    name
+                ] = f"embeddings/{policy_id}/product/embeddings_{name}.lance"
+
             cluster_emb_flow.call(
-                embeddings["2D"],
+                embeddings["3D"],
                 product_col,
                 s3_bucket=bucket_name,
                 s3_key=f"embeddings/{policy_id}/cluster/",
             )
+            embeddings_paths[
+                "cluster"
+            ] = f"embeddings/{policy_id}/cluster/embeddings_clusters.lance/"
         else:
             emb_panel = (
                 y_panel.groupby([*level_cols, time_col])
@@ -424,6 +433,7 @@ def run_forecast(
                 s3_bucket=bucket_name,
                 s3_key=f"embeddings/{policy_id}/ts/",
             )
+            embeddings_paths["ts"] = f"embeddings/{policy_id}/ts/embeddings.lance/"
 
         # 6. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
@@ -441,6 +451,9 @@ def run_forecast(
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
+
+        # Write embeddings paths to outputs
+        outputs["embeddings"] = embeddings_paths
 
         write(y, object_path=make_path(prefix="y"))
 

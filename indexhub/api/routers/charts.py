@@ -10,6 +10,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
 from indexhub.api.services.chart_builders import (
+    _create_3d_cluster_chart,
     _create_multi_forecast_chart,
     _create_segmentation_chart,
     _create_single_forecast_chart,
@@ -23,6 +24,7 @@ POLICY_TAG_TO_BUILDERS = {
         "single_forecast": _create_single_forecast_chart,
         "multi_forecast": _create_multi_forecast_chart,
         "segment": _create_segmentation_chart,
+        "3d_cluster": _create_3d_cluster_chart,
     }
 }
 
