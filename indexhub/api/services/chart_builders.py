@@ -182,11 +182,29 @@ def _create_single_forecast_chart(
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axislabel_opts=opts.LabelOpts(is_show=False),
         ),
-        datazoom_opts=opts.DataZoomOpts(
-            type_="slider",  # Set datazoom type to slider
-            range_start=initial_range,  # Set initial range to start from last 12months
-            range_end=100,
+        toolbox_opts=opts.ToolboxOpts(
+            is_show=True,
+            orient="horizontal",
+            pos_left="100",
+            feature={
+                "dataZoom": {
+                    "yAxisIndex": "none"
+                },  # Enable data zoom with no y-axis filtering
+            },
         ),
+        datazoom_opts=[
+            opts.DataZoomOpts(
+                type_="slider",  # Set datazoom type to slider
+                range_start=initial_range,  # Set initial range to start from last 12months
+                range_end=100,
+            ),
+            opts.DataZoomOpts(
+                type_="inside",  # Allow movement of x-axis inside the chart area
+                filter_mode="empty",
+                range_start=0,
+                range_end=50,
+            ),
+        ],
     )
 
     # Export chart options to JSON
