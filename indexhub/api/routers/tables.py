@@ -80,14 +80,12 @@ def _get_forecast_table(
         # Read last_window__{agg_method} from statistics
         read(object_path=outputs["statistics"][f"last_window__{agg_method}"])
         .lazy()
-        .pipe(lambda df: df.rename({df.columns[-1]: f"last_window__{agg_method}"}))
+        .pipe(lambda df: df.rename({df.columns[-1]: "last_window__stat"}))
         # Read current_window__{agg_method} from statistics
         .join(
             read(object_path=outputs["statistics"][f"current_window__{agg_method}"])
             .lazy()
-            .pipe(
-                lambda df: df.rename({df.columns[-1]: f"current_window__{agg_method}"})
-            ),
+            .pipe(lambda df: df.rename({df.columns[-1]: "current_window__stat"})),
             on=entity_col,
         )
         # Read predicted_growth_rate from statistics
@@ -104,13 +102,15 @@ def _get_forecast_table(
         # Select last_window__sum, current_window__sum, diff, pct_change as stats
         .select(
             entity_col,
-            pl.col(f"last_window__{agg_method}"),
-            pl.col(f"current_window__{agg_method}"),
-            (
-                pl.col(f"current_window__{agg_method}")
-                - pl.col(f"last_window__{agg_method}")
-            ).alias("diff"),
-            pl.col("pct_change"),
+            pl.col("last_window__stat"),
+            pl.col("current_window__stat"),
+            (pl.col("current_window__stat") - pl.col("last_window__stat")).alias(
+                "diff"
+            ),
+            pl.when(pl.col("pct_change").is_infinite())
+            .then(0)
+            .otherwise(pl.col("pct_change"))
+            .keep_name(),
             pl.lit(fields["goal"]).alias("goal"),
         )
         # Join with rolling uplift

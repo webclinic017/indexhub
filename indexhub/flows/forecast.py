@@ -309,7 +309,7 @@ def _merge_multilevels(X: pl.DataFrame) -> pl.DataFrame:
     X_new = (
         # Combine subset of entity columns
         X.lazy()
-        .with_columns(pl.concat_str(level_cols, separator="__").alias(entity_col))
+        .with_columns(pl.concat_str(level_cols, separator=" - ").alias(entity_col))
         # Select and sort columns
         .select([entity_col, time_col, target_col])
         .sort([entity_col, time_col])
