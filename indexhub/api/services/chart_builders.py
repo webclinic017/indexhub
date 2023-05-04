@@ -144,6 +144,7 @@ def _create_single_forecast_chart(
         color="lightblue",
         symbol=None,
         is_symbol_show=False,
+        areastyle_opts=opts.AreaStyleOpts(opacity=0.2, color="grey")
     )
     line_chart.add_yaxis(
         "",
@@ -151,6 +152,7 @@ def _create_single_forecast_chart(
         color="lightblue",
         symbol=None,
         is_symbol_show=False,
+        areastyle_opts=opts.AreaStyleOpts(opacity=1, color="white")
     )
     if inventory_path:
         line_chart.add_yaxis(

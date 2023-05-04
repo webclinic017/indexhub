@@ -104,7 +104,7 @@ const AiAnalysisModal = (props: {
                                 )
                             })}
                         </HStack>
-                        <Tabs mt="1.5rem" position="relative" variant="unstyled" isLazy lazyBehavior="keepMounted" onChange={(index: number) => console.log(index)}>
+                        <Tabs mt="1.5rem" position="relative" variant="unstyled" isLazy lazyBehavior="keepMounted">
                             <TabList>
                                 <Tab px={10} fontWeight="bold">Descriptive Analysis</Tab>
                                 <Tab px={10} fontWeight="bold">Report</Tab>

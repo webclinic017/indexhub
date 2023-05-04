@@ -5,6 +5,7 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Grid,
   HStack,
   Input,
   Stack,
@@ -67,7 +68,7 @@ const PolicyConfigs = (props: {
       .replace(
         "{target_col}",
         internal_policy_configs["target_col"]
-          ? internal_policy_configs["target_col"]
+          ? internal_policy_configs["target_col"].replaceAll("_", " ")
           : "{target_col}"
       )
       .replace(
@@ -99,8 +100,11 @@ const PolicyConfigs = (props: {
         px={{ base: "4", md: "6" }}
         py={{ base: "5", md: "6" }}
       >
-        <HStack>
-          <VStack width="45%">
+        <VStack>
+          <VStack pb="2rem">
+            <Text>{description}</Text>
+          </VStack>
+          <Grid templateColumns="auto auto" gap={6} maxH="20rem" overflowY="scroll">
             <FormControl isRequired>
               <FormLabel>Policy name</FormLabel>
               <Input
@@ -156,11 +160,8 @@ const PolicyConfigs = (props: {
                 );
               }
             )}
-          </VStack>
-          <VStack pl={{ base: "4", md: "6" }}>
-            <Text>{description}</Text>
-          </VStack>
-        </HStack>
+          </Grid>
+        </VStack>
       </Stack>
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>
