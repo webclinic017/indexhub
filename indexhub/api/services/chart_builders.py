@@ -157,6 +157,12 @@ def _create_single_forecast_chart(
             "Inventory", chart_data["inventory"].to_list(), color=colors[2], symbol=None
         )
 
+    # Get the range of the x-axis
+    x_data = sorted(chart_data[time_col].to_list())
+    initial_range = ((len(x_data) - 12) / len(x_data)) * 100
+    if len(x_data) <= 12:
+        initial_range = 0
+
     line_chart.set_series_opts(
         label_opts=opts.LabelOpts(is_show=False)
     ).set_global_opts(
@@ -173,6 +179,11 @@ def _create_single_forecast_chart(
         yaxis_opts=opts.AxisOpts(
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axislabel_opts=opts.LabelOpts(is_show=False),
+        ),
+        datazoom_opts=opts.DataZoomOpts(
+            type_="slider",  # Set datazoom type to slider
+            range_start=initial_range,  # Set initial range to start from last 12months
+            range_end=100,
         ),
     )
 
