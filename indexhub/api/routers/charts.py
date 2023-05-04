@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import List, Mapping, Union
+from typing import List, Mapping
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -41,7 +41,6 @@ class AggregationMethod(str, Enum):
 class TrendChartParams(BaseModel):
     filter_by: Mapping[str, List[str]] = None
     agg_by: str = None
-    agg_method: AggregationMethod = AggregationMethod.sum
 
 
 class SegmentationFactor(str, Enum):
@@ -66,9 +65,7 @@ POLICY_TAG_TO_PARAMS = {
 
 
 @router.post("/charts/{policy_id}/{chart_tag}")
-async def get_chart(
-    policy_id: str, chart_tag: ChartTag, request: Request
-):
+async def get_chart(policy_id: str, chart_tag: ChartTag, request: Request):
     with Session(engine) as session:
         # Get the metadata on tag to define which chart to return
         policy = get_policy(policy_id)["policy"]

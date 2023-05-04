@@ -6,6 +6,7 @@ from pyecharts import options as opts
 from pyecharts.charts import Grid, Line, Scatter
 
 from indexhub.api.models.user import User
+from indexhub.api.routers.stats import AGG_METHODS
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
@@ -18,7 +19,6 @@ def _create_single_forecast_chart(
     policy_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
-    agg_method: Literal["sum", "mean"] = "sum",
     quantile_lower: int = 10,
     quantile_upper: int = 90,
 ):
@@ -53,6 +53,7 @@ def _create_single_forecast_chart(
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
+    agg_method = fields["agg_method"]
 
     # Postproc - join data together
     indexhub = pl.concat(
@@ -103,12 +104,8 @@ def _create_single_forecast_chart(
         joined = joined.filter(filter_expr)
 
     # Get expression for agg by
-    mapping = {
-        "sum": pl.sum,
-        "mean": pl.mean,
-    }
     agg_exprs = [
-        mapping[agg_method](col)
+        AGG_METHODS[agg_method](col)
         for col in joined.select(
             [pl.col(pl.Int64), pl.col(pl.Float64), pl.col(pl.Float32)]
         ).columns
@@ -435,7 +432,12 @@ def _create_segmentation_chart(
             scores.lazy().select([entity_col, "crps"]).rename({"crps": "seg_factor"})
         )
     else:
-        stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
+        if segmentation_factor == "predicted_growth_rate":
+            stat_key = SEGMENTATION_FACTOR_TO_KEY[
+                f"{segmentation_factor}__{fields['agg_method']}"
+            ]
+        else:
+            stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
         seg_factor_stat = (
             read(object_path=outputs["statistics"][stat_key])
             .lazy()

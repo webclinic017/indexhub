@@ -52,6 +52,7 @@ def _get_forecast_table(
     y_baseline = read(object_path=outputs["y_baseline"])
     y = read(object_path=outputs["y"])
 
+    agg_method = fields["agg_method"]
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
 
@@ -65,8 +66,8 @@ def _get_forecast_table(
         .tail(1)
         .select(
             entity_col,
-            pl.col(f"{metric}__uplift__rolling_sum").alias(
-                "score__uplift__rolling_sum"
+            pl.col(f"{metric}__uplift__rolling_{agg_method}").alias(
+                f"score__uplift__rolling_{agg_method}"
             ),
             (pl.col(f"{metric}__uplift_pct__rolling_mean").fill_nan(None) * 100).alias(
                 "score__uplift_pct__rolling_mean"
@@ -76,20 +77,26 @@ def _get_forecast_table(
 
     # Create stats
     stats = (
-        # Read last_window__sum from statistics
-        read(object_path=outputs["statistics"]["last_window__sum"])
+        # Read last_window__{agg_method} from statistics
+        read(object_path=outputs["statistics"][f"last_window__{agg_method}"])
         .lazy()
-        .pipe(lambda df: df.rename({df.columns[-1]: "last_window__sum"}))
-        # Read current_window__sum from statistics
+        .pipe(lambda df: df.rename({df.columns[-1]: f"last_window__{agg_method}"}))
+        # Read current_window__{agg_method} from statistics
         .join(
-            read(object_path=outputs["statistics"]["current_window__sum"])
+            read(object_path=outputs["statistics"][f"current_window__{agg_method}"])
             .lazy()
-            .pipe(lambda df: df.rename({df.columns[-1]: "current_window__sum"})),
+            .pipe(
+                lambda df: df.rename({df.columns[-1]: f"current_window__{agg_method}"})
+            ),
             on=entity_col,
         )
         # Read predicted_growth_rate from statistics
         .join(
-            read(object_path=outputs["statistics"]["predicted_growth_rate"])
+            read(
+                object_path=outputs["statistics"][
+                    f"predicted_growth_rate__{agg_method}"
+                ]
+            )
             .lazy()
             .pipe(lambda df: df.rename({df.columns[-1]: "pct_change"})),
             on=entity_col,
@@ -97,9 +104,12 @@ def _get_forecast_table(
         # Select last_window__sum, current_window__sum, diff, pct_change as stats
         .select(
             entity_col,
-            pl.col("last_window__sum"),
-            pl.col("current_window__sum"),
-            (pl.col("current_window__sum") - pl.col("last_window__sum")).alias("diff"),
+            pl.col(f"last_window__{agg_method}"),
+            pl.col(f"current_window__{agg_method}"),
+            (
+                pl.col(f"current_window__{agg_method}")
+                - pl.col(f"last_window__{agg_method}")
+            ).alias("diff"),
             pl.col("pct_change"),
             pl.lit(fields["goal"]).alias("goal"),
         )

@@ -29,6 +29,8 @@ FREQ_TO_SP = {
     "Monthly": 12,
 }
 
+AGG_METHODS = {"sum": pl.sum, "mean": pl.mean, "median": pl.median}
+
 
 # STATS RESULT TABLES
 def _get_forecast_results(
@@ -50,7 +52,11 @@ def _get_forecast_results(
     best_model = outputs["best_model"]
     forecasts = read(object_path=outputs["forecasts"][best_model])
     backtests = read(object_path=outputs["backtests"][best_model])
-    statistics = read(object_path=outputs["statistics"]["last_window__sum"])
+    fields_agg_method = fields["agg_method"]
+    agg_method = AGG_METHODS[fields_agg_method]
+    statistics = read(
+        object_path=outputs["statistics"][f"last_window__{fields_agg_method}"]
+    )
     uplift = read(object_path=outputs["uplift"])
     rolling_uplift = read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
 
@@ -63,7 +69,7 @@ def _get_forecast_results(
     backtest_period = backtests.get_column(time_col).n_unique()
 
     # Target to date for last fh
-    target_to_date = statistics.get_column(target_col).sum()
+    target_to_date = statistics.select(agg_method(target_col)).get_column(target_col)[0]
     stats_target_to_date = {
         "title": f"{target_col} to date",
         "subtitle": f"Over the last {fh} {freq}",
@@ -72,7 +78,7 @@ def _get_forecast_results(
     results.append(stats_target_to_date)
 
     # AI predicted for next fh
-    forecast_value = forecasts.get_column(target_col).sum()
+    forecast_value = forecasts.select(agg_method(target_col)).get_column(target_col)[0]
     forecast_change = forecast_value - target_to_date
     forecast_pct_change = (forecast_change / target_to_date) * 100
 
@@ -89,7 +95,9 @@ def _get_forecast_results(
 
     # AI predicted uplift for next fh
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
-    uplift_value = uplift.get_column(f"{metric}__uplift").sum()
+    uplift_value = uplift.select(agg_method(f"{metric}__uplift")).get_column(
+        f"{metric}__uplift"
+    )[0]
     uplift_pct = (
         uplift.with_columns(
             # Replace inf with null
@@ -118,9 +126,9 @@ def _get_forecast_results(
         .tail(1)
         .with_columns(pl.col(f"{metric}__uplift_pct__rolling_mean") * 100)
     )
-    rolling_sum_uplift = rolling_uplift_grouped.get_column(
-        f"{metric}__uplift__rolling_sum"
-    ).sum()
+    rolling_agg_uplift = rolling_uplift_grouped.select(
+        agg_method(f"{metric}__uplift__rolling_{fields_agg_method}")
+    ).get_column(f"{metric}__uplift__rolling_{fields_agg_method}")[0]
     rolling_mean_uplift_pct = (
         rolling_uplift_grouped.get_column(f"{metric}__uplift_pct__rolling_mean")
         .fill_nan(None)
@@ -131,7 +139,7 @@ def _get_forecast_results(
         "title": "AI Uplift (Cumulative)",
         "subtitle": f"Cumulative uplift (last {sp} {freq})",
         "values": {
-            "rolling_sum": round(rolling_sum_uplift, 2),
+            "rolling_sum": round(rolling_agg_uplift, 2),
             "rolling_mean_pct": round(rolling_mean_uplift_pct, 2),
         },
     }

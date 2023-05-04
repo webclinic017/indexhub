@@ -158,6 +158,10 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
             pl.all(),
             # Rolling sum for absolute uplift
             pl.col("^*__uplift$").cumsum().suffix("__rolling_sum"),
+            # Rolling mean for absolute uplift
+            (
+                pl.col("^*__uplift$").cumsum() / (pl.col("^*__uplift$").cumcount() + 1)
+            ).suffix("__rolling_mean"),
             # Rolling mean for uplift pct
             (
                 pl.col("^*__uplift_pct$").cumsum()
