@@ -365,6 +365,11 @@ def FIELDS_SCHEMA(sources: List[Source]):
             "subtitle": "How do you want to aggregate the target after group by levels?",
             "values": ["sum", "mean", "median"],
         },
+        "impute_method": {
+            "title": "Imputation Method",
+            "subtitle": "How do you want to impute the target if there is missing data?",
+            "values": [0, "mean", "median", "fill", "ffill", "bfill", "interpolate"],
+        },
     }
 
 

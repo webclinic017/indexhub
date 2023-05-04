@@ -52,6 +52,7 @@ export const createPolicy = async (
         level_cols: policy_configs["level_cols"],
         description: policy_configs["policy_description"],
         agg_method: policy_configs["agg_method"],
+        impute_method: policy_configs["impute_method"],
         error_type: policy_configs["error_type"],
         fh: policy_configs["fh"],
         freq: policy_configs["freq"],

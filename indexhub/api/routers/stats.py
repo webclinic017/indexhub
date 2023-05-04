@@ -61,6 +61,7 @@ def _get_forecast_results(
     rolling_uplift = read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
 
     entity_col, time_col, target_col = y.columns
+    target_col_label = target_col.replace("_", " ").capitalize()
 
     results = []
     fh = forecasts.get_column(time_col).n_unique()
@@ -71,7 +72,7 @@ def _get_forecast_results(
     # Target to date for last fh
     target_to_date = statistics.select(agg_method(target_col)).get_column(target_col)[0]
     stats_target_to_date = {
-        "title": f"{target_col} to date",
+        "title": f"{target_col_label} to date",
         "subtitle": f"Over the last {fh} {freq}",
         "values": {"sum": round(target_to_date, 2)},
     }
@@ -83,7 +84,7 @@ def _get_forecast_results(
     forecast_pct_change = (forecast_change / target_to_date) * 100
 
     stats_forecast = {
-        "title": f"AI Forecast of {target_col}",
+        "title": f"AI Forecast of {target_col_label}",
         "subtitle": f"Over next {fh} {freq}",
         "values": {
             "sum": round(forecast_value, 2),
@@ -103,7 +104,11 @@ def _get_forecast_results(
             # Replace inf with null
             pl.when(pl.col(f"{metric}__uplift_pct").is_infinite())
             .then(None)
-            .otherwise(pl.col(f"{metric}__uplift_pct"))
+            .otherwise(
+                pl.when(pl.col(f"{metric}__uplift_pct") < 0)
+                .then(0)
+                .otherwise(pl.col(f"{metric}__uplift_pct"))
+            )
             .keep_name()
         )
         .get_column(f"{metric}__uplift_pct")
@@ -130,7 +135,13 @@ def _get_forecast_results(
         agg_method(f"{metric}__uplift__rolling_{fields_agg_method}")
     ).get_column(f"{metric}__uplift__rolling_{fields_agg_method}")[0]
     rolling_mean_uplift_pct = (
-        rolling_uplift_grouped.get_column(f"{metric}__uplift_pct__rolling_mean")
+        rolling_uplift_grouped.with_columns(
+            pl.when(pl.col(f"{metric}__uplift_pct__rolling_mean") < 0)
+            .then(0)
+            .otherwise(pl.col(f"{metric}__uplift_pct__rolling_mean"))
+            .keep_name()
+        )
+        .get_column(f"{metric}__uplift_pct__rolling_mean")
         .fill_nan(None)
         .mean()
     )

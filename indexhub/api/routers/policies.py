@@ -48,7 +48,7 @@ def create_policy(params: CreatePolicyParams):
         policy_sources = json.loads(policy.sources)
         policy_fields = json.loads(policy.fields)
         if policy.tag == "forecast_panel":
-            flow = modal.Function.lookup("indexhub-forecast", "flow")
+            flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             holiday_regions = policy_fields["holiday_regions"]
             if holiday_regions is not None:
                 holiday_regions = [
@@ -73,6 +73,7 @@ def create_policy(params: CreatePolicyParams):
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[policy_fields["error_type"]],
                 agg_method=policy_fields["agg_method"],
+                impute_method=policy_fields["impute_method"],
             )
         else:
             raise ValueError(f"Policy tag `{policy.tag}` not found")

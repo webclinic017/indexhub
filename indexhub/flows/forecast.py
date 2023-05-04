@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Any, Callable, List, Mapping, Optional
+from typing import Any, Callable, List, Mapping, Optional, Union
 
 import modal
 import pandas as pd
@@ -345,6 +345,7 @@ def run_forecast(
     holiday_regions: Optional[List[str]] = None,
     objective: Optional[str] = "mae",
     agg_method: Optional[str] = "mean",
+    impute_method: Optional[Union[str, int, float]] = 0,
     baseline_model: Optional[str] = "snaive",
     baseline_path: Optional[str] = None,
     inventory_path: Optional[str] = None,
@@ -448,6 +449,7 @@ def run_forecast(
             holiday_regions=holiday_regions,
             objective=objective,
             agg_method=agg_method,
+            impute_method=impute_method,
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
@@ -673,6 +675,7 @@ def flow():
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
                 agg_method=fields["agg_method"],
+                impute_method=fields["impute_method"],
                 baseline_model=fields["baseline_model"],
                 product_col=fields.get("product_col", None),
                 invoice_col=fields.get("invoice_col", None),
@@ -726,7 +729,7 @@ def test(user_id: str = "indexhub-demo"):
     else:
         inventory_path = None
 
-    flow.call(
+    run_forecast.call(
         user_id=user_id,
         policy_id=policy_id,
         panel_path=panel_path,
@@ -745,6 +748,7 @@ def test(user_id: str = "indexhub-demo"):
         holiday_regions=fields["holiday_regions"],
         objective=fields["error_type"],  # default is mae
         agg_method=fields["agg_method"],  # default is mean
+        impute_method=fields["impute_method"],  # default is 0
         baseline_model=fields["baseline_model"],  # default is snaive
         product_col=fields.get("product_col", None),
         invoice_col=fields.get("invoice_col", None),
