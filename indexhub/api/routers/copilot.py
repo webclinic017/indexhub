@@ -25,7 +25,7 @@ def _logger(name, level=logging.INFO):
 logger = _logger(name=__name__)
 
 
-MODAL_APP = "copilot-forecast-analyst-async"
+MODAL_APP = "copilot-forecast-analyst-async-gpt3.5"
 
 
 

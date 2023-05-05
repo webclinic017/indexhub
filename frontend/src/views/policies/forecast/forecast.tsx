@@ -64,6 +64,7 @@ const PolicyForecast = () => {
   const [executePlanCustomEntries, setExecutePlanCustomEntries] = useState<Record<string, any>[] | null>(null)
   const [isExportingTable, setIsExportingTable] = useState(false)
 
+  const [cutoff, setCutoff] = useState<any[]>([])
 
   const access_token_indexhub_api = useAuth0AccessToken();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
@@ -332,6 +333,7 @@ const PolicyForecast = () => {
     setAIRecommendationTable(null)
     const AIRecommendationTable = await getAIRecommendationTable(currentPageAIRecommendationTable, 5, policy_id ? policy_id : "", access_token_indexhub_api, filter_by)
     setAIRecommendationTable(AIRecommendationTable)
+    setCutoff(AIRecommendationTable["results"][0]["tables"])
     AIRecommendationTableCache[currentPageAIRecommendationTable] = AIRecommendationTable
     setAIRecommendationTableCache(AIRecommendationTableCache)
   }
@@ -449,10 +451,10 @@ const PolicyForecast = () => {
                         </Heading>
                         <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{mainStats[1]["subtitle"]}</Text>
                       </VStack>
-                      <Stack spacing="4" mt="auto !important">
+                      <Stack mt="auto !important">
                         <Text fontSize="3xl" fontWeight="bold" color={mainStats[1]["values"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>{mainStats[1]["values"]["sum"]} </Text>
                         <HStack mt="unset !important" color={mainStats[1]["values"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>
-                          <Text>(</Text>
+                          <Text fontSize="xs">(</Text>
                           <FontAwesomeIcon
                             style={{ marginRight: "3px", marginLeft: "unset" }}
                             icon={mainStats[1]["values"]["pct_change"] > 0 ? faCaretUp : faCaretDown}
@@ -460,7 +462,7 @@ const PolicyForecast = () => {
                           <Text ml="unset !important" fontSize="xs" fontWeight="bold">
                             {Math.abs(mainStats[1]["values"]["pct_change"])}
                           </Text>
-                          <Text ml="unset !important">)</Text>
+                          <Text fontSize="xs" ml="unset !important">)</Text>
                         </HStack>
                       </Stack>
                     </Stack>
@@ -473,10 +475,10 @@ const PolicyForecast = () => {
                         </Heading>
                         <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{mainStats[2]["subtitle"]}</Text>
                       </VStack>
-                      <Stack spacing="4" mt="auto !important">
+                      <Stack mt="auto !important">
                         <Text fontSize="3xl" fontWeight="bold" color={mainStats[2]["values"]["mean_pct"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>{mainStats[2]["values"]["sum"]}</Text>
                         <HStack mt="unset !important" color={mainStats[2]["values"]["mean_pct"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>
-                          <Text>(</Text>
+                          <Text fontSize="xs">(</Text>
                           <FontAwesomeIcon
                             style={{ marginRight: "3px", marginLeft: "unset" }}
                             icon={mainStats[2]["values"]["mean_pct"] > 0 ? faCaretUp : faCaretDown}
@@ -484,7 +486,7 @@ const PolicyForecast = () => {
                           <Text ml="unset !important" fontSize="xs" fontWeight="bold">
                             {Math.abs(mainStats[2]["values"]["mean_pct"])}
                           </Text>
-                          <Text ml="unset !important">)</Text>
+                          <Text fontSize="xs" ml="unset !important">)</Text>
                         </HStack>
                       </Stack>
                     </Stack>
@@ -497,7 +499,7 @@ const PolicyForecast = () => {
                         </Heading>
                         <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{mainStats[6]["subtitle"]}</Text>
                       </VStack>
-                      <Stack spacing="4" mt="auto !important">
+                      <Stack mt="auto !important">
                         <Text fontSize="3xl" fontWeight="bold">{mainStats[6]["values"]["progress"]} %</Text>
                         <Text mt="unset !important" fontSize="xs" fontWeight="bold">GOAL: {mainStats[5]["values"]["goal"]}%</Text>
                       </Stack>
@@ -511,7 +513,7 @@ const PolicyForecast = () => {
                         </Heading>
                         <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{mainStats[4]["subtitle"]}</Text>
                       </VStack>
-                      <Stack spacing="4" mt="auto !important">
+                      <Stack mt="auto !important">
                         <Text fontSize="3xl" fontWeight="bold">{mainStats[4]["values"]["n_improvement"]} / {mainStats[4]["values"]["n_entities"]}</Text>
                         <Text mt="unset !important" fontSize="xs" fontWeight="bold">{mainStats[7]["values"]["n_achievement"]} HAVE REACHED GOAL</Text>
                       </Stack>
@@ -634,9 +636,8 @@ const PolicyForecast = () => {
                 </HStack>
               </HStack>
 
-              {/* <HStack width="100%" justify="center" > */}
               <Tooltip label="Execute Plan" placement='left'>
-                <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="black" isLoading={isExportingTable} loadingText="Exporting table..." onClick={() => {
+                <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="black" onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} isLoading={isExportingTable} onClick={() => {
                   exportRecommendationTable()
                 }}>
                   <HStack>
@@ -645,7 +646,6 @@ const PolicyForecast = () => {
                 </Button>
               </Tooltip>
 
-              {/* </HStack> */}
             </VStack>
 
             {AIRecommendationTable ? (
@@ -659,7 +659,7 @@ const PolicyForecast = () => {
                             <HStack as="span" flex='1' textAlign='left'>
                               <VStack width="20%" alignItems="flex-start">
                                 <Text pb="1rem" fontWeight="bold" fontSize="large">{entity_data["entity"]}</Text>
-                                <Button backgroundColor="black" onClick={(e) => {
+                                <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
                                   e.stopPropagation()
                                   chartFilter["entity"] = [entity_data["entity"]]
                                   setChartFilter(chartFilter)
@@ -796,7 +796,7 @@ const PolicyForecast = () => {
         </VStack>
 
         <AiAnalysisModal
-          cutoff={AIRecommendationTable ? AIRecommendationTable["results"][0]["tables"] : ""}
+          cutoff={cutoff}
           policy={policy}
           isOpenTrendModal={isOpenTrendModal}
           onCloseTrendModal={onCloseTrendModal}
