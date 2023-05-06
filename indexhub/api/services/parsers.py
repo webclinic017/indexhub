@@ -1,5 +1,6 @@
 import io
 from typing import Optional
+import json
 
 import polars as pl
 from fastapi import HTTPException
@@ -43,3 +44,13 @@ def parse_parquet(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
         raise HTTPException(status_code=400, detail="Invalid parquet file") from err
     else:
         return raw_panel
+
+
+def parse_json(obj: str, n_rows: Optional[int] = None) -> dict:
+    try:
+        content = obj.decode("utf-8")
+        data = json.loads(content)
+    except json.JSONDecodeError as err:
+        raise HTTPException(status_code=400, detail="Invalid json file") from err
+    else:
+        return data

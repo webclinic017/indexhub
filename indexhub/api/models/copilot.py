@@ -32,7 +32,7 @@ class ForecastContextInputs(BaseModel):
         arbitrary_types_allowed = True
 
 
-class ForecastAnalystAgentModel(BaseModel):
+class ForecastAnalystAgent(BaseModel):
     context_inputs: ForecastContextInputs
     hints: Optional[List[str]]
     n_questions: Optional[int]
@@ -41,4 +41,4 @@ class ForecastAnalystAgentModel(BaseModel):
     domains: Optional[List[str]]
     date_from: Optional[datetime]
     date_to: Optional[datetime]
-    n_iter: int
+    n_iter: Optional[int]

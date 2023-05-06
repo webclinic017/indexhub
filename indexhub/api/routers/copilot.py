@@ -1,14 +1,31 @@
 import asyncio
+from functools import partial
 from datetime import datetime
-from fastapi import APIRouter, WebSocket
 import websockets
-from pydantic import BaseModel
-from indexhub.api.models.copilot import ForecastAnalystAgentModel
 import logging
-import modal.aio
 import traceback
+import json
+
+import polars as pl
+import modal.aio
+from fastapi import APIRouter, WebSocket, HTTPException
+from sqlmodel import Session
+from pydantic import BaseModel
+
+from indexhub.api.db import engine
+from indexhub.api.models.user import User
+from indexhub.api.models.copilot import (
+    ForecastAnalystAgent,
+    ForecastContextInputs,
+    Company,
+    Persona,
+)
+from indexhub.api.routers.policies import get_policy
+from indexhub.api.services.io import SOURCE_TAG_TO_READER
+from indexhub.api.services.secrets_manager import get_aws_secret
 
 router = APIRouter()
+
 
 def _logger(name, level=logging.INFO):
     logger = logging.getLogger(name)
@@ -28,7 +45,6 @@ logger = _logger(name=__name__)
 MODAL_APP = "copilot-forecast-analyst-async-gpt3.5"
 
 
-
 class ForecastParams(BaseModel):
     user_id: str
     policy_id: str
@@ -40,70 +56,148 @@ class ForecastParams(BaseModel):
     cutoff: datetime
 
 
+def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
+    # Load forecast and quantiles data
+    with Session(engine) as session:
+        user = session.get(User, params.user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=404, detail=f"User with ID {params.user_id} not found."
+            )
+
+    policy = get_policy(params.policy_id)["policy"]
+    outputs = json.loads(policy.outputs)
+    best_model = outputs["best_model"]
+
+    storage_creds = get_aws_secret(
+        tag=user.storage_tag, secret_type="storage", user_id=user.id
+    )
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        **storage_creds,
+    )
+
+    forecast: pl.DataFrame = read(
+        object_path=outputs["forecasts"][best_model], file_ext="parquet"
+    ).filter(pl.col(params.entity_col) == params.entity_id)
+    quantiles: pl.DataFrame = (
+        read(object_path=outputs["quantiles"][best_model], file_ext="parquet")
+        .filter(pl.col(params.entity_col) == params.entity_id)
+        .filter(pl.col("quantile").is_in([10, 90]))
+    )
+
+    onboarding_data = read(
+        object_path=f"users-context/copilot-onboarding.json", file_ext="json"
+    )
+    agent_persona = Persona(**onboarding_data["persona"])
+    company = Company(**onboarding_data["company"])
+
+    context_inputs = ForecastContextInputs(
+        agent=agent_persona,
+        company=company,
+        target_col=params.target_col,
+        entity_col=params.entity_col,
+        entity_id=params.entity_id,
+        freq=params.freq,
+        fh=params.fh,
+        cutoff=params.cutoff,
+        forecast=forecast,
+        quantiles=quantiles,
+    )
+    return context_inputs
+
+
+async def _analysis_and_questions(
+    websocket: WebSocket, agent: ForecastAnalystAgent
+) -> tuple[list[str], list[str]]:
+    logger.info("Getting analysis")
+    get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
+    analysis = await get_analysis.call(agent.dict())
+    await websocket.send_json({"analysis": analysis})
+    logger.info("Done getting analysis")
+
+    logger.info("Getting questions")
+    get_questions = await modal.aio.AioFunction.lookup(MODAL_APP, "get_questions")
+    questions = await get_questions.call(agent.dict(), analysis)
+    await websocket.send_json({"questions": questions})
+    logger.info("Done getting questions")
+    return analysis, questions
+
+
+async def _news(websocket: WebSocket, agent: ForecastAnalystAgent) -> pl.DataFrame:
+    logger.info("Getting news")
+    get_news = await modal.aio.AioFunction.lookup(MODAL_APP, "get_news")
+    news = await get_news.call(agent.dict())
+    await websocket.send_json({"news": news.to_dicts()})
+    logger.info("Done getting news")
+    return news
+
+
+async def _sources(websocket: WebSocket, agent: ForecastAnalystAgent) -> pl.DataFrame:
+    logger.info("Getting sources")
+    get_sources = await modal.aio.AioFunction.lookup(MODAL_APP, "get_sources")
+    sources = await get_sources.call(agent.dict())
+    await websocket.send_json({"sources": sources.to_dicts()})
+    logger.info("Done getting sources")
+    return sources
+
+
+async def _answer(
+    websocket: WebSocket,
+    agent: ForecastAnalystAgent,
+    context: str,
+    analysis: list[str],
+    questions: list[str],
+    sources: pl.DataFrame,
+    news: pl.DataFrame,
+):
+    get_one_answer = await modal.aio.AioFunction.lookup(MODAL_APP, "get_one_answer")
+    tasks = [
+        get_one_answer.call(
+            agent_params=agent.dict(),
+            context=context,
+            analysis=analysis,
+            question=question,
+            sources=sources,
+            news=news,
+        )
+        for question in questions
+    ]
+    n_parts = len(tasks)
+    logger.info(f"Answering {n_parts} questions")
+    for i, future in enumerate(asyncio.as_completed(tasks)):
+        q, a = await future
+        payload = {"q": q, "a": a, "part": i + 1, "n_parts": n_parts}
+        await websocket.send_json({"answer": payload})
+        logger.info(f"Answered question {i+1} of {n_parts}")
+
+
 @router.websocket("/copilot/ws")
-async def modal_websocket_endpoint(websocket: WebSocket):
+async def generate_forecastgpt_report(websocket: WebSocket):
     try:
         await websocket.accept()
         logger.info("Websocket connection established.")
-        params = await websocket.receive_json()
-        forecast_params = ForecastParams(**params)
+        ws_params = await websocket.receive_json()
+        params = ForecastParams(**ws_params)
+        logger.info(f"Received forecast params: {params}")
 
-        get_agent = await modal.aio.AioFunction.lookup(MODAL_APP, "get_agent")
-        get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
-        get_questions = await modal.aio.AioFunction.lookup(MODAL_APP, "get_questions")
-        get_news = await modal.aio.AioFunction.lookup(MODAL_APP, "get_news")
-        get_sources = await modal.aio.AioFunction.lookup(MODAL_APP, "get_sources")
-        get_one_answer = await modal.aio.AioFunction.lookup(MODAL_APP, "get_one_answer")
-        logger.info(f"Modal functions loaded from {MODAL_APP}.")
+        context_inputs = _get_context_inputs(params)
+        logger.info("Got context inputs.")
 
-        agent_params = await get_agent.call(
-            forecast_params.user_id,
-            forecast_params.policy_id,
-            forecast_params.target_col,
-            forecast_params.entity_col,
-            forecast_params.entity_id,
-            forecast_params.freq,
-            forecast_params.fh,
-            forecast_params.cutoff,
-            n_iter=0,
-        )
-        agent = ForecastAnalystAgentModel.parse_obj(agent_params)
+        agent = ForecastAnalystAgent(context_inputs=context_inputs, n_iter=0)
+
         logger.info("ForecastAnalystAgent initialized.")
-        logger.debug(f"ForecastAnalystAgent __dict__:\n\n{agent.__dict__}")
+        logger.info(f"ForecastAnalystAgent __dict__:\n\n{agent.__dict__}")
 
-        # TODO: This isn't used ATM
+        # TODO: Decide whether to pass in context or not
         context = ""
 
-        async def _analysis_and_questions(agent):
-            logger.info("Getting analysis")
-            analysis = await get_analysis.call(agent.dict())
-            await websocket.send_json({"analysis": analysis})
-            logger.info("Done getting analysis")
-            logger.info("Getting questions")
-            questions = await get_questions.call(agent.dict(), analysis)
-            await websocket.send_json({"questions": questions})
-            logger.info("Done getting questions")
-            return analysis, questions
-
-        async def _news(agent):
-            logger.info("Getting news")
-            news = await get_news.call(agent.dict())
-            await websocket.send_json({"news": news.to_dicts()})
-            logger.info("Done getting news")
-            return news
-
-        async def _sources(agent):
-            logger.info("Getting sources")
-            sources = await get_sources.call(agent.dict())
-            await websocket.send_json({"sources": sources.to_dicts()})
-            logger.info("Done getting sources")
-            return sources
-
         analysis_and_questions_task = asyncio.create_task(
-            _analysis_and_questions(agent)
+            _analysis_and_questions(websocket, agent)
         )
-        news_task = asyncio.create_task(_news(agent))
-        sources_task = asyncio.create_task(_sources(agent))
+        news_task = asyncio.create_task(_news(websocket, agent))
+        sources_task = asyncio.create_task(_sources(websocket, agent))
         logger.info("Waiting for tasks")
         await asyncio.wait(
             [analysis_and_questions_task, news_task, sources_task],
@@ -114,24 +208,16 @@ async def modal_websocket_endpoint(websocket: WebSocket):
         sources = sources_task.result()
 
         logger.info("Questions, news, sources done")
-        tasks = [
-            get_one_answer.call(
-                agent_params=agent.dict(),
-                context=context,
-                analysis=analysis,
-                question=question,
-                sources=sources,
-                news=news,
-            )
-            for question in questions
-        ]
-        n_parts = len(tasks)
-        logger.info(f"Answering {n_parts} questions")
-        for i, future in enumerate(asyncio.as_completed(tasks)):
-            q, a = await future
-            payload = {"q": q, "a": a, "part": i + 1, "n_parts": n_parts}
-            await websocket.send_json({"answer": payload})
-            logger.info(f"Answered question {i+1} of {n_parts}")
+        await _answer(
+            websocket,
+            agent,
+            context,
+            analysis,
+            questions,
+            sources,
+            news,
+        )
+
     except modal.exception.NotFoundError as e:
         logger.error(f"{e}: {traceback.format_exc()}")
     except websockets.exceptions.ConnectionClosedOK as e:
@@ -141,4 +227,3 @@ async def modal_websocket_endpoint(websocket: WebSocket):
     finally:
         logger.info("Closing websocket connection.")
         await websocket.close(code=1000, reason="Connection closed.")
-

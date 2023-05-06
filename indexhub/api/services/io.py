@@ -6,10 +6,20 @@ import botocore
 import polars as pl
 from fastapi import APIRouter, HTTPException
 
-from indexhub.api.services.parsers import parse_csv, parse_excel, parse_parquet
+from indexhub.api.services.parsers import (
+    parse_csv,
+    parse_excel,
+    parse_parquet,
+    parse_json,
+)
 
 
-FILE_EXT_TO_PARSER = {"excel": parse_excel, "csv": parse_csv, "parquet": parse_parquet}
+FILE_EXT_TO_PARSER = {
+    "excel": parse_excel,
+    "csv": parse_csv,
+    "parquet": parse_parquet,
+    "json": parse_json,
+}
 
 router = APIRouter()
 
