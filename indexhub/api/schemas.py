@@ -1,4 +1,3 @@
-import json
 from typing import List
 
 from indexhub.api.models.source import Source
@@ -192,7 +191,188 @@ SUPPORTED_BASELINE_MODELS = {
 }
 
 
-def SOURCE_SCHEMAS(user: User):
+TIME_COL_SCHEMA = {
+    "title": "Product ID column",
+    "subtitle": "Represents the column of products / services (e.g. SKU)",
+    "values": "",
+}
+
+
+TARGET_COL_SCHEMA = {
+    "title": "Target column",
+    "subtitle": "Target column to forecast such as quantity, sales amount, etc.",
+    "values": "",
+}
+
+
+ENTITY_COLS_SCHEMA = {
+    "title": "Entity column(s)",
+    "subtitle": "Run forecast by entity columns such as region, customer, product category, etc.",
+    "values": [],
+}
+
+INVOICE_COL_SCHEMA = {
+    "title": "Invoice ID column",
+    "subtitle": "Represents the ID for a basket of orders or a single trip",
+    "values": "",
+}
+
+
+PRODUCT_COL_SCHEMA = {
+    "title": "Product ID column",
+    "subtitle": "Represents the column of products / services (e.g. SKU)",
+    "values": "",
+}
+
+
+PRICE_COL_SCHEMA = {
+    "title": "Price column",
+    "subtitle": "Represents the column for prices of items at the time of purchase",
+    "values": "",
+}
+
+
+QUANTITY_COL_SCHEMA = {
+    "title": "Quantity column",
+    "subtitle": "Represents the column for quantities sold at the time of purchase",
+    "values": "",
+}
+
+
+FEATURE_COLS_SCHEMA = {
+    "title": "Features column",
+    "subtitle": "Represents the additional columns/features that are optional and might be useful in improving forecast results",
+    "values": [],
+}
+
+
+AGG_METHOD_SCHEMA = {
+    "title": "Aggregation Method",
+    "subtitle": "How do you want to aggregate the target after group by entity columns?",
+    "values": ["sum", "mean", "median"],
+    "is_required": False,
+}
+
+
+IMPUTE_METHOD_SCHEMA = {
+    "title": "Imputation Method",
+    "subtitle": "How do you want to impute the target if there is missing data?",
+    "values": [
+        0,
+        "mean",
+        "median",
+        "fill",
+        "ffill",
+        "bfill",
+        "interpolate",
+    ],
+    "is_required": False,
+}
+
+
+def SOURCES_SCHEMA(sources: List[Source], type: str):
+    return {
+        "panel": {
+            "title": "Dataset",
+            "subtitle": "Select one panel dataset of observed values to forecast.",
+            "values": {src.name: src.id for src in sources if src.type == type},
+        },
+        "baseline": {
+            "title": "Baseline Forecasts",
+            "subtitle": (
+                "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
+                " Must have the same schema as `panel`."
+                " Note: If this is not specified, a seasonal naive/naive forecast will be automatically generated and used as a baseline."
+            ),
+            "values": {src.name: src.id for src in sources if src.type == type},
+            "is_required": False,
+        },
+        "inventory": {
+            "title": "Inventory",
+            "subtitle": (
+                "Select one inventory dataset." " Must have the same schema as `panel`."
+            ),
+            "values": {src.name: src.id for src in sources if src.type == type},
+            "is_required": False,
+        },
+    }
+
+
+def POLICY_FIELDS_SCHEMA():
+    return {
+        "direction": {
+            "title": "Forecast Direction",
+            "subtitle": "What should the forecasting model focus on?",
+            "values": list(SUPPORTED_DIRECTION.keys()),
+        },
+        "error_type": {
+            "title": "Forecast Error Type",
+            "subtitle": "Which type of forecast error do you want to reduce?",
+            "values": list(SUPPORTED_ERROR_TYPE.keys()),
+        },
+        "min_lags": {
+            "title": "What is the minimum number lagged variables?",
+            "subtitle": "`min_lags` must be less than `max_lags`.",
+            "values": list(range(12, 25)),
+            "default": 12,
+        },
+        "max_lags": {
+            "title": "What is the maximum number of lagged variables?",
+            "subtitle": "`max_lags` must be greater than `min_lags`.",
+            "values": list(range(24, 49)),
+            "default": 24,
+        },
+        "fh": {
+            "title": "Forecast Horizon",
+            "subtitle": "How many periods into the future do you want to predict?",
+            "values": list(range(1, 30)),
+        },
+        "holiday_regions": {
+            "title": "Holiday Regions",
+            "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
+            "values": list(SUPPORTED_COUNTRIES.keys()),
+        },
+        "baseline_model": {
+            "title": "Baseline Model",
+            "subtitle": "Which model do you want to use to train the baseline forecasts?",
+            "values": list(SUPPORTED_BASELINE_MODELS.keys()),
+        },
+    }
+
+
+SOURCE_FIELDS_SCHEMA = {
+    "panel": {
+        "description": "Choose this source if you have panel data (i.e. time-series data across multiple entities).",
+        "fields": {
+            "entity_cols": ENTITY_COLS_SCHEMA,
+            "time_col": TIME_COL_SCHEMA,
+            "target_col": TARGET_COL_SCHEMA,
+            "agg_method": AGG_METHOD_SCHEMA,
+            "impute_method": IMPUTE_METHOD_SCHEMA,
+            "freq": SUPPORTED_FREQ,
+            "datetime_fmt": "%Y-%m-%d",
+        },
+    },
+    "transaction": {
+        "description": "Choose this source if you have transactions data (e.g. point-of-sales).",
+        "fields": {
+            "entity_cols": ENTITY_COLS_SCHEMA,
+            "time_col": TIME_COL_SCHEMA,
+            "quantity_col": QUANTITY_COL_SCHEMA,
+            "price_col": PRICE_COL_SCHEMA,
+            "invoice_col": INVOICE_COL_SCHEMA,
+            "product_col": PRODUCT_COL_SCHEMA,
+            "feature_cols": FEATURE_COLS_SCHEMA,
+            "agg_method": AGG_METHOD_SCHEMA,
+            "impute_method": IMPUTE_METHOD_SCHEMA,
+            "freq": SUPPORTED_FREQ,
+            "datetime_fmt": "%Y-%m-%d",
+        },
+    },
+}
+
+
+def CONNECTION_SCHEMA(user: User):
     return {
         "s3": {
             "available": True,
@@ -209,12 +389,6 @@ def SOURCE_SCHEMAS(user: User):
                     "subtitle": "",
                 },
                 "file_ext": SUPPORTED_FILE_EXT,
-            },
-            "freq": "",
-            "datetime_fmt": "%Y-%m-%d",
-            "columns": {
-                "entity_cols": [],
-                "time_col": "",
             },
         },
         "azure": {
@@ -233,154 +407,49 @@ def SOURCE_SCHEMAS(user: User):
                 },
                 "file_ext": SUPPORTED_FILE_EXT,
             },
-            "freq": "",
-            "datetime_fmt": "%Y-%m-%d",
-            "columns": {
-                "entity_cols": [],
-                "time_col": "",
+        },
+    }
+
+
+def SOURCE_SCHEMAS(user: User):
+    """User input schemas for source selection."""
+    return {
+        "s3": {
+            "panel": {
+                **CONNECTION_SCHEMA(user)["s3"],
+                "fields": SOURCE_FIELDS_SCHEMA["panel"],
+                "type": ["panel", "baseline", "inventory"],
+            },
+            "transaction": {
+                **CONNECTION_SCHEMA(user)["s3"],
+                "fields": SOURCE_FIELDS_SCHEMA["transaction"],
+                "type": ["panel", "baseline", "inventory", "transaction"],
+            },
+        },
+        "azure": {
+            "panel": {
+                **CONNECTION_SCHEMA(user)["azure"],
+                "fields": SOURCE_FIELDS_SCHEMA["panel"],
+                "type": ["panel", "baseline", "inventory"],
+            },
+            "transaction": {
+                **CONNECTION_SCHEMA(user)["azure"],
+                "fields": SOURCE_FIELDS_SCHEMA["transaction"],
+                "type": ["panel", "baseline", "inventory", "transaction"],
             },
         },
     }
 
 
-def TARGET_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
-    schema = {
-        "title": "Target column",
-        "subtitle": "Target column to forecast such as quantity, sales amount, etc.",
-        # Probably won't scale but good enough for now
-        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
-        "depends_on": depends_on,
-    }
-    return schema
-
-
-def LEVEL_COLS_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
-    schema = {
-        "title": "Level column(s)",
-        "subtitle": "Run forecast by levels such as region, customer, product category, etc.",
-        # Probably won't scale but good enough for now
-        "values": {src.id: json.loads(src.columns)["entity_cols"] for src in sources},
-        "depends_on": depends_on,
-        "multiple_choice": True,
-    }
-    return schema
-
-
-def INVOICE_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
-    schema = {
-        "title": "Invoice ID column",
-        "subtitle": "Represents the ID for a basket of orders or a single trip",
-        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
-        "depends_on": depends_on,
-    }
-    return schema
-
-
-def PRODUCT_COL_SCHEMA(sources: List[Source], depends_on: str = "source_id"):
-    schema = {
-        "title": "Product ID column",
-        "subtitle": "Represents the column of products / services (e.g. SKU)",
-        "values": {src.id: json.loads(src.columns)["feature_cols"] for src in sources},
-        "depends_on": depends_on,
-    }
-    return schema
-
-
-def SOURCES_SCHEMA(sources: List[Source]):
-    return {
-        "panel": {
-            "title": "Dataset",
-            "subtitle": "Select one panel dataset of observed values to forecast.",
-            "values": {src.name: src.id for src in sources},
-        },
-        "baseline": {
-            "title": "Baseline Forecasts",
-            "subtitle": (
-                "Select one panel dataset of forecasted values to benchmark the AI prediction model against."
-                " Must have the same schema as `panel`."
-                " Note: If this is not specified, a seasonal naive/naive forecast will be automatically generated and used as a baseline."
-            ),
-            "values": {src.name: src.id for src in sources},
-            "is_required": False,
-        },
-        "inventory": {
-            "title": "Inventory",
-            "subtitle": (
-                "Select one inventory dataset." " Must have the same schema as `panel`."
-            ),
-            "values": {src.name: src.id for src in sources},
-            "is_required": False,
-        },
-    }
-
-
-def FIELDS_SCHEMA(sources: List[Source]):
-    return {
-        "direction": {
-            "title": "Forecast Direction",
-            "subtitle": "What should the forecasting model focus on?",
-            "values": list(SUPPORTED_DIRECTION.keys()),
-        },
-        "error_type": {
-            "title": "Forecast Error Type",
-            "subtitle": "Which type of forecast error do you want to reduce?",
-            "values": list(SUPPORTED_ERROR_TYPE.keys()),
-        },
-        "target_col": TARGET_COL_SCHEMA(sources=sources, depends_on="panel"),
-        "level_cols": LEVEL_COLS_SCHEMA(sources=sources, depends_on="panel"),
-        "min_lags": {
-            "title": "What is the minimum number lagged variables?",
-            "subtitle": "`min_lags` must be less than `max_lags`.",
-            "values": list(range(12, 25)),
-            "default": 12,
-        },
-        "max_lags": {
-            "title": "What is the maximum number of lagged variables?",
-            "subtitle": "`max_lags` must be greater than `min_lags`.",
-            "values": list(range(24, 49)),
-            "default": 24,
-        },
-        "fh": {
-            "title": "Forecast Horizon",
-            "subtitle": "How many periods into the future do you want to predict?",
-            "values": list(range(1, 30)),
-        },
-        "freq": {
-            "title": "Frequency",
-            "subtitle": "How often do you want to generate new predictions?",
-            "values": list(SUPPORTED_FREQ.keys()),
-        },
-        "holiday_regions": {
-            "title": "Holiday Regions",
-            "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
-            "values": list(SUPPORTED_COUNTRIES.keys()),
-        },
-        "baseline_model": {
-            "title": "Baseline Model",
-            "subtitle": "Which model do you want to use to train the baseline forecasts?",
-            "values": list(SUPPORTED_BASELINE_MODELS.keys()),
-        },
-        "agg_method": {
-            "title": "Aggregation Method",
-            "subtitle": "How do you want to aggregate the target after group by levels?",
-            "values": ["sum", "mean", "median"],
-        },
-        "impute_method": {
-            "title": "Imputation Method",
-            "subtitle": "How do you want to impute the target if there is missing data?",
-            "values": [0, "mean", "median", "fill", "ffill", "bfill", "interpolate"],
-        },
-    }
-
-
 def POLICY_SCHEMAS(sources: List[Source]):
+    """User input schemas for policy selection."""
     schemas = {
         "forecast_panel": {
-            "objective": "{direction} {target_col} {error_type} for {level_cols}.",
+            "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
             "description": "Choose this policy if you have panel data (i.e. time-series data across multiple entities).",
-            "sources": SOURCES_SCHEMA(sources),
+            "sources": SOURCES_SCHEMA(sources, type="panel"),
             "fields": {
-                **FIELDS_SCHEMA(sources),
+                **POLICY_FIELDS_SCHEMA(),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
@@ -390,27 +459,23 @@ def POLICY_SCHEMAS(sources: List[Source]):
             },
         },
         "forecast_transaction": {
-            "objective": "{direction} {target_col} {error_type} for {level_cols}.",
+            "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
             "description": "Choose this policy if you have transactions data (e.g. point-of-sales).",
             "sources": {
-                **SOURCES_SCHEMA(sources),
+                **SOURCES_SCHEMA(sources, type="transaction"),
                 "transaction": {
                     "title": "Transaction Dataset",
                     "subtitle": (
                         "Select one dataset of transactions (e.g. point-of-sales data) to forecast."
                         " Must include columns specifying the invoice ID and the product ID."
                     ),
-                    "values": {src.name: src.id for src in sources},
+                    "values": {
+                        src.name: src.id for src in sources if src.type == "transaction"
+                    },
                 },
             },
             "fields": {
-                **FIELDS_SCHEMA(sources),
-                "invoice_col": INVOICE_COL_SCHEMA(
-                    sources=sources, depends_on="transaction"
-                ),
-                "product_col": PRODUCT_COL_SCHEMA(
-                    sources=sources, depends_on="transaction"
-                ),
+                **POLICY_FIELDS_SCHEMA(),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",

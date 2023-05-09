@@ -8,10 +8,12 @@ from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
-from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.policies import FREQ_TO_SP, get_policy
+from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+
 
 router = APIRouter()
 
@@ -22,19 +24,17 @@ FREQ_NAME_TO_LABEL = {
     "Monthly": "months",
 }
 
-FREQ_TO_SP = {
-    "Hourly": 24,
-    "Daily": 30,
-    "Weekly": 52,
-    "Monthly": 12,
-}
 
 AGG_METHODS = {"sum": pl.sum, "mean": pl.mean, "median": pl.median}
 
 
 # STATS RESULT TABLES
 def _get_forecast_results(
-    outputs: Mapping[str, str], fields: Mapping[str, str], user: User, policy_id: str
+    outputs: Mapping[str, str],
+    fields: Mapping[str, str],
+    source_fields: Mapping[str, str],
+    user: User,
+    policy_id: str,
 ) -> pl.DataFrame:
     # Get credentials
     storage_creds = get_aws_secret(
@@ -52,7 +52,7 @@ def _get_forecast_results(
     best_model = outputs["best_model"]
     forecasts = read(object_path=outputs["forecasts"][best_model])
     backtests = read(object_path=outputs["backtests"][best_model])
-    fields_agg_method = fields["agg_method"]
+    fields_agg_method = source_fields["agg_method"]
     agg_method = AGG_METHODS[fields_agg_method]
     statistics = read(
         object_path=outputs["statistics"][f"last_window__{fields_agg_method}"]
@@ -65,8 +65,8 @@ def _get_forecast_results(
 
     results = []
     fh = forecasts.get_column(time_col).n_unique()
-    freq = FREQ_NAME_TO_LABEL[fields["freq"]]
-    sp = FREQ_TO_SP[fields["freq"]]
+    freq = FREQ_NAME_TO_LABEL[source_fields["freq"]]
+    sp = FREQ_TO_SP[source_fields["freq"]]
     backtest_period = backtests.get_column(time_col).n_unique()
 
     # Target to date for last fh
@@ -221,7 +221,12 @@ def get_stats(
         policy = get_policy(policy_id)["policy"]
         getter = POLICY_TAG_TO_GETTER[policy.tag]
         user = session.get(User, policy.user_id)
+        source = get_source(json.loads(policy.sources)["panel"])["source"]
         stats = getter(
-            json.loads(policy.outputs), json.loads(policy.fields), user, policy_id
+            json.loads(policy.outputs),
+            json.loads(policy.fields),
+            json.loads(source.fields),
+            user,
+            policy_id,
         )  # TODO: Cache using an in memory key-value store
     return stats

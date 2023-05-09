@@ -18,6 +18,7 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 def _create_single_forecast_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
     user: User,
     policy_id: str,
     filter_by: Mapping[str, Any] = None,
@@ -56,7 +57,7 @@ def _create_single_forecast_chart(
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
-    agg_method = fields["agg_method"]
+    agg_method = source_fields["agg_method"]
 
     # Postproc - join data together
     indexhub = pl.concat(

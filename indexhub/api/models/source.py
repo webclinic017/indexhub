@@ -12,9 +12,8 @@ class Source(SQLModel, table=True):
     status: str
     created_at: datetime
     updated_at: datetime
+    type: str
     variables: str
-    freq: str
-    datetime_fmt: str
-    columns: str  # {entity_cols: List[str], feature_cols: List[str], time_col: str}
+    fields: str
     output_path: Optional[str] = None
     msg: Optional[str] = None

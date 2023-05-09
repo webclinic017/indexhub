@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial
-from typing import Any, Callable, List, Mapping, Optional, Union
+from typing import Any, Callable, List, Mapping, Optional
 
 import modal
 import pandas as pd
@@ -302,23 +302,6 @@ def _update_policy(
         return policy
 
 
-def _merge_multilevels(X: pl.DataFrame) -> pl.DataFrame:
-    level_cols = X.columns[:-2]
-    entity_col = "__".join(level_cols)
-    time_col, target_col = X.columns[-2:]
-    X_new = (
-        # Combine subset of entity columns
-        X.lazy()
-        .with_columns(pl.concat_str(level_cols, separator=" - ").alias(entity_col))
-        # Select and sort columns
-        .select([entity_col, time_col, target_col])
-        .sort([entity_col, time_col])
-        .with_columns([pl.col(entity_col).set_sorted(), pl.col(time_col).set_sorted()])
-        .collect()
-    )
-    return X_new
-
-
 @stub.function(
     memory=5120,
     cpu=4.0,
@@ -334,7 +317,6 @@ def run_forecast(
     panel_path: str,
     storage_tag: str,
     bucket_name: str,
-    level_cols: List[str],
     target_col: str,
     min_lags: int,
     max_lags: int,
@@ -344,13 +326,9 @@ def run_forecast(
     n_splits: int,
     holiday_regions: Optional[List[str]] = None,
     objective: Optional[str] = "mae",
-    agg_method: Optional[str] = "mean",
-    impute_method: Optional[Union[str, int, float]] = 0,
     baseline_model: Optional[str] = "snaive",
     baseline_path: Optional[str] = None,
     inventory_path: Optional[str] = None,
-    product_col: Optional[str] = None,
-    invoice_col: Optional[str] = None,
 ):
     try:
         pl.toggle_string_cache(True)
@@ -380,67 +358,15 @@ def run_forecast(
 
         # 4. Read y from storage
         y_panel = read(object_path=panel_path)
-
-        # 5. Create embeddings using y_panel
         time_col = y_panel.select(
             pl.col([pl.Date, pl.Datetime, pl.Datetime("ns")])
         ).columns[0]
-        agg_exprs = {
-            "sum": pl.sum(target_col),
-            "mean": pl.mean(target_col),
-            "median": pl.median(target_col),
-        }
-        product_emb_flow = modal.Function.lookup(
-            "functime-embeddings", "product_emb_flow"
-        )
-        ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
-        cluster_emb_flow = modal.Function.lookup(
-            "functime-embeddings", "cluster_emb_flow"
-        )
-        embeddings_paths = {}
-        if product_col:
-            embeddings = product_emb_flow.call(
-                y_panel,
-                product_col,
-                invoice_col,
-                target_col,
-                s3_bucket=bucket_name,
-                s3_key=f"embeddings/{policy_id}/product/",
-            )
-            for name in embeddings.key():
-                embeddings_paths[
-                    name
-                ] = f"embeddings/{policy_id}/product/embeddings_{name}.lance"
 
-            cluster_emb_flow.call(
-                embeddings["3D"],
-                product_col,
-                s3_bucket=bucket_name,
-                s3_key=f"embeddings/{policy_id}/cluster/",
-            )
-            embeddings_paths[
-                "cluster"
-            ] = f"embeddings/{policy_id}/cluster/embeddings_clusters.lance/"
-        else:
-            emb_panel = (
-                y_panel.groupby([*level_cols, time_col])
-                .agg(agg_exprs[agg_method])
-                .pipe(_merge_multilevels)
-            )
-            ts_emb_flow.call(
-                emb_panel,
-                entity_col="__".join(level_cols),
-                target_col=target_col,
-                s3_bucket=bucket_name,
-                s3_key=f"embeddings/{policy_id}/ts/",
-            )
-            embeddings_paths["ts"] = f"embeddings/{policy_id}/ts/embeddings.lance/"
-
-        # 6. Run automl flow
+        # 5. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
 
         y, outputs = automl_flow.call(
-            y=y_panel.select([*level_cols, time_col, target_col]),
+            y=y_panel,
             min_lags=min_lags,
             max_lags=max_lags,
             fh=fh,
@@ -448,28 +374,17 @@ def run_forecast(
             n_splits=n_splits,
             holiday_regions=holiday_regions,
             objective=objective,
-            agg_method=agg_method,
-            impute_method=impute_method,
         )
         entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
 
-        # Write embeddings paths to outputs
-        outputs["embeddings"] = embeddings_paths
-
         write(y, object_path=make_path(prefix="y"))
 
-        # 7. Compute uplift
+        # 6. Compute uplift
         # NOTE: Only compares against BEST MODEL
         if baseline_path:
             # Read baseline from storage
-            y_baseline = (
-                read(object_path=baseline_path)
-                .select([*level_cols, time_col, target_col])
-                .pipe(_merge_multilevels)
-                .groupby([entity_col, time_col])
-                .agg(agg_exprs[agg_method])
-            )
+            y_baseline = read(object_path=baseline_path)
         else:
             y_baseline_backtest = (
                 outputs["backtests"][baseline_model]
@@ -480,17 +395,11 @@ def run_forecast(
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         if inventory_path:
-            inventory = (
-                read(
-                    bucket_name=bucket_name,
-                    object_path=inventory_path,
-                    file_ext="parquet",
-                    **storage_creds,
-                )
-                .select([*level_cols, time_col, target_col])
-                .pipe(_merge_multilevels)
-                .groupby([entity_col, time_col])
-                .agg(agg_exprs[agg_method])
+            inventory = read(
+                bucket_name=bucket_name,
+                object_path=inventory_path,
+                file_ext="parquet",
+                **storage_creds,
             )
             outputs["inventory"] = make_path(prefix="inventory")
             write(inventory, object_path=outputs["inventory"])
@@ -499,7 +408,7 @@ def run_forecast(
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
-        kwargs = {"y": y, "y_baseline": y_baseline, "freq": freq}
+        kwargs = {"y": y, "y_baseline": y_baseline}
         baseline_scores, baseline_metrics, uplift = uplift_flow.call(
             outputs["scores"][outputs["best_model"]],
             **kwargs,
@@ -513,7 +422,7 @@ def run_forecast(
         write(baseline_scores, object_path=outputs["baseline__scores"])
         write(uplift, object_path=make_path(prefix="uplift"))
 
-        # 8. Export artifacts for each model
+        # 7. Export artifacts for each model
         model_artifacts_keys = [
             "forecasts",
             "backtests",
@@ -530,13 +439,13 @@ def run_forecast(
                 write(df, object_path=output_path)
                 outputs[key][model] = output_path
 
-        # 9. Export statistics
+        # 8. Export statistics
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
 
-        # 10. Run rolling forecast
+        # 9. Run rolling forecast
         compute_rolling_forecast.call(
             output_json=outputs,
             policy_id=policy_id,
@@ -545,7 +454,7 @@ def run_forecast(
             write=write,
         )
 
-        # 11. Run rolling uplift
+        # 10. Run rolling uplift
         compute_rolling_uplift.call(
             output_json=outputs,
             policy_id=policy_id,
@@ -621,11 +530,15 @@ def flow():
         fields = json.loads(policy.fields)
         sources = json.loads(policy.sources)
 
-        # 2. Get user
+        # 2. Get user and source
         user = get_user(policy.user_id)
+        panel_source = get_source(sources["panel"])["source"]
+        source_fields = json.loads(panel_source.fields)
+        freq = source_fields["freq"]
+        target_col = source_fields["target_col"]
 
         # 3. Check freq from source for schedule
-        duration = FREQ_TO_DURATION[fields["freq"]]
+        duration = FREQ_TO_DURATION[freq]
         updated_at = policy.updated_at.replace(microsecond=0)
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
@@ -638,7 +551,7 @@ def flow():
         current_datetime = datetime.now().replace(microsecond=0)
         if (current_datetime >= run_dt) or policy.status == "FAILED":
             # Get staging path for each source
-            panel_path = get_source(sources["panel"])["source"].output_path
+            panel_path = panel_source.output_path
             if sources["baseline"]:
                 baseline_path = get_source(sources["baseline"])["source"].output_path
             else:
@@ -660,25 +573,20 @@ def flow():
                 user_id=policy.user_id,
                 policy_id=policy.id,
                 panel_path=panel_path,
-                baseline_path=baseline_path,
-                inventory_path=inventory_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                level_cols=fields["level_cols"],
-                target_col=fields["target_col"],
+                target_col=target_col,
                 min_lags=fields["min_lags"],
                 max_lags=fields["max_lags"],
                 fh=fields["fh"],
-                freq=SUPPORTED_FREQ[fields["freq"]],
-                sp=FREQ_TO_SP[fields["freq"]],
+                freq=SUPPORTED_FREQ[freq],
+                sp=FREQ_TO_SP[freq],
                 n_splits=fields["n_splits"],
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
-                agg_method=fields["agg_method"],
-                impute_method=fields["impute_method"],
-                baseline_model=fields["baseline_model"],
-                product_col=fields.get("product_col", None),
-                invoice_col=fields.get("invoice_col", None),
+                baseline_model=fields.get("baseline_model", None),
+                baseline_path=baseline_path,
+                inventory_path=inventory_path,
             )
 
     # 5. Get future for each policy
@@ -701,16 +609,19 @@ def test(user_id: str = "indexhub-demo"):
             "inventory": 2,
         },
         "error_type": "mae",
-        "target_col": "trips_in_000s",
-        "level_cols": ["state"],
         "min_lags": 6,
         "max_lags": 6,
         "fh": 3,
-        "freq": "1mo",
         "n_splits": 3,
         "holiday_regions": ["AU"],
-        "agg_method": "sum",
         "baseline_model": "snaive",
+    }
+
+    source_fields = {
+        "target_col": "trips_in_000s",
+        "freq": "1mo",
+        "agg_method": "sum",
+        "impute_method": 0,
     }
 
     # User
@@ -733,23 +644,20 @@ def test(user_id: str = "indexhub-demo"):
         user_id=user_id,
         policy_id=policy_id,
         panel_path=panel_path,
-        baseline_path=baseline_path,
-        inventory_path=inventory_path,
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,
-        level_cols=fields["level_cols"],
-        target_col=fields["target_col"],
+        target_col=source_fields["target_col"],
         min_lags=fields["min_lags"],
         max_lags=fields["max_lags"],
         fh=fields["fh"],
-        freq=fields["freq"],
-        sp=FREQ_TO_SP[fields["freq"]],
+        freq=source_fields["freq"],
+        sp=FREQ_TO_SP[source_fields["freq"]],
         n_splits=fields["n_splits"],
         holiday_regions=fields["holiday_regions"],
         objective=fields["error_type"],  # default is mae
-        agg_method=fields["agg_method"],  # default is mean
-        impute_method=fields["impute_method"],  # default is 0
+        agg_method=source_fields["agg_method"],  # default is mean
+        impute_method=source_fields["impute_method"],  # default is 0
         baseline_model=fields["baseline_model"],  # default is snaive
-        product_col=fields.get("product_col", None),
-        invoice_col=fields.get("invoice_col", None),
+        baseline_path=baseline_path,
+        inventory_path=inventory_path,
     )

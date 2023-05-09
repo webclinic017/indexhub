@@ -9,6 +9,7 @@ from sqlmodel import Session
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.sources import get_source
 from indexhub.api.services.chart_builders import (
     _create_3d_cluster_chart,
     _create_multi_forecast_chart,
@@ -74,9 +75,11 @@ async def get_chart(policy_id: str, chart_tag: ChartTag, request: Request):
         params = json.loads(await request.body())
         build = POLICY_TAG_TO_BUILDERS[policy.tag][chart_tag]
         user = session.get(User, policy.user_id)
+        source = get_source(json.loads(policy.sources)["panel"])["source"]
         chart_json = build(
             fields=json.loads(policy.fields),
             outputs=json.loads(policy.outputs),
+            source_fields=json.loads(source.fields),
             user=user,
             policy_id=policy_id,
             **params,

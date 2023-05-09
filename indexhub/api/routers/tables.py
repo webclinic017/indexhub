@@ -13,6 +13,7 @@ from sqlmodel import Session
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.chart_builders import _create_sparkline
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
@@ -30,6 +31,7 @@ class TableTag(str, Enum):
 def _get_forecast_table(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
     user: User,
     policy_id: str,
     filter_by: Mapping[str, List[str]],
@@ -52,7 +54,7 @@ def _get_forecast_table(
     y_baseline = read(object_path=outputs["y_baseline"])
     y = read(object_path=outputs["y"])
 
-    agg_method = fields["agg_method"]
+    agg_method = source_fields["agg_method"]
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
 
@@ -289,11 +291,13 @@ def get_policy_table(
         policy = get_policy(policy_id)["policy"]
         getter = TAGS_TO_GETTER[policy.tag][table_tag]
         user = session.get(User, policy.user_id)
+        source = get_source(json.loads(policy.sources)["panel"])["source"]
         # TODO: Cache using an in memory key-value store
         pl.toggle_string_cache(True)
         table = getter(
             json.loads(policy.fields),
             json.loads(policy.outputs),
+            json.loads(source.fields),
             user,
             policy_id,
             params.filter_by,

@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime
-from typing import Any, List, Mapping, Union
+from typing import Any, List, Literal, Mapping, Optional, Union
 
 import modal
 import pandas as pd
@@ -13,6 +13,8 @@ from sqlmodel import Session, select
 
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
+from indexhub.api.routers.sources import get_source
+from indexhub.api.schemas import SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.deployment import IMAGE
@@ -32,6 +34,10 @@ def _logger(name, level=logging.INFO):
 
 
 logger = _logger(name=__name__)
+
+PL_FLOAT_DTYPES = [pl.Float32, pl.Float64]
+PL_INT_DTYPES = [pl.Int8, pl.Int16, pl.Int32, pl.Int64]
+PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
 stub = modal.Stub("indexhub-preprocess", image=IMAGE)
@@ -63,6 +69,167 @@ def _clean_panel(
     except Exception as err:
         raise ValueError(f"Data cleaning errors: {repr(err)}") from err
     return panel_data
+
+
+def _merge_multilevels(
+    X: pl.DataFrame,
+    entity_cols: List[str],
+    target_cols: List[str],
+) -> pl.DataFrame:
+    entity_col = "__".join(entity_cols)
+    if len(entity_cols) == 1:
+        exclude_cols = [entity_col, "time", *target_cols]
+    else:
+        exclude_cols = [*entity_cols, entity_col, "time", *target_cols]
+    X_new = (
+        # Combine subset of entity columns
+        X.lazy()
+        .with_columns(
+            pl.concat_str(entity_cols, separator=" - ")
+            .cast(pl.Categorical)
+            .alias(entity_col)
+        )
+        # Select and sort columns
+        .select(
+            [
+                entity_col,
+                "time",
+                *target_cols,
+                pl.exclude(exclude_cols),
+            ]
+        )
+        .sort([entity_col, "time"])
+        .with_columns([pl.col(entity_col).set_sorted(), pl.col("time").set_sorted()])
+        .collect()
+    )
+    return X_new
+
+
+def _reindex_panel(X: pl.LazyFrame, freq: str, sort: bool = False) -> pl.DataFrame:
+    # Create new index
+    entity_col = X.columns[0]
+    time_col = X.columns[1]
+    dtypes = X.dtypes[:2]
+
+    with pl.StringCache():
+        entities = X.collect().get_column(entity_col).unique().to_frame()
+        dates = X.collect().get_column(time_col)
+        timestamps = pl.date_range(dates.min(), dates.max(), interval=freq).to_frame(
+            name=time_col
+        )
+
+        full_idx = entities.join(timestamps, how="cross")
+        # Defensive cast dtypes to be consistent with df
+        full_idx = full_idx.select(
+            [pl.col(col).cast(dtypes[i]) for i, col in enumerate(full_idx.columns)]
+        )
+
+        # Outer join
+        X_new = (
+            # Must collect before join otherwise will hit error:
+            # Joins/or comparisons on categorical dtypes can only happen if they are created under the same global string cache.
+            X.collect().join(full_idx, on=[entity_col, time_col], how="outer")
+        )
+
+    if sort:
+        X_new = X_new.sort([entity_col, time_col]).with_columns(
+            [pl.col(entity_col).set_sorted(), pl.col(time_col).set_sorted()]
+        )
+    return X_new
+
+
+def _impute(
+    X: pl.DataFrame,
+    method: Union[
+        Literal["mean", "median", "fill", "ffill", "bfill", "interpolate"],
+        Union[int, float],
+    ],
+) -> pl.DataFrame:
+    entity_col = X.columns[0]
+    method_to_expr = {
+        "mean": PL_NUMERIC_COLS.fill_null(PL_NUMERIC_COLS.mean().over(entity_col)),
+        "median": PL_NUMERIC_COLS.fill_null(PL_NUMERIC_COLS.median().over(entity_col)),
+        "fill": [
+            pl.col(PL_FLOAT_DTYPES).fill_null(
+                pl.col(PL_FLOAT_DTYPES).mean().over(entity_col)
+            ),
+            pl.col(PL_INT_DTYPES).fill_null(
+                pl.col(PL_INT_DTYPES).median().over(entity_col)
+            ),
+        ],
+        "ffill": PL_NUMERIC_COLS.fill_null(strategy="forward").over(entity_col),
+        "bfill": PL_NUMERIC_COLS.fill_null(strategy="backward").over(entity_col),
+        "interpolate": PL_NUMERIC_COLS.interpolate().over(entity_col),
+    }
+    if isinstance(method, int) or isinstance(method, float):
+        expr = PL_NUMERIC_COLS.fill_null(pl.lit(method))
+    else:
+        expr = method_to_expr[method]
+    X_new = X.with_columns(expr)
+    return X_new
+
+
+def _resample_panel(
+    X: pl.DataFrame,
+    freq: str,
+    agg_method: Optional[str] = "mean",
+    impute_method: Optional[Union[str, int, float]] = 0,
+    target_col: Optional[str] = None,
+    price_col: Optional[str] = None,
+    quantity_col: Optional[str] = None,
+) -> pl.DataFrame:
+    entity_col, time_col = X.columns[:2]
+    # For panel, group by entity and non-numeric feature cols
+    # For transaction, group by entity, invoice, product and non-numeric feature cols
+    groupby_cols = X.select(
+        pl.exclude([*PL_FLOAT_DTYPES, *PL_INT_DTYPES]).exclude(time_col)
+    ).columns
+    # For panel, agg target and numeric feature cols
+    # For transaction, agg price, quantity and numeric feature cols
+    agg_cols = [*PL_FLOAT_DTYPES, *PL_INT_DTYPES]
+    agg_to_expr = {
+        "sum": pl.col(agg_cols).sum(),
+        "mean": pl.col(agg_cols).mean(),
+        "median": pl.col(agg_cols).median(),
+    }
+
+    # Transaction type
+    if price_col is not None:
+        agg_exprs = [
+            # Fixed agg methods for price and quantity cols
+            pl.col(price_col).mean(),
+            pl.col(quantity_col).sum(),
+            agg_to_expr[agg_method].exclude([price_col, quantity_col]),
+        ]
+        target_cols = [price_col, quantity_col]
+    # Panel type
+    else:
+        agg_exprs = [agg_to_expr[agg_method]]
+        target_cols = [target_col]
+
+    X_new = (
+        # Defensive resampling
+        X.lazy()
+        .groupby_dynamic(time_col, every=freq, by=groupby_cols)
+        .agg(agg_exprs)
+        # Must defensive sort columns otherwise time_col and target_col
+        # positions are incorrectly swapped in lazy
+        .select(
+            [
+                entity_col,
+                time_col,
+                *target_cols,
+                pl.exclude([entity_col, time_col, *target_cols]),
+            ]
+        )
+        # Reindex full (entity, time) index
+        .pipe(_reindex_panel, freq=freq, sort=True)
+        # Impute gaps after reindex
+        .pipe(_impute, impute_method)
+        # Defensive fill null with 0 for impute method `ffill`
+        .fill_null(0)
+    )
+    return X_new
 
 
 def _make_output_path(source_id: int, updated_at: datetime) -> str:
@@ -108,11 +275,9 @@ def run_preprocess(
     source_id: int,
     source_tag: str,
     source_variables: Mapping[str, Any],
+    source_fields: Mapping[str, Any],
     storage_tag: str,
     storage_bucket_name: str,
-    entity_cols: List[str],
-    time_col: str,
-    datetime_fmt: str,
 ):
     """Load, clean, and write panel dataset."""
     try:
@@ -126,14 +291,38 @@ def run_preprocess(
         # Read data from source
         read = SOURCE_TAG_TO_READER[source_tag]
         raw_panel_data = read(**source_variables, **source_creds)
-        # Clean data
-        panel_data = _clean_panel(
-            raw_panel_data,
-            entity_cols=entity_cols,
-            time_col=time_col,
-            datetime_fmt=datetime_fmt,
+        if source_fields.get("price_col"):
+            target_cols = [source_fields["price_col"], source_fields["quantity_col"]]
+        else:
+            target_cols = [source_fields["target_col"]]
+        panel_data = (
+            raw_panel_data
+            # Clean data
+            .pipe(
+                _clean_panel,
+                entity_cols=source_fields["entity_cols"],
+                time_col=source_fields["time_col"],
+                datetime_fmt=source_fields["datetime_fmt"],
+            )
+            # Merge multi levels
+            .pipe(
+                _merge_multilevels,
+                entity_cols=source_fields["entity_cols"],
+                target_cols=target_cols,
+            )
+            # Resample panel
+            .pipe(
+                _resample_panel,
+                freq=SUPPORTED_FREQ[source_fields["freq"]],
+                agg_method=source_fields.get("agg_method", "mean"),
+                impute_method=source_fields.get("impute_method", 0),
+                target_col=source_fields.get("target_col", None),
+                price_col=source_fields.get("price_col", None),
+                quantity_col=source_fields.get("quantity_col", None),
+            )
         )
         # Write data to data lake storage
+        status, msg = "SUCCESS", "OK"
         updated_at = datetime.utcnow()
         write = STORAGE_TAG_TO_WRITER[storage_tag]
         output_path = _make_output_path(source_id=source_id, updated_at=updated_at)
@@ -144,6 +333,7 @@ def run_preprocess(
             **storage_creds,
         )
     except ClientError as exc:
+        panel_data = None
         updated_at = datetime.utcnow()
         output_path = None
         status = "FAILED"
@@ -157,22 +347,23 @@ def run_preprocess(
             msg = repr(exc)
     except HTTPException as exc:
         # Source file / table not found errors
+        panel_data = None
         updated_at = datetime.utcnow()
         output_path = None
         status = "FAILED"
         msg = exc.detail
     except ValueError as exc:
         # Data cleaning errors
+        panel_data = None
         updated_at = datetime.utcnow()
         output_path = None
         status = "FAILED"
         msg = exc
     except Exception as exc:
+        panel_data = None
         updated_at = datetime.utcnow()
         output_path = None
         status, msg = "FAILED", repr(exc)
-    else:
-        status, msg = "SUCCESS", "OK"
     finally:
         if status == "FAILED":
             logger.error(msg)
@@ -183,6 +374,8 @@ def run_preprocess(
             status=status,
             msg=msg,
         )
+
+    return panel_data
 
 
 def _get_all_sources() -> List[Source]:
@@ -212,13 +405,13 @@ def flow():
     futures = {}
     for source in sources:
         logger.info(f"Checking source: {source.id}")
-        columns = json.loads(source.columns)
+        fields = json.loads(source.fields)
 
         # 2. Get user
         user = get_user(source.user_id)
 
         # 3. Check freq from source for schedule
-        duration = FREQ_TO_DURATION[source.freq]
+        duration = FREQ_TO_DURATION[fields["freq"]]
         updated_at = source.updated_at.replace(microsecond=0)
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
@@ -236,17 +429,74 @@ def flow():
                 source_id=source.id,
                 source_tag=source.tag,
                 source_variables=json.loads(source.variables),
+                source_fields=fields,
                 storage_tag=user.storage_tag,
                 storage_bucket_name=user.storage_bucket_name,
-                entity_cols=columns["entity_cols"],
-                time_col=columns["time_col"],
-                datetime_fmt=source.datetime_fmt,
             )
-
     # 5. Get future for each source
     for source_id, future in futures.items():
         logger.info(f"Running preprocess flow for source: {source_id}")
-        future.get()
+        panel_data = future.get()
+
+        if panel_data is not None:
+            # 6. Create embeddings for each source
+            product_emb_flow = modal.Function.lookup(
+                "functime-embeddings", "product_emb_flow"
+            )
+            ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
+            cluster_emb_flow = modal.Function.lookup(
+                "functime-embeddings", "cluster_emb_flow"
+            )
+            embeddings_paths = {}
+            # Unpack panel data cols based on source type
+            source = get_source(source_id)["source"]
+            fields = json.loads(source.fields)
+            entity_col = "__".join(fields["entity_cols"])
+            target_col = fields.get("target_col", fields.get("price_col"))
+
+            logger.info(f"Generating embeddings for panel with source: {source_id}")
+            # Generate embeddings for panel
+            ts_emb_flow.call(
+                panel_data,
+                entity_col=entity_col,
+                target_col=target_col,
+                s3_bucket=user.storage_bucket_name,
+                s3_key=f"embeddings/{source_id}/ts/",
+            )
+            # Export embeddings to s3
+            embeddings_paths["ts"] = f"embeddings/{source_id}/ts/embeddings_ts.lance/"
+            logger.info(f"Completed embeddings for panel with source: {source_id}")
+
+            if fields.get("product_col"):
+                logger.info(f"Generate embeddings(products) for source: {source_id}")
+                # Generate embeddings for products (all, 2D, 3D)
+                embeddings = product_emb_flow.call(
+                    panel_data.drop_nulls(),
+                    product_col=fields["product_col"],
+                    invoice_col=fields["invoice_col"],
+                    target_col=target_col,
+                    s3_bucket=user.storage_bucket_name,
+                    s3_key=f"embeddings/{source_id}/product/",
+                )
+                # Export embeddings to s3
+                for name in embeddings.keys():
+                    embeddings_paths[
+                        name
+                    ] = f"embeddings/{source_id}/product/embeddings_product_{name}.lance"
+
+                # Obtain cluster_id for 3D embeddings
+                cluster_emb_flow.call(
+                    embeddings["3D"],
+                    fields["product_col"],
+                    s3_bucket=user.storage_bucket_name,
+                    s3_key=f"embeddings/{source_id}/cluster/",
+                )
+                # Export embeddings to s3
+                embeddings_paths[
+                    "cluster"
+                ] = f"embeddings/{source_id}/cluster/embeddings_clusters.lance/"
+                logger.info(f"Completed embeddings(products) for source: {source_id}")
+
         logger.info(f"Preprocess flow completed for source: {source_id}")
 
     logger.info("Flow completed")
@@ -264,25 +514,25 @@ def test():
         "object_path": "tourism/tourism_20221212.parquet",
         "file_ext": "parquet",
     }
-    columns = {
+    fields = {
         "entity_cols": ["country", "territory", "state"],
         "time_col": "time",
-        "feature_cols": ["trips_in_000s"],
+        "target_col": "trips_in_000s",
+        "feature_cols": [],
+        "freq": "1mo",
+        "datetime_fmt": "%Y-%m-%d",
     }
-    datetime_fmt = "%Y-%m-%d"
 
     # User
     storage_tag = "s3"
     storage_bucket_name = "indexhub-demo"
 
-    run_preprocess.call(
+    run_preprocess(
         user_id=user_id,
         source_id=source_id,
         source_tag=source_tag,
         source_variables=source_variables,
+        source_fields=fields,
         storage_tag=storage_tag,
         storage_bucket_name=storage_bucket_name,
-        entity_cols=columns["entity_cols"],
-        time_col=columns["time_col"],
-        datetime_fmt=datetime_fmt,
     )

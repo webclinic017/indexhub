@@ -10,12 +10,20 @@ from indexhub.api.db import engine
 from indexhub.api.models.policy import Policy
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
+from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import (
     POLICY_SCHEMAS,
     SUPPORTED_COUNTRIES,
     SUPPORTED_ERROR_TYPE,
     SUPPORTED_FREQ,
 )
+
+FREQ_TO_SP = {
+    "Hourly": 24,
+    "Daily": 30,
+    "Weekly": 52,
+    "Monthly": 12,
+}
 
 
 router = APIRouter()
@@ -47,6 +55,8 @@ def create_policy(params: CreatePolicyParams):
         policy.status = "RUNNING"
         policy_sources = json.loads(policy.sources)
         policy_fields = json.loads(policy.fields)
+        source = get_source(policy_sources["panel"])["source"]
+        source_fields = json.loads(source.fields)
         if policy.tag == "forecast_panel":
             flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             holiday_regions = policy_fields["holiday_regions"]
@@ -59,21 +69,20 @@ def create_policy(params: CreatePolicyParams):
                 user_id=policy.user_id,
                 policy_id=policy.id,
                 panel_path=policy_sources["panel"],
-                baseline_path=policy_sources["baseline"],
-                inventory_path=policy_sources["inventory"],
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                level_cols=policy_fields["level_cols"],
-                target_col=policy_fields["target_col"],
+                target_col=source_fields["target_col"],
                 min_lags=int(policy_fields["min_lags"]),
                 max_lags=int(policy_fields["max_lags"]),
                 fh=int(policy_fields["fh"]),
-                freq=SUPPORTED_FREQ[policy_fields["freq"]],
+                freq=SUPPORTED_FREQ[source.freq],
+                sp=FREQ_TO_SP[source.freq],
                 n_splits=policy_fields["n_splits"],
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[policy_fields["error_type"]],
-                agg_method=policy_fields["agg_method"],
-                impute_method=policy_fields["impute_method"],
+                baseline_model=policy_fields.get("baseline_model", None),
+                baseline_path=policy_sources["baseline"],
+                inventory_path=policy_sources["inventory"],
             )
         else:
             raise ValueError(f"Policy tag `{policy.tag}` not found")
