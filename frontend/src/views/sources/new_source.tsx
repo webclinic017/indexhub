@@ -42,7 +42,7 @@ const steps = [
   },
   {
     title: "Step 3",
-    description: "Configure your source",
+    description: "Configure your dataset",
   },
   {
     title: "Step 4",
@@ -252,7 +252,7 @@ export default function NewSource() {
   return (
     <>
       <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
-        Sources
+        New Source
       </Text>
       <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
         <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">

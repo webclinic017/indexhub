@@ -12,11 +12,11 @@ export const UserProfile = (props: UserProfileProps) => {
     return (
         <HStack spacing="3" ps="2">
             <Avatar name={name} src={image} boxSize="10" />
-            <Box>
-                <Text fontWeight="bold" fontSize="sm" textAlign="left">
+            <Box overflow="hidden">
+                <Text overflow="hidden" textOverflow="ellipsis" fontWeight="bold" fontSize="sm" textAlign="left">
                     {name}
                 </Text>
-                <Text color="muted" fontSize="sm" textAlign="left">
+                <Text className="ellipsis" color="muted" fontSize="sm" textAlign="left">
                     {email}
                 </Text>
             </Box>

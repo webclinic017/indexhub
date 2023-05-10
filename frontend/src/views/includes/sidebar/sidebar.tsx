@@ -38,16 +38,14 @@ export const Sidebar = () => {
     const user_details = useSelector((state: AppState) => state.reducer?.user);
 
     return (
-        <Flex as="section" minH="100vh" bg="bg-canvas">
+        <Flex minH="100vh" bg="bg-canvas">
             <Flex
                 flex="1"
                 bg="bg-surface"
                 boxShadow="sm"
-                maxW={{ base: 'full', sm: 'xs' }}
-                py={{ base: '6', sm: '8' }}
-                px={{ base: '4', sm: '6' }}
+                maxW="full"
             >
-                <Stack justify="space-between" spacing="1">
+                <Stack p="0.5rem" width="200px" justify="space-between" spacing="1">
                     <Stack spacing={{ base: '5', sm: '6' }} shouldWrapChildren height="37vh" justify="space-between">
                         {/* <Stack alignItems="center"> */}
                         <IndexHubLogo width="3rem" height="100%" />

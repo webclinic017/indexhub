@@ -13,6 +13,12 @@ import {
   Stack,
   Link as ChakraLink,
   Box,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
 } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useLocation } from "react-router-dom";
@@ -22,6 +28,7 @@ import Breadcrumbs from "../../components/breadcrumbs";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "./sidebar/sidebar";
 import { faChartLine, faDatabase, faPlusCircle } from "@fortawesome/pro-light-svg-icons";
+import NewSource from "../sources/new_source";
 
 export const PopoverIcon = (props: { isOpen: boolean }) => {
   const iconStyles = {
@@ -46,6 +53,12 @@ export default function Layout() {
   const { isOpen, onClose, onOpen } = useDisclosure({ defaultIsOpen: false });
   const navigate = useNavigate();
 
+  const {
+    isOpen: isOpenNewSourceModal,
+    onOpen: onOpenNewSourceModal,
+    onClose: onCloseNewSourceModal
+  } = useDisclosure()
+
   const getIconColor = (icon_path: string) => {
     if (current_path.split("/")[1] == icon_path) {
       return colors.primary.brand_colors.blue_5;
@@ -57,7 +70,7 @@ export default function Layout() {
       title: "Add Source",
       description: "Add and configure a new Source to generate reports from",
       icon: faDatabase as any,
-      onClick: () => navigate("/sources/new_source"),
+      onClick: () => onOpenNewSourceModal(),
     },
     {
       title: "Add Policy",
@@ -73,7 +86,7 @@ export default function Layout() {
         templateAreas={`"nav header"
                         "nav main"`}
         gridTemplateRows={"70px 1fr"}
-        gridTemplateColumns={"278.22px 1fr"}
+        gridTemplateColumns={"200px 1fr"}
         h="100vh"
       >
         <GridItem
@@ -162,6 +175,15 @@ export default function Layout() {
           <Outlet />
         </GridItem>
       </Grid>
+      <Modal size="6xl" isOpen={isOpenNewSourceModal} onClose={onCloseNewSourceModal}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalCloseButton />
+          <ModalBody>
+            <NewSource />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
