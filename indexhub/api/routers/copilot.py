@@ -1,26 +1,26 @@
 import asyncio
-from functools import partial
-from datetime import datetime
-import websockets
+import json
 import logging
 import traceback
-import json
+from datetime import datetime
+from functools import partial
 
-import polars as pl
 import modal.aio
-from fastapi import APIRouter, WebSocket, HTTPException
-from sqlmodel import Session
+import polars as pl
+import websockets
+from fastapi import APIRouter, HTTPException, WebSocket
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from indexhub.api.db import engine
-from indexhub.api.models.user import User
 from indexhub.api.models.copilot import (
+    Company,
     ForecastAnalystAgent,
     ForecastContextInputs,
-    Company,
     Persona,
 )
-from indexhub.api.routers.policies import get_policy
+from indexhub.api.models.user import User
+from indexhub.api.routers.objectives import get_objective
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -47,7 +47,7 @@ MODAL_APP = "copilot-forecast-analyst-async-gpt3.5"
 
 class ForecastParams(BaseModel):
     user_id: str
-    policy_id: str
+    objective_id: str
     target_col: str
     entity_col: str
     entity_id: str
@@ -65,8 +65,8 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
                 status_code=404, detail=f"User with ID {params.user_id} not found."
             )
 
-    policy = get_policy(params.policy_id)["policy"]
-    outputs = json.loads(policy.outputs)
+    objective = get_objective(params.objective_id)["objective"]
+    outputs = json.loads(objective.outputs)
     best_model = outputs["best_model"]
 
     storage_creds = get_aws_secret(
@@ -88,7 +88,7 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
     )
 
     onboarding_data = read(
-        object_path=f"users-context/copilot-onboarding.json", file_ext="json"
+        object_path="users-context/copilot-onboarding.json", file_ext="json"
     )
     agent_persona = Persona(**onboarding_data["persona"])
     company = Company(**onboarding_data["company"])

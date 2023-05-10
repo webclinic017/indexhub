@@ -3,10 +3,10 @@ import { Card, CardBody } from "@chakra-ui/card";
 import React from "react";
 import { capitalizeFirstLetter } from "../../../utilities/helpers";
 
-const PolicyType = (props: {
+const ObjectiveType = (props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policies_schema: Record<any, any>;
-  submitPolicyType: (policy_type: string) => void;
+  objectives_schema: Record<any, any>;
+  submitObjectiveType: (objective_type: string) => void;
 }) => {
   return (
     <Box
@@ -22,7 +22,7 @@ const PolicyType = (props: {
         py={{ base: "5", md: "6" }}
       >
         <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-          {Object.keys(props.policies_schema).map((policy_type, idx) => {
+          {Object.keys(props.objectives_schema).map((objective_type, idx) => {
             return (
               <Card
                 cursor="pointer"
@@ -30,7 +30,7 @@ const PolicyType = (props: {
                 borderRadius="lg"
                 key={idx}
                 onClick={() => {
-                  props.submitPolicyType(policy_type);
+                  props.submitObjectiveType(objective_type);
                 }}
               >
                 <CardBody>
@@ -38,12 +38,12 @@ const PolicyType = (props: {
                     {/* <Box p="6">{logos[source_type]}</Box> */}
                     <Box p="4">
                       <Text textAlign="center" fontWeight="bold">
-                        {capitalizeFirstLetter(policy_type).replaceAll("_", " ")}
+                        {capitalizeFirstLetter(objective_type).replaceAll("_", " ")}
                       </Text>
                     </Box>
                     <Box p="1" width="100%" borderBottomRadius="lg">
                       <Text textAlign="center" fontSize="small">
-                        {props.policies_schema[policy_type]["description"]}
+                        {props.objectives_schema[objective_type]["description"]}
                       </Text>
                     </Box>
                   </VStack>
@@ -58,4 +58,4 @@ const PolicyType = (props: {
   );
 };
 
-export default PolicyType;
+export default ObjectiveType;

@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
-from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.services.chart_builders import (
     _create_3d_cluster_chart,
@@ -20,7 +20,7 @@ from indexhub.api.services.chart_builders import (
 router = APIRouter()
 
 
-POLICY_TAG_TO_BUILDERS = {
+OBJECTIVE_TAG_TO_BUILDERS = {
     "forecast_panel": {
         "single_forecast": _create_single_forecast_chart,
         "multi_forecast": _create_multi_forecast_chart,
@@ -58,7 +58,7 @@ class SegChartParams(BaseModel):
     segmentation_factor: SegmentationFactor = SegmentationFactor.volatility
 
 
-POLICY_TAG_TO_PARAMS = {
+OBJECTIVE_TAG_TO_PARAMS = {
     "forecast_panel": {
         "single_forecast": TrendChartParams,
         "multi_forecast": TrendChartParams,
@@ -67,21 +67,21 @@ POLICY_TAG_TO_PARAMS = {
 }
 
 
-@router.post("/charts/{policy_id}/{chart_tag}")
-async def get_chart(policy_id: str, chart_tag: ChartTag, request: Request):
+@router.post("/charts/{objective_id}/{chart_tag}")
+async def get_chart(objective_id: str, chart_tag: ChartTag, request: Request):
     with Session(engine) as session:
         # Get the metadata on tag to define which chart to return
-        policy = get_policy(policy_id)["policy"]
+        objective = get_objective(objective_id)["objective"]
         params = json.loads(await request.body())
-        build = POLICY_TAG_TO_BUILDERS[policy.tag][chart_tag]
-        user = session.get(User, policy.user_id)
-        source = get_source(json.loads(policy.sources)["panel"])["source"]
+        build = OBJECTIVE_TAG_TO_BUILDERS[objective.tag][chart_tag]
+        user = session.get(User, objective.user_id)
+        source = get_source(json.loads(objective.sources)["panel"])["source"]
         chart_json = build(
-            fields=json.loads(policy.fields),
-            outputs=json.loads(policy.outputs),
+            fields=json.loads(objective.fields),
+            outputs=json.loads(objective.outputs),
             source_fields=json.loads(source.fields),
             user=user,
-            policy_id=policy_id,
+            objective_id=objective_id,
             **params,
         )
 

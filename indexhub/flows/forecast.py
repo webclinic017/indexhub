@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from indexhub.api.db import engine
-from indexhub.api.models.policy import Policy
+from indexhub.api.models.objective import Objective
 from indexhub.api.models.user import User
 from indexhub.api.routers.sources import get_source
 from indexhub.api.routers.stats import FREQ_TO_SP
@@ -52,14 +52,14 @@ stub = modal.Stub("indexhub-forecast", image=IMAGE)
 )
 def compute_rolling_forecast(
     output_json: Mapping[str, Any],
-    policy_id: int,
+    objective_id: int,
     updated_at: datetime,
     read: Callable,
     write: Callable,
 ):
     logger.info("Running rolling forecast")
     pl.toggle_string_cache(True)
-    # Get the updated at based on policy_id (sqlmodel)
+    # Get the updated at based on objective_id (sqlmodel)
     dt = updated_at.replace(microsecond=0)
 
     # Read forecast artifacts from s3 and postproc
@@ -105,7 +105,7 @@ def compute_rolling_forecast(
 
     try:
         cached_forecasts = read(
-            object_path=f"artifacts/{policy_id}/rolling_forecasts.parquet",
+            object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
         )
         # Get the latest `updated_at` date from cached rolling forecast
         last_dt = cached_forecasts.get_column("updated_at").unique().max()
@@ -129,7 +129,7 @@ def compute_rolling_forecast(
             # Export merged data as rolling forecasts artifact
             write(
                 rolling_forecasts,
-                object_path=f"artifacts/{policy_id}/rolling_forecasts.parquet",
+                object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
             )
             logger.info("Rolling forecast completed")
     except HTTPException as err:
@@ -140,7 +140,7 @@ def compute_rolling_forecast(
             # Export latest forecasts as initial rolling forecasts artifact
             write(
                 latest_forecasts,
-                object_path=f"artifacts/{policy_id}/rolling_forecasts.parquet",
+                object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
             )
             logger.info("Rolling forecast completed")
     finally:
@@ -194,7 +194,7 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
 )
 def compute_rolling_uplift(
     output_json: Mapping[str, Any],
-    policy_id: int,
+    objective_id: int,
     updated_at: datetime,
     sp: int,
     read: Callable,
@@ -225,7 +225,7 @@ def compute_rolling_uplift(
 
     try:
         cached_uplift = read(
-            object_path=f"artifacts/{policy_id}/rolling_uplift.parquet"
+            object_path=f"artifacts/{objective_id}/rolling_uplift.parquet"
         )
 
         # Get the latest `updated_at` date from cached rolling forecast
@@ -251,7 +251,7 @@ def compute_rolling_uplift(
             # Export merged data as rolling uplift artifact
             write(
                 rolling_uplift,
-                object_path=f"artifacts/{policy_id}/rolling_uplift.parquet",
+                object_path=f"artifacts/{objective_id}/rolling_uplift.parquet",
             )
         logger.info("Rolling uplift completed")
     except HTTPException as err:
@@ -262,44 +262,44 @@ def compute_rolling_uplift(
             # Export latest uplift as initial rolling uplift artifact
             write(
                 latest_uplift,
-                object_path=f"artifacts/{policy_id}/rolling_uplift.parquet",
+                object_path=f"artifacts/{objective_id}/rolling_uplift.parquet",
             )
             logger.info("Rolling uplift completed")
     finally:
         pl.toggle_string_cache(False)
 
 
-def _make_output_path(policy_id: int, updated_at: datetime, prefix: str) -> str:
+def _make_output_path(objective_id: int, updated_at: datetime, prefix: str) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
-    path = f"artifacts/{policy_id}/{timestamp}/{prefix}.parquet"
+    path = f"artifacts/{objective_id}/{timestamp}/{prefix}.parquet"
     return path
 
 
-def _update_policy(
-    policy_id: int,
+def _update_objective(
+    objective_id: int,
     updated_at: datetime,
     outputs: Mapping[str, Any],
     status: str,
     msg: str,
-) -> Policy:
+) -> Objective:
     # Establish connection
     with Session(engine) as session:
         # Select rows with specific report_id only
-        query = select(Policy).where(Policy.id == policy_id)
-        policy = session.exec(query).one()
-        if not policy:
-            raise HTTPException(status_code=404, detail="Policy not found")
-        # Update the fields based on the policy_id
-        policy.outputs = outputs
-        policy.updated_at = updated_at
-        policy.status = status
-        policy.msg = msg
+        query = select(Objective).where(Objective.id == objective_id)
+        objective = session.exec(query).one()
+        if not objective:
+            raise HTTPException(status_code=404, detail="Objective not found")
+        # Update the fields based on the objective_id
+        objective.outputs = outputs
+        objective.updated_at = updated_at
+        objective.status = status
+        objective.msg = msg
 
         # Add, commit and refresh the updated object
-        session.add(policy)
+        session.add(objective)
         session.commit()
-        session.refresh(policy)
-        return policy
+        session.refresh(objective)
+        return objective
 
 
 @stub.function(
@@ -313,7 +313,7 @@ def _update_policy(
 )
 def run_forecast(
     user_id: int,
-    policy_id: int,
+    objective_id: int,
     panel_path: str,
     storage_tag: str,
     bucket_name: str,
@@ -353,7 +353,7 @@ def run_forecast(
             **storage_creds,
         )
         make_path = partial(
-            _make_output_path, policy_id=policy_id, updated_at=updated_at
+            _make_output_path, objective_id=objective_id, updated_at=updated_at
         )
 
         # 4. Read y from storage
@@ -448,7 +448,7 @@ def run_forecast(
         # 9. Run rolling forecast
         compute_rolling_forecast.call(
             output_json=outputs,
-            policy_id=policy_id,
+            objective_id=objective_id,
             updated_at=updated_at,
             read=read,
             write=write,
@@ -457,7 +457,7 @@ def run_forecast(
         # 10. Run rolling uplift
         compute_rolling_uplift.call(
             output_json=outputs,
-            policy_id=policy_id,
+            objective_id=objective_id,
             updated_at=updated_at,
             sp=sp,
             read=read,
@@ -474,8 +474,8 @@ def run_forecast(
         pl.toggle_string_cache(False)
         if status == "FAILED":
             logger.error(msg)
-        _update_policy(
-            policy_id=policy_id,
+        _update_objective(
+            objective_id=objective_id,
             updated_at=updated_at,
             outputs=json.dumps(outputs),
             status=status,
@@ -483,13 +483,13 @@ def run_forecast(
         )
 
 
-def _get_all_policies() -> List[Policy]:
+def _get_all_objectives() -> List[Objective]:
     with Session(engine) as session:
-        query = select(Policy)
-        policies = session.exec(query).all()
-        if not policies:
-            raise HTTPException(status_code=404, detail="Policy not found")
-        return policies
+        query = select(Objective)
+        objectives = session.exec(query).all()
+        if not objectives:
+            raise HTTPException(status_code=404, detail="Objective not found")
+        return objectives
 
 
 def get_user(user_id: str) -> User:
@@ -521,17 +521,17 @@ FREQ_TO_DURATION = {
 )
 def flow():
     logger.info("Flow started")
-    # 1. Get all policies
-    policies = _get_all_policies()
+    # 1. Get all objectives
+    objectives = _get_all_objectives()
 
     futures = {}
-    for policy in policies:
-        logger.info(f"Checking policy: {policy.id}")
-        fields = json.loads(policy.fields)
-        sources = json.loads(policy.sources)
+    for objective in objectives:
+        logger.info(f"Checking objective: {objective.id}")
+        fields = json.loads(objective.fields)
+        sources = json.loads(objective.sources)
 
         # 2. Get user and source
-        user = get_user(policy.user_id)
+        user = get_user(objective.user_id)
         panel_source = get_source(sources["panel"])["source"]
         source_fields = json.loads(panel_source.fields)
         freq = source_fields["freq"]
@@ -539,7 +539,7 @@ def flow():
 
         # 3. Check freq from source for schedule
         duration = FREQ_TO_DURATION[freq]
-        updated_at = policy.updated_at.replace(microsecond=0)
+        updated_at = objective.updated_at.replace(microsecond=0)
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
             run_dt = datetime(new_dt.year, new_dt.month, 1)
@@ -549,7 +549,7 @@ def flow():
 
         # 4. Run forecast flow
         current_datetime = datetime.now().replace(microsecond=0)
-        if (current_datetime >= run_dt) or policy.status == "FAILED":
+        if (current_datetime >= run_dt) or objective.status == "FAILED":
             # Get staging path for each source
             panel_path = panel_source.output_path
             if sources["baseline"]:
@@ -568,10 +568,10 @@ def flow():
                     for country in fields["holiday_regions"]
                 ]
 
-            # Spawn forecast flow for policy
-            futures[policy.id] = run_forecast.spawn(
-                user_id=policy.user_id,
-                policy_id=policy.id,
+            # Spawn forecast flow for objective
+            futures[objective.id] = run_forecast.spawn(
+                user_id=objective.user_id,
+                objective_id=objective.id,
                 panel_path=panel_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
@@ -589,19 +589,19 @@ def flow():
                 inventory_path=inventory_path,
             )
 
-    # 5. Get future for each policy
-    for policy_id, future in futures.items():
-        logger.info(f"Running forecast flow for policy: {policy_id}")
+    # 5. Get future for each objective
+    for objective_id, future in futures.items():
+        logger.info(f"Running forecast flow for objective: {objective_id}")
         future.get()
-        logger.info(f"Forecast flow completed for policy: {policy_id}")
+        logger.info(f"Forecast flow completed for objective: {objective_id}")
 
     logger.info("Flow completed")
 
 
 @stub.local_entrypoint
 def test(user_id: str = "indexhub-demo"):
-    # Policy
-    policy_id = 1
+    # Objective
+    objective_id = 1
     fields = {
         "sources": {
             "panel": 1,
@@ -642,7 +642,7 @@ def test(user_id: str = "indexhub-demo"):
 
     run_forecast.call(
         user_id=user_id,
-        policy_id=policy_id,
+        objective_id=objective_id,
         panel_path=panel_path,
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,

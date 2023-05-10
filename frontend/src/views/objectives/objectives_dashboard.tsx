@@ -21,54 +21,54 @@ import { AppState } from "../..";
 import { colors } from "../../theme/theme";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 
-export type Policy = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type Objective = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const policy_status_to_color: any = {
+const objective_status_to_color: any = {
   RUNNING: colors.supplementary.diverging_color.main_yellow,
   COMPLETED: colors.supplementary.indicators.main_green,
   SUCCESS: colors.supplementary.indicators.main_green,
   FAILED: colors.supplementary.indicators.main_red,
 };
 
-const PoliciesDashboard = () => {
+const ObjectivesDashboard = () => {
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/policies/ws`
+    `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/objectives/ws`
   );
-  const [policies, setPolicies] = useState<Policy[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [objectives, setObjectives] = useState<Objective[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [wsCallStarted, setWsCallStarted] = useState(false);
   const navigate = useNavigate();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
 
-  const getPoliciesByUserId = () => {
+  const getObjectivesByUserId = () => {
     sendMessage(JSON.stringify({ user_id: user_details.id }));
   };
 
   useEffect(() => {
     if (user_details.id && readyState == ReadyState.OPEN && !wsCallStarted) {
-      getPoliciesByUserId();
+      getObjectivesByUserId();
       setWsCallStarted(true);
     }
   }, [user_details, readyState, wsCallStarted]);
 
   useEffect(() => {
     if (lastMessage?.data) {
-      const policies: Record<"policies", Policy[]> = JSON.parse(
+      const objectives: Record<"objectives", Objective[]> = JSON.parse(
         lastMessage.data
       );
-      policies["policies"].map((policy: Policy) => {
-        policy["fields"] = JSON.parse(policy["fields"]);
+      objectives["objectives"].map((objective: Objective) => {
+        objective["fields"] = JSON.parse(objective["fields"]);
       });
-      setPolicies(policies["policies"]);
+      setObjectives(objectives["objectives"]);
 
-      if (Object.keys(JSON.parse(lastMessage.data)).includes("policies")) {
+      if (Object.keys(JSON.parse(lastMessage.data)).includes("objectives")) {
         const statuses: string[] = [];
-        const policies: Policy[] = JSON.parse(lastMessage.data).policies;
-        policies.forEach((policy) => {
-          statuses.push(policy.status);
+        const objectives: Objective[] = JSON.parse(lastMessage.data).objectives;
+        objectives.forEach((objective) => {
+          statuses.push(objective.status);
         });
         if (statuses.includes("RUNNING")) {
-          setTimeout(getPoliciesByUserId, 5000);
+          setTimeout(getObjectivesByUserId, 5000);
         }
       }
     }
@@ -76,10 +76,10 @@ const PoliciesDashboard = () => {
 
   return (
     <VStack>
-      {policies.length > 0 ? (
+      {objectives.length > 0 ? (
         <>
           <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-            {policies.map((policy, idx) => {
+            {objectives.map((objective, idx) => {
               return (
                 <Card
                   cursor="pointer"
@@ -88,7 +88,7 @@ const PoliciesDashboard = () => {
                   key={idx}
                   bgColor="white"
                   onClick={() => {
-                    navigate(`forecast/${policy["id"]}`)
+                    navigate(`forecast/${objective["id"]}`)
                   }}
                 >
                   <CardBody>
@@ -100,7 +100,7 @@ const PoliciesDashboard = () => {
                           textTransform="uppercase"
                           fontWeight="bold"
                         >
-                          {policy["tag"]}
+                          {objective["tag"]}
                         </Text>
                         <Text
                           pl={2}
@@ -108,12 +108,12 @@ const PoliciesDashboard = () => {
                           borderLeft="1px solid"
                           margin="unset !important"
                         >
-                          {new Date(policy["created_at"]).toLocaleDateString()}
+                          {new Date(objective["created_at"]).toLocaleDateString()}
                         </Text>
                       </HStack>
 
                       <Text width="100%" textAlign="left" fontWeight="bold">
-                        {capitalizeFirstLetter(policy["name"])}
+                        {capitalizeFirstLetter(objective["name"])}
                       </Text>
 
                       <HStack width="100%" justify="space-between">
@@ -123,16 +123,16 @@ const PoliciesDashboard = () => {
                             icon={faCircleDot}
                             beatFade
                             style={{
-                              color: policy_status_to_color[policy["status"]],
+                              color: objective_status_to_color[objective["status"]],
                             }}
                           />
                           <Text
                             textAlign="center"
                             fontSize="2xs"
-                            color={policy_status_to_color[policy["status"]]}
+                            color={objective_status_to_color[objective["status"]]}
                             pl="1"
                           >
-                            {policy["status"]}
+                            {objective["status"]}
                           </Text>
                         </HStack>
 
@@ -142,12 +142,12 @@ const PoliciesDashboard = () => {
                           textTransform="uppercase"
                         >
                           Last Updated :{" "}
-                          {new Date(policy["updated_at"]).toLocaleString()}
+                          {new Date(objective["updated_at"]).toLocaleString()}
                         </Text>
                       </HStack>
 
                       <Text py={6} textAlign="left" fontWeight="bold">
-                        {capitalizeFirstLetter(policy["fields"]["description"])}
+                        {capitalizeFirstLetter(objective["fields"]["description"])}
                       </Text>
 
                       <VStack width="100%" justify="left">
@@ -174,13 +174,13 @@ const PoliciesDashboard = () => {
               alignItems="center"
               justifyContent="center"
               onClick={() => {
-                navigate("/policies/new_policy");
+                navigate("/objectives/new_objective");
               }}
             >
               <CardBody>
                 <VStack>
                   <FontAwesomeIcon size="2x" icon={faPlusCircle} />
-                  <Text>Add a new policy</Text>
+                  <Text>Add a new objective</Text>
                 </VStack>
               </CardBody>
             </Card>
@@ -193,7 +193,7 @@ const PoliciesDashboard = () => {
               <Stack spacing={{ base: "4", md: "5" }} align="center">
                 <Heading>Ready to Grow?</Heading>
                 <Text color="muted" maxW="2xl" textAlign="center" fontSize="xl">
-                  With these comprehensive policies you will be able to analyse
+                  With these comprehensive objectives you will be able to analyse
                   the past with statistical context and look into the future of
                   what you care most!
                 </Text>
@@ -207,9 +207,9 @@ const PoliciesDashboard = () => {
                   as={Link}
                   colorScheme="facebook"
                   size="lg"
-                  to="/policies/new_policy"
+                  to="/objectives/new_objective"
                 >
-                  Create Policy
+                  Create Objective
                 </Button>
               </Stack>
             </Stack>
@@ -220,4 +220,4 @@ const PoliciesDashboard = () => {
   );
 };
 
-export default PoliciesDashboard;
+export default ObjectivesDashboard;

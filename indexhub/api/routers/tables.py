@@ -12,7 +12,7 @@ from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
-from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.chart_builders import _create_sparkline
@@ -27,13 +27,13 @@ class TableTag(str, Enum):
     uplift = "uplift"
 
 
-# POLICY RESULT TABLES
+# OBJECTIVE RESULT TABLES
 def _get_forecast_table(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     source_fields: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
     filter_by: Mapping[str, List[str]],
 ) -> pd.DataFrame:
     # Get credentials
@@ -61,7 +61,7 @@ def _get_forecast_table(
     # Read rolling uplift and take the latest stats
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     rolling_uplift = (
-        read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+        read(object_path=f"artifacts/{objective_id}/rolling_uplift.parquet")
         .lazy()
         .sort(entity_col, "updated_at")
         .groupby(entity_col)
@@ -281,25 +281,25 @@ class TableParams(BaseModel):
     display_n: int
 
 
-@router.post("/tables/{policy_id}/{table_tag}")
-def get_policy_table(
-    params: TableParams, policy_id: str, table_tag: TableTag
+@router.post("/tables/{objective_id}/{table_tag}")
+def get_objective_table(
+    params: TableParams, objective_id: str, table_tag: TableTag
 ) -> TableResponse:
     if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
     with Session(engine) as session:
-        policy = get_policy(policy_id)["policy"]
-        getter = TAGS_TO_GETTER[policy.tag][table_tag]
-        user = session.get(User, policy.user_id)
-        source = get_source(json.loads(policy.sources)["panel"])["source"]
+        objective = get_objective(objective_id)["objective"]
+        getter = TAGS_TO_GETTER[objective.tag][table_tag]
+        user = session.get(User, objective.user_id)
+        source = get_source(json.loads(objective.sources)["panel"])["source"]
         # TODO: Cache using an in memory key-value store
         pl.toggle_string_cache(True)
         table = getter(
-            json.loads(policy.fields),
-            json.loads(policy.outputs),
+            json.loads(objective.fields),
+            json.loads(objective.outputs),
             json.loads(source.fields),
             user,
-            policy_id,
+            objective_id,
             params.filter_by,
         ).collect(streaming=True)
         pl.toggle_string_cache(False)

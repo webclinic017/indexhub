@@ -4,12 +4,12 @@ from typing import Any, List, Mapping
 
 import polars as pl
 from fastapi import APIRouter
-from sqlmodel import Session
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
-from indexhub.api.routers.policies import get_policy
+from indexhub.api.routers.objectives import get_objective
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
@@ -21,7 +21,7 @@ def _execute_forecast_plan(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
     updated_plans: List[Mapping[str, Any]],
 ):
     # Create dataframe from updated_plans
@@ -54,7 +54,7 @@ def _execute_forecast_plan(
     # Read rolling uplift and take the latest stats
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     rolling_uplift = (
-        read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+        read(object_path=f"artifacts/{objective_id}/rolling_uplift.parquet")
         .lazy()
         .sort(entity_col, "updated_at")
         .groupby(entity_col)
@@ -126,7 +126,7 @@ def _execute_forecast_plan(
     forecast_plans = forecast_plans.select(["entity", time_col, "forecast_plan"])
 
     # Export to parquet
-    path = f"artifacts/{policy_id}/forecast_plan.parquet"
+    path = f"artifacts/{objective_id}/forecast_plan.parquet"
     write = STORAGE_TAG_TO_WRITER[user.storage_tag]
     write(
         data=forecast_plans.collect(streaming=True),
@@ -144,21 +144,19 @@ TAGS_TO_GETTER = {"forecast_panel": _execute_forecast_plan}
 class ExecutePlanParams(BaseModel):
     updated_plans: List[Mapping[str, Any]] = None
 
-@router.post("/plans/{policy_id}")
-def execute_plan(
-    policy_id: str,
-    params: ExecutePlanParams
-):
+
+@router.post("/plans/{objective_id}")
+def execute_plan(objective_id: str, params: ExecutePlanParams):
     with Session(engine) as session:
-        policy = get_policy(policy_id)["policy"]
-        getter = TAGS_TO_GETTER[policy.tag]
-        user = session.get(User, policy.user_id)
+        objective = get_objective(objective_id)["objective"]
+        getter = TAGS_TO_GETTER[objective.tag]
+        user = session.get(User, objective.user_id)
         pl.toggle_string_cache(True)
         path = getter(
-            json.loads(policy.fields),
-            json.loads(policy.outputs),
+            json.loads(objective.fields),
+            json.loads(objective.outputs),
             user,
-            policy_id,
+            objective_id,
             params.updated_plans,
         )
         pl.toggle_string_cache(False)

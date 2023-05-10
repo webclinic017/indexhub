@@ -73,10 +73,10 @@ export default function Layout() {
       onClick: () => onOpenNewSourceModal(),
     },
     {
-      title: "Add Policy",
-      description: "Add and configure a new Policy from your available Sources",
+      title: "Add Objective",
+      description: "Add and configure a new Objective from your available Sources",
       icon: faChartLine as any,
-      onClick: () => navigate("/policies/new_policy"),
+      onClick: () => navigate("/objectives/new_objective"),
     },
   ];
 

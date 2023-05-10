@@ -11,10 +11,10 @@ import {
 
 import React from "react";
 
-const ConfirmCreatePolicy = (props: {
+const ConfirmCreateObjective = (props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policy_configs: Record<string, any>;
-  createPolicy: () => Promise<void>;
+  objective_configs: Record<string, any>;
+  createObjective: () => Promise<void>;
   goToPrevStep: () => void;
 }) => {
   return (
@@ -27,7 +27,7 @@ const ConfirmCreatePolicy = (props: {
     >
       <Box bgColor={"forms.bg_grey"} borderTopRadius="lg">
         <Text py="1rem" pl="1rem" color="muted" fontSize="sm">
-          An overview of your new policy setup
+          An overview of your new objective setup
         </Text>
       </Box>
       <Divider />
@@ -40,9 +40,9 @@ const ConfirmCreatePolicy = (props: {
               justifyContent="space-between"
             >
               <Text width="30%" fontWeight="bold">
-                Policy name:
+                Objective name:
               </Text>
-              <Text width="70%">{props.policy_configs["policy_name"]}</Text>
+              <Text width="70%">{props.objective_configs["objective_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -50,9 +50,9 @@ const ConfirmCreatePolicy = (props: {
               justifyContent="space-between"
             >
               <Text width="30%" fontWeight="bold">
-                Policy type:
+                Objective type:
               </Text>
-              <Text width="70%">{props.policy_configs["policy_type"]}</Text>
+              <Text width="70%">{props.objective_configs["objective_type"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -62,7 +62,7 @@ const ConfirmCreatePolicy = (props: {
               <Text width="30%" fontWeight="bold">
                 Panel source:
               </Text>
-              <Text width="70%">{props.policy_configs["panel_name"]}</Text>
+              <Text width="70%">{props.objective_configs["panel_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -72,7 +72,7 @@ const ConfirmCreatePolicy = (props: {
               <Text width="30%" fontWeight="bold">
                 Baseline source:
               </Text>
-              <Text width="70%">{props.policy_configs["baseline_name"]}</Text>
+              <Text width="70%">{props.objective_configs["baseline_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -80,10 +80,10 @@ const ConfirmCreatePolicy = (props: {
               justifyContent="space-between"
             >
               <Text width="30%" fontWeight="bold">
-                Policy description:
+                Objective description:
               </Text>
               <Text width="70%">
-                {props.policy_configs["policy_description"]}
+                {props.objective_configs["objective_description"]}
               </Text>
             </Stack>
           </Stack>
@@ -93,10 +93,10 @@ const ConfirmCreatePolicy = (props: {
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>
         <Button
           ml="2rem"
-          onClick={() => props.createPolicy()}
+          onClick={() => props.createObjective()}
           colorScheme="facebook"
         >
-          Create policy
+          Create objective
         </Button>
         <Button onClick={() => props.goToPrevStep()} colorScheme="facebook">
           Prev
@@ -106,4 +106,4 @@ const ConfirmCreatePolicy = (props: {
   );
 };
 
-export default ConfirmCreatePolicy;
+export default ConfirmCreateObjective;

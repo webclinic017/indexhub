@@ -6,9 +6,10 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from indexhub.api.models import Policy, Source, User
 from pytest_postgresql import factories
 from sqlmodel import Session, select
+
+from indexhub.api.models import Objective, Source, User
 
 
 def load_database(dbname: str, host: str, port: int, user: str, password: str):
@@ -151,10 +152,10 @@ updating_source_db = factories.postgresql(
     ],
 )
 
-# POLICY CREATION / UPDATE STATES
+# OBJECTIVE CREATION / UPDATE STATES
 
 
-def new_policy(has_baseline: bool = False):
+def new_objective(has_baseline: bool = False):
     from indexhub.api.db import engine
 
     with Session(engine) as session:
@@ -177,7 +178,7 @@ def new_policy(has_baseline: bool = False):
         if has_baseline:
             fields["baseline"] = source.id
 
-        policy = Policy(
+        objective = Objective(
             user_id=user_id,
             tag="forecast",
             name="Tourism Forecast",
@@ -186,59 +187,59 @@ def new_policy(has_baseline: bool = False):
             updated_at=datetime.utcnow(),
             fields=json.dumps(fields),
         )
-        session.add(policy)
+        session.add(objective)
         session.commit()
 
 
-# User creates new "forecast" policy with panel source only
-new_forecast_policy_db = factories.postgresql(
+# User creates new "forecast" objective with panel source only
+new_forecast_objective_db = factories.postgresql(
     "database",
     load=[
-        new_policy(),
+        new_objective(),
     ],
 )
 
-# User creates new "forecast" policy with panel and baseline sources
-new_forecast_with_baseline_policy_db = factories.postgresql(
+# User creates new "forecast" objective with panel and baseline sources
+new_forecast_with_baseline_objective_db = factories.postgresql(
     "database",
     load=[
-        new_policy(has_baseline=True),
+        new_objective(has_baseline=True),
     ],
 )
 
 
-def update_policy_status(status: str):
+def update_objective_status(status: str):
     from indexhub.api.db import engine
 
     with Session(engine) as session:
-        query = select(Policy).where(Source.name == "Tourism Forecast")
-        policy = session.exec(query).first()
-        policy.status = status
+        query = select(Objective).where(Source.name == "Tourism Forecast")
+        objective = session.exec(query).first()
+        objective.status = status
 
-        session.add(policy)
+        session.add(objective)
         session.commit()
 
 
-# User with new completed "forecast" policy
-completed_forecast_policy_db = factories.postgresql(
+# User with new completed "forecast" objective
+completed_forecast_objective_db = factories.postgresql(
     "database",
     load=[
-        update_policy_status(status="successful"),
+        update_objective_status(status="successful"),
     ],
 )
 
-# User with failed "forecast" policy
-failed_forecast_policy_db = factories.postgresql(
+# User with failed "forecast" objective
+failed_forecast_objective_db = factories.postgresql(
     "database",
     load=[
-        update_policy_status(status="failed"),
+        update_objective_status(status="failed"),
     ],
 )
 
-# User with "forecast" policy being updated
-updating_forecast_policy_db = factories.postgresql(
+# User with "forecast" objective being updated
+updating_forecast_objective_db = factories.postgresql(
     "database",
     load=[
-        update_policy_status(status="running"),
+        update_objective_status(status="running"),
     ],
 )

@@ -4,15 +4,15 @@ import React, { useEffect, useState } from "react"
 import { useAuth0AccessToken } from "../../../utilities/hooks/auth0";
 import { useSelector } from "react-redux";
 import { AppState } from "../../..";
-import { getPolicy } from "../../../utilities/backend_calls/policy";
-import { Policy } from "../policies_dashboard";
+import { getObjective } from "../../../utilities/backend_calls/objective";
+import { Objective } from "../objectives_dashboard";
 import { useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import ReactEcharts from "echarts-for-react";
 import { exportAIRecommendationTable, getAIRecommendationTable } from "../../../utilities/backend_calls/tables";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../../components/table";
-import { getForecastPolicyStats } from "../../../utilities/backend_calls/stats";
+import { getForecastObjectiveStats } from "../../../utilities/backend_calls/stats";
 import { colors } from "../../../theme/theme";
 import { getSegmentationChart, getTrendChart } from "../../../utilities/backend_calls/charts";
 import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
@@ -42,9 +42,9 @@ const SEGMENTATION_TABS = ["volatility", "total value", "historical growth rate"
 type AIRecommendationTable = Record<string, any>
 type mainStats = Record<string, any>[]
 
-const PolicyForecast = () => {
-  const { policy_id } = useParams()
-  const [policy, setPolicy] = useState<Policy | null>(null)
+const ForecastObjective = () => {
+  const { objective_id } = useParams()
+  const [objective, setObjective] = useState<Objective | null>(null)
 
   const [mainStats, setMainStats] = useState<mainStats | null>(null)
 
@@ -127,9 +127,9 @@ const PolicyForecast = () => {
   }
 
   const getEntityTrendChartApi = async () => {
-    if (policy_id) {
+    if (objective_id) {
       const entityTrendChart = await getTrendChart(
-        policy_id,
+        objective_id,
         "single_forecast",
         access_token_indexhub_api,
         chartFilter
@@ -139,10 +139,10 @@ const PolicyForecast = () => {
   };
 
   const exportRecommendationTable = async () => {
-    if (policy_id && access_token_indexhub_api) {
+    if (objective_id && access_token_indexhub_api) {
       setIsExportingTable(true)
       const export_table_response = await exportAIRecommendationTable(
-        policy_id,
+        objective_id,
         executePlanCustomEntries,
         access_token_indexhub_api
       );
@@ -293,20 +293,20 @@ const PolicyForecast = () => {
   ];
 
   useEffect(() => {
-    const getPolicyApi = async () => {
-      const policy = await getPolicy(
+    const getObjectiveApi = async () => {
+      const objective = await getObjective(
         "",
-        policy_id,
+        objective_id,
         access_token_indexhub_api
       );
-      policy["policy"]["fields"] = JSON.parse(policy["policy"]["fields"])
-      setPolicy(policy["policy"]);
+      objective["objective"]["fields"] = JSON.parse(objective["objective"]["fields"])
+      setObjective(objective["objective"]);
     };
 
     const getMainTrendChartApi = async () => {
-      if (policy_id) {
+      if (objective_id) {
         const mainTrendChart = await getTrendChart(
-          policy_id,
+          objective_id,
           "single_forecast",
           access_token_indexhub_api
         );
@@ -314,24 +314,24 @@ const PolicyForecast = () => {
       }
     };
 
-    const getForecastPolicyStatsApi = async () => {
-      if (policy_id) {
-        const forecastPolicyStats = await getForecastPolicyStats(policy_id, access_token_indexhub_api)
-        setMainStats(forecastPolicyStats)
+    const getForecastObjectiveStatsApi = async () => {
+      if (objective_id) {
+        const forecastObjectiveStats = await getForecastObjectiveStats(objective_id, access_token_indexhub_api)
+        setMainStats(forecastObjectiveStats)
       }
     }
 
-    if (access_token_indexhub_api && user_details.id && policy_id) {
-      getPolicyApi()
+    if (access_token_indexhub_api && user_details.id && objective_id) {
+      getObjectiveApi()
       getMainTrendChartApi()
-      getForecastPolicyStatsApi()
+      getForecastObjectiveStatsApi()
     }
-  }, [access_token_indexhub_api, user_details, policy_id]);
+  }, [access_token_indexhub_api, user_details, objective_id]);
 
   const getAIRecommendationTableApi = async (clear_filter = false) => {
     const filter_by = clear_filter ? {} : AIRecommendationTableFilter
     setAIRecommendationTable(null)
-    const AIRecommendationTable = await getAIRecommendationTable(currentPageAIRecommendationTable, 5, policy_id ? policy_id : "", access_token_indexhub_api, filter_by)
+    const AIRecommendationTable = await getAIRecommendationTable(currentPageAIRecommendationTable, 5, objective_id ? objective_id : "", access_token_indexhub_api, filter_by)
     setAIRecommendationTable(AIRecommendationTable)
     setCutoff(AIRecommendationTable["results"][0]["tables"])
     AIRecommendationTableCache[currentPageAIRecommendationTable] = AIRecommendationTable
@@ -340,21 +340,21 @@ const PolicyForecast = () => {
 
   useEffect(() => {
 
-    if (access_token_indexhub_api && policy_id && currentPageAIRecommendationTable) {
+    if (access_token_indexhub_api && objective_id && currentPageAIRecommendationTable) {
       if (Object.keys(AIRecommendationTableCache).includes(currentPageAIRecommendationTable.toString())) {
         setAIRecommendationTable(AIRecommendationTableCache[currentPageAIRecommendationTable])
       } else {
         getAIRecommendationTableApi()
       }
     }
-  }, [currentPageAIRecommendationTable, access_token_indexhub_api, policy_id])
+  }, [currentPageAIRecommendationTable, access_token_indexhub_api, objective_id])
 
   useEffect(() => {
     const getSegmentationPlot = async () => {
-      if (policy_id) {
+      if (objective_id) {
         setSegmentationPlot(null)
         const segmentationPlot = await getSegmentationChart(
-          policy_id,
+          objective_id,
           "segment",
           access_token_indexhub_api,
           segmentationFactor
@@ -362,12 +362,12 @@ const PolicyForecast = () => {
         setSegmentationPlot(segmentationPlot);
       }
     };
-    if (access_token_indexhub_api && policy_id && segmentationFactor) {
+    if (access_token_indexhub_api && objective_id && segmentationFactor) {
       getSegmentationPlot()
     }
-  }, [segmentationFactor, access_token_indexhub_api, policy_id])
+  }, [segmentationFactor, access_token_indexhub_api, objective_id])
 
-  if (policy) {
+  if (objective) {
     return (
       <>
         <VStack width="100%" alignItems="flex-start">
@@ -376,13 +376,13 @@ const PolicyForecast = () => {
 
 
           {/* Stats */}
-          {policy ? (
+          {objective ? (
 
             <HStack width="100%">
               <Stack>
 
-                {/* Policy Description */}
-                <Text mb="1.5rem !important">{policy["fields"]["description"]}</Text>
+                {/* Objective Description */}
+                <Text mb="1.5rem !important">{objective["fields"]["description"]}</Text>
               </Stack>
 
             </HStack>
@@ -421,7 +421,7 @@ const PolicyForecast = () => {
                               <Heading size="sm" color="muted">
                                 Frequency
                               </Heading>
-                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{policy["fields"]["freq"]}</Text>
+                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{objective["fields"]["freq"]}</Text>
                             </VStack>
                           </Stack>
                         </Box>
@@ -431,7 +431,7 @@ const PolicyForecast = () => {
                               <Heading size="sm" color="muted">
                                 Forecast Horizon
                               </Heading>
-                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{policy["fields"]["fh"]}</Text>
+                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{objective["fields"]["fh"]}</Text>
                             </VStack>
                           </Stack>
                         </Box>
@@ -603,7 +603,7 @@ const PolicyForecast = () => {
               <Heading size="md" fontWeight="bold">Forecast Selection</Heading>
 
               <HStack width="100%" justify="space-between">
-                <Text fontSize="sm" width="70%">The entities in this table are sorted from highest uplift to lowest and the policy tracker represents the uplift % for each entity.</Text>
+                <Text fontSize="sm" width="70%">The entities in this table are sorted from highest uplift to lowest and the objective tracker represents the uplift % for each entity.</Text>
                 <HStack>
                   <Button size="sm" onClick={() => {
                     getAIRecommendationTableApi(true)
@@ -691,7 +691,7 @@ const PolicyForecast = () => {
                                         AI Forecast
                                       </Text>
                                       <Text color="muted" mt="unset !important" fontSize="3xs" textTransform="uppercase" fontWeight="bold">
-                                        Over Next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]}
+                                        Over Next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}
                                       </Text>
                                     </Stack>
                                     <HStack justify="space-between">
@@ -709,7 +709,7 @@ const PolicyForecast = () => {
                                         <Text ml="unset !important">)</Text>
                                       </HStack>
                                     </HStack>
-                                    <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {policy["fields"]["fh"]} {FREQDISPLAYMAPPING[policy["fields"]["freq"]]}</Text>
+                                    <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}</Text>
                                   </Stack>
                                 </Box>
                                 <Stack
@@ -723,7 +723,7 @@ const PolicyForecast = () => {
                                       <HStack justify="space-between" alignItems="flex-start">
                                         <Stack>
                                           <Text color="muted" fontWeight="bold">
-                                            Policy Tracker
+                                            Objective Tracker
                                           </Text>
                                           <Text color="muted" fontWeight="bold" mt="unset !important" fontSize="3xs" textTransform="uppercase">
                                             % UPLIFT FOR THE ENTITY
@@ -734,7 +734,7 @@ const PolicyForecast = () => {
                                         </CircularProgress>
                                       </HStack>
                                       <VStack align="baseline">
-                                        <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[policy["fields"]["freq"]]} months</Text>
+                                        <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[objective["fields"]["freq"]]} months</Text>
                                       </VStack>
                                     </Stack>
                                   </Box>
@@ -797,7 +797,7 @@ const PolicyForecast = () => {
 
         <AiAnalysisModal
           cutoff={cutoff}
-          policy={policy}
+          objective={objective}
           isOpenTrendModal={isOpenTrendModal}
           onCloseTrendModal={onCloseTrendModal}
           chartFilter={chartFilter}
@@ -851,4 +851,4 @@ const PolicyForecast = () => {
   }
 }
 
-export default PolicyForecast
+export default ForecastObjective

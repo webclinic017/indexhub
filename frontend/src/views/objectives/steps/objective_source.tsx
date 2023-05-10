@@ -21,17 +21,17 @@ const getOptionsSource = (sources: Record<string, string>) => {
   return result;
 };
 
-const PolicySource = (props: {
+const ObjectiveSource = (props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policies_schema: Record<any, any>;
+  objectives_schema: Record<any, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policy_configs: Record<string, any>;
-  submitPolicySources: (policy_sources: Record<string, string>) => void;
+  objective_configs: Record<string, any>;
+  submitObjectiveSources: (objective_sources: Record<string, string>) => void;
   goToPrevStep: () => void;
 }) => {
   const schema_dataset_fields =
-    props.policies_schema[props.policy_configs["policy_type"]]["sources"];
-  const policy_sources: Record<string, string> = {};
+    props.objectives_schema[props.objective_configs["objective_type"]]["sources"];
+  const objective_sources: Record<string, string> = {};
 
   return (
     <Box
@@ -55,8 +55,8 @@ const PolicySource = (props: {
                 </FormLabel>
                 <Select
                   onChange={(value) => {
-                    policy_sources[dataset_field] = value ? value.value : "";
-                    policy_sources[`${dataset_field}_name`] = value
+                    objective_sources[dataset_field] = value ? value.value : "";
+                    objective_sources[`${dataset_field}_name`] = value
                       ? value.label
                       : "";
                   }}
@@ -73,7 +73,7 @@ const PolicySource = (props: {
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>
         <Button
-          onClick={() => props.submitPolicySources(policy_sources)}
+          onClick={() => props.submitObjectiveSources(objective_sources)}
           colorScheme="facebook"
           ml="2rem"
         >
@@ -87,4 +87,4 @@ const PolicySource = (props: {
   );
 };
 
-export default PolicySource;
+export default ObjectiveSource;

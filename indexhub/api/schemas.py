@@ -298,7 +298,7 @@ def SOURCES_SCHEMA(sources: List[Source], type: str):
     }
 
 
-def POLICY_FIELDS_SCHEMA():
+def OBJECTIVE_FIELDS_SCHEMA():
     return {
         "direction": {
             "title": "Forecast Direction",
@@ -441,15 +441,15 @@ def SOURCE_SCHEMAS(user: User):
     }
 
 
-def POLICY_SCHEMAS(sources: List[Source]):
-    """User input schemas for policy selection."""
+def OBJECTIVE_SCHEMAS(sources: List[Source]):
+    """User input schemas for objective selection."""
     schemas = {
         "forecast_panel": {
             "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
-            "description": "Choose this policy if you have panel data (i.e. time-series data across multiple entities).",
+            "description": "Choose this objective if you have panel data (i.e. time-series data across multiple entities).",
             "sources": SOURCES_SCHEMA(sources, type="panel"),
             "fields": {
-                **POLICY_FIELDS_SCHEMA(),
+                **OBJECTIVE_FIELDS_SCHEMA(),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
@@ -460,7 +460,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
         },
         "forecast_transaction": {
             "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
-            "description": "Choose this policy if you have transactions data (e.g. point-of-sales).",
+            "description": "Choose this objective if you have transactions data (e.g. point-of-sales).",
             "sources": {
                 **SOURCES_SCHEMA(sources, type="transaction"),
                 "transaction": {
@@ -475,7 +475,7 @@ def POLICY_SCHEMAS(sources: List[Source]):
                 },
             },
             "fields": {
-                **POLICY_FIELDS_SCHEMA(),
+                **OBJECTIVE_FIELDS_SCHEMA(),
                 "goal": {
                     "title": "Goal",
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",

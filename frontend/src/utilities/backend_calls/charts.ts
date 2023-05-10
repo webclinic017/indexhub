@@ -1,10 +1,10 @@
 export const getTrendChart = async (
-    policy_id: string,
+    objective_id: string,
     chart_tag: string,
     access_token_indexhub_api: string,
     filter_by: Record<string, string[]> = {},
 ) => {
-    const get_trend_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts/${policy_id}/${chart_tag}`;
+    const get_trend_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts/${objective_id}/${chart_tag}`;
     const get_trend_chart_response = await fetch(get_trend_chart_url, {
         method: "POST",
         headers: {
@@ -21,13 +21,13 @@ export const getTrendChart = async (
 };
 
 export const getSegmentationChart = async (
-    policy_id: string,
+    objective_id: string,
     chart_tag: string,
     access_token_indexhub_api: string,
     segmentation_factor: string
 ) => {
 
-    const get_segmentation_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts/${policy_id}/${chart_tag}`;
+    const get_segmentation_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts/${objective_id}/${chart_tag}`;
     const get_segmentation_chart_response = await fetch(get_segmentation_chart_url, {
         method: "POST",
         headers: {

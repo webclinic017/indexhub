@@ -50,7 +50,7 @@ export type Source = {
   tag: string;
   variables: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   msg: string;
-  target_cols: string; // to be removed when refactoring policies
+  target_cols: string; // to be removed when refactoring objectives
 };
 
 export type SelectedSource = {

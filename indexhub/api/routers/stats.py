@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
-from indexhub.api.routers.policies import FREQ_TO_SP, get_policy
+from indexhub.api.routers.objectives import FREQ_TO_SP, get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
@@ -34,7 +34,7 @@ def _get_forecast_results(
     fields: Mapping[str, str],
     source_fields: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
 ) -> pl.DataFrame:
     # Get credentials
     storage_creds = get_aws_secret(
@@ -58,7 +58,9 @@ def _get_forecast_results(
         object_path=outputs["statistics"][f"last_window__{fields_agg_method}"]
     )
     uplift = read(object_path=outputs["uplift"])
-    rolling_uplift = read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+    rolling_uplift = read(
+        object_path=f"artifacts/{objective_id}/rolling_uplift.parquet"
+    )
 
     entity_col, time_col, target_col = y.columns
     target_col_label = target_col.replace("_", " ").capitalize()
@@ -210,23 +212,23 @@ def _get_forecast_results(
     return results
 
 
-POLICY_TAG_TO_GETTER = {"forecast_panel": _get_forecast_results}
+OBJECTIVE_TAG_TO_GETTER = {"forecast_panel": _get_forecast_results}
 
 
-@router.get("/stats/{policy_id}")
+@router.get("/stats/{objective_id}")
 def get_stats(
-    policy_id: str,
+    objective_id: str,
 ) -> List[Mapping[str, Any]]:
     with Session(engine) as session:
-        policy = get_policy(policy_id)["policy"]
-        getter = POLICY_TAG_TO_GETTER[policy.tag]
-        user = session.get(User, policy.user_id)
-        source = get_source(json.loads(policy.sources)["panel"])["source"]
+        objective = get_objective(objective_id)["objective"]
+        getter = OBJECTIVE_TAG_TO_GETTER[objective.tag]
+        user = session.get(User, objective.user_id)
+        source = get_source(json.loads(objective.sources)["panel"])["source"]
         stats = getter(
-            json.loads(policy.outputs),
-            json.loads(policy.fields),
+            json.loads(objective.outputs),
+            json.loads(objective.fields),
             json.loads(source.fields),
             user,
-            policy_id,
+            objective_id,
         )  # TODO: Cache using an in memory key-value store
     return stats

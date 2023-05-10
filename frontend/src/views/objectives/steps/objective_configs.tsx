@@ -35,55 +35,55 @@ const getValuesArray = (values: MultiValue<Record<any, string>>) => {
   return values_array;
 };
 
-const PolicyConfigs = (props: {
+const ObjectiveConfigs = (props: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policies_schema: Record<any, any>;
+  objectives_schema: Record<any, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  policy_configs: Record<string, any>;
+  objective_configs: Record<string, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  submitPolicyConfigs: (policy_configs: Record<string, any>) => void;
+  submitObjectiveConfigs: (objective_configs: Record<string, any>) => void;
   goToPrevStep: () => void;
 }) => {
-  const policy_configs = props.policy_configs;
+  const objective_configs = props.objective_configs;
   const schema_config_fields =
-    props.policies_schema[props.policy_configs["policy_type"]]["fields"];
+    props.objectives_schema[props.objective_configs["objective_type"]]["fields"];
 
   const [description, setDescription] = useState<string>(
-    props.policies_schema[policy_configs["policy_type"]]["objective"]
+    props.objectives_schema[objective_configs["objective_type"]]["objective"]
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateDescription = (internal_policy_configs: Record<string, any>) => {
+  const updateDescription = (internal_objective_configs: Record<string, any>) => {
     let internal_description: string =
-      props.policies_schema[internal_policy_configs["policy_type"]][
+      props.objectives_schema[internal_objective_configs["objective_type"]][
       "objective"
       ];
     internal_description = internal_description
       .replace(
         "{direction}",
-        internal_policy_configs["direction"]
-          ? internal_policy_configs["direction"]
+        internal_objective_configs["direction"]
+          ? internal_objective_configs["direction"]
           : "{direction}"
       )
       .replace(
         "{target_col}",
-        internal_policy_configs["target_col"]
-          ? internal_policy_configs["target_col"].replaceAll("_", " ")
+        internal_objective_configs["target_col"]
+          ? internal_objective_configs["target_col"].replaceAll("_", " ")
           : "{target_col}"
       )
       .replace(
         "{level_cols}",
-        internal_policy_configs["level_cols"]?.length > 0
-          ? internal_policy_configs["level_cols"].join(" and ")
+        internal_objective_configs["level_cols"]?.length > 0
+          ? internal_objective_configs["level_cols"].join(" and ")
           : "{level_cols}"
       )
       .replace(
         "{error_type}",
-        internal_policy_configs["error_type"]?.length > 0
-          ? internal_policy_configs["error_type"]
+        internal_objective_configs["error_type"]?.length > 0
+          ? internal_objective_configs["error_type"]
           : "{error_type}"
       )
-    policy_configs["policy_description"] = internal_description;
+    objective_configs["objective_description"] = internal_description;
     setDescription(internal_description);
   };
 
@@ -106,12 +106,12 @@ const PolicyConfigs = (props: {
           </VStack>
           <Grid templateColumns="auto auto" gap={6} maxH="20rem" overflowY="scroll">
             <FormControl isRequired>
-              <FormLabel>Policy name</FormLabel>
+              <FormLabel>Objective name</FormLabel>
               <Input
                 onChange={(e) =>
-                  (policy_configs["policy_name"] = e.currentTarget.value)
+                  (objective_configs["objective_name"] = e.currentTarget.value)
                 }
-                placeholder="Name for your new policy"
+                placeholder="Name for your new objective"
               />
             </FormControl>
             {Object.keys(schema_config_fields).map(
@@ -136,19 +136,19 @@ const PolicyConfigs = (props: {
                     <Select
                       isMulti={is_multiple ? true : false}
                       onChange={(value) => {
-                        policy_configs[config_field] = value
+                        objective_configs[config_field] = value
                           ? is_multiple
                             ? getValuesArray(value)
                             : value.value
                           : "";
-                        updateDescription(policy_configs);
+                        updateDescription(objective_configs);
                       }}
                       useBasicStyles
                       options={
                         has_depends_on
                           ? getOptionsArray(
                             schema_config_fields[config_field]["values"][
-                            policy_configs[depends_on]
+                            objective_configs[depends_on]
                             ]
                           )
                           : getOptionsArray(
@@ -166,7 +166,7 @@ const PolicyConfigs = (props: {
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>
         <Button
-          onClick={() => props.submitPolicyConfigs(policy_configs)}
+          onClick={() => props.submitObjectiveConfigs(objective_configs)}
           colorScheme="facebook"
           ml="2rem"
         >
@@ -180,4 +180,4 @@ const PolicyConfigs = (props: {
   );
 };
 
-export default PolicyConfigs;
+export default ObjectiveConfigs;

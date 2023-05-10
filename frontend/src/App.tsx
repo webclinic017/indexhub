@@ -17,10 +17,10 @@ import NewSource from "./views/sources/new_source";
 import SourcesTable from "./views/sources/sources_table";
 import SourceProfiling from "./views/reports/profiling";
 import NewStorage from "./views/storage/new_storage";
-import NewPolicy from "./views/policies/new_policy";
-import Policies from "./views/policies/policies";
-import PoliciesDashboard from "./views/policies/policies_dashboard";
-import PolicyForecast from "./views/policies/forecast/forecast";
+import NewObjective from "./views/objectives/new_objective";
+import Objectives from "./views/objectives/objectives";
+import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
+import ForecastObjective from "./views/objectives/forecast/forecast";
 import Dashboard from "./views/dashboard";
 
 function App() {
@@ -38,11 +38,11 @@ function App() {
                 <Route index element={<SourcesTable />} />
                 <Route path="new_source" element={<NewSource />} />
               </Route>
-              <Route path="policies" element={<Policies />}>
-                <Route index element={<PoliciesDashboard />} />
-                <Route path="new_policy" element={<NewPolicy />} />
+              <Route path="objectives" element={<Objectives />}>
+                <Route index element={<ObjectivesDashboard />} />
+                <Route path="new_objective" element={<NewObjective />} />
               </Route>
-              <Route path="policies/forecast/:policy_id" element={<PolicyForecast />} />
+              <Route path="objectives/forecast/:objective_id" element={<ForecastObjective />} />
               <Route path="reports" element={<Reports />} />
               <Route
                 path="reports/profiling/:source_id"

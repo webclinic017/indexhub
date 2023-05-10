@@ -1,11 +1,11 @@
 export const getAIRecommendationTable = async (
     page: number,
     display_n: number,
-    policy_id: string,
+    objective_id: string,
     access_token_indexhub_api: string,
     filter_by: Record<string, any> = {}
 ) => {
-    const get_ai_recommendation_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/tables/${policy_id}/forecast`;
+    const get_ai_recommendation_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/tables/${objective_id}/forecast`;
 
     const get_ai_recommendation_table_response = await fetch(get_ai_recommendation_table_url, {
         method: "POST",
@@ -25,12 +25,12 @@ export const getAIRecommendationTable = async (
 };
 
 export const exportAIRecommendationTable = async (
-    policy_id: string,
+    objective_id: string,
     updated_plans: Record<string, any>[] | null,
     access_token_indexhub_api: string,
 
 ) => {
-    const execute_plan_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/plans/${policy_id}`;
+    const execute_plan_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/plans/${objective_id}`;
 
     const execute_plan_response = await fetch(execute_plan_url, {
         method: "POST",

@@ -20,7 +20,7 @@ def _create_single_forecast_chart(
     outputs: Mapping[str, str],
     source_fields: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     quantile_lower: int = 10,
@@ -220,7 +220,7 @@ def _create_multi_forecast_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
@@ -408,7 +408,7 @@ def _create_segmentation_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
-    policy_id: str,
+    objective_id: str,
     segmentation_factor: Literal[
         "volatility",
         "total value",
@@ -447,7 +447,7 @@ def _create_segmentation_chart(
     # Read uplift
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
     rolling_uplift = (
-        read(object_path=f"artifacts/{policy_id}/rolling_uplift.parquet")
+        read(object_path=f"artifacts/{objective_id}/rolling_uplift.parquet")
         .lazy()
         .sort(entity_col, "updated_at")
         .groupby(entity_col)
@@ -580,7 +580,7 @@ def _create_sparkline(y_data: List[int]):
 
 
 def _create_3d_cluster_chart(
-    fields: Mapping[str, str], outputs: Mapping[str, str], user: User, policy_id: str
+    fields: Mapping[str, str], outputs: Mapping[str, str], user: User, objective_id: str
 ):
     # Get bucket and path
     bucket_name = user.storage_bucket_name

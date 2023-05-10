@@ -1,15 +1,15 @@
-from indexhub.api.models.policy import Policy
-from indexhub.api.models.source import Source
-from indexhub.api.models.user import User
 from indexhub.api.models.copilot import (
-    ForecastContextInputs,
-    ForecastAnalystAgent,
     Company,
+    ForecastAnalystAgent,
+    ForecastContextInputs,
     Persona,
 )
+from indexhub.api.models.objective import Objective
+from indexhub.api.models.source import Source
+from indexhub.api.models.user import User
 
 __all__ = [
-    "Policy",
+    "Objective",
     "Source",
     "User",
     "ForecastContextInputs",

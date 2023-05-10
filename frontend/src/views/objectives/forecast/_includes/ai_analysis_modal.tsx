@@ -6,7 +6,7 @@ import { ReadyState } from "react-use-websocket";
 import { capitalizeFirstLetter } from "../../../../utilities/helpers";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLink } from "@fortawesome/pro-light-svg-icons";
-import { Policy } from "../../policies_dashboard";
+import { Objective } from "../../objectives_dashboard";
 
 const FREQ_TO_COPILOT_FREQ: Record<string, string> = {
     "Hourly": "1hr",
@@ -17,7 +17,7 @@ const FREQ_TO_COPILOT_FREQ: Record<string, string> = {
 
 const AiAnalysisModal = (props: {
     cutoff: any[],
-    policy: Policy | null,
+    objective: Objective | null,
     isOpenTrendModal: boolean,
     onCloseTrendModal: () => void,
     chartFilter: Record<string, string[]>,
@@ -44,20 +44,20 @@ const AiAnalysisModal = (props: {
     }
 
     useEffect(() => {
-        if (props.isOpenTrendModal && readyState == ReadyState.OPEN && props.policy) {
+        if (props.isOpenTrendModal && readyState == ReadyState.OPEN && props.objective) {
             setAnswers([])
             setNews(null)
             setAnalysis(null)
             setSources(null)
             setQuestions(null)
             sendMessage(JSON.stringify({
-                "user_id": props.policy["user_id"],
-                "policy_id": props.policy["id"],
-                "target_col": props.policy["fields"]["target_col"],
-                "entity_col": props.policy["fields"]["level_cols"][0],
+                "user_id": props.objective["user_id"],
+                "objective_id": props.objective["id"],
+                "target_col": props.objective["fields"]["target_col"],
+                "entity_col": props.objective["fields"]["level_cols"][0],
                 "entity_id": props.chartFilter["entity"][0],
-                "freq": FREQ_TO_COPILOT_FREQ[props.policy["fields"]["freq"]],
-                "fh": props.policy["fields"]["fh"],
+                "freq": FREQ_TO_COPILOT_FREQ[props.objective["fields"]["freq"]],
+                "fh": props.objective["fields"]["fh"],
                 "cutoff": props.cutoff[props.cutoff.length - 1]["Time"],
             }), true)
         }
