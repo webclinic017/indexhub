@@ -324,6 +324,7 @@ def run_forecast(
     freq: str,
     sp: int,
     n_splits: int,
+    feature_cols: Optional[List[str]] = None,
     holiday_regions: Optional[List[str]] = None,
     objective: Optional[str] = "mae",
     baseline_model: Optional[str] = "snaive",
@@ -358,15 +359,22 @@ def run_forecast(
 
         # 4. Read y from storage
         y_panel = read(object_path=panel_path)
+        entity_col = y_panel.columns[0]
         time_col = y_panel.select(
             pl.col([pl.Date, pl.Datetime, pl.Datetime("ns")])
         ).columns[0]
 
         # 5. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
+        if feature_cols is not None and len(feature_cols) > 0:
+            X = y_panel.select([entity_col, time_col, *feature_cols])
+            y = y_panel.select(pl.exclude(feature_cols))
+        else:
+            X = None
+            y = y_panel
 
         y, outputs = automl_flow.call(
-            y=y_panel,
+            y=y,
             min_lags=min_lags,
             max_lags=max_lags,
             fh=fh,
@@ -374,8 +382,8 @@ def run_forecast(
             n_splits=n_splits,
             holiday_regions=holiday_regions,
             objective=objective,
+            X=X,
         )
-        entity_col = y.columns[0]
         outputs["y"] = make_path(prefix="y")
 
         write(y, object_path=make_path(prefix="y"))
@@ -535,7 +543,6 @@ def flow():
         panel_source = get_source(sources["panel"])["source"]
         source_fields = json.loads(panel_source.fields)
         freq = source_fields["freq"]
-        target_col = source_fields["target_col"]
 
         # 3. Check freq from source for schedule
         duration = FREQ_TO_DURATION[freq]
@@ -575,13 +582,14 @@ def flow():
                 panel_path=panel_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                target_col=target_col,
+                target_col=source_fields["target_col"],
                 min_lags=fields["min_lags"],
                 max_lags=fields["max_lags"],
                 fh=fields["fh"],
                 freq=SUPPORTED_FREQ[freq],
                 sp=FREQ_TO_SP[freq],
                 n_splits=fields["n_splits"],
+                feature_cols=source_fields["feature_cols"],
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
                 baseline_model=fields.get("baseline_model", None),
