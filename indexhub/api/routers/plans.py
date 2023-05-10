@@ -138,7 +138,7 @@ def _execute_forecast_plan(
     return path
 
 
-TAGS_TO_GETTER = {"forecast_panel": _execute_forecast_plan}
+TAGS_TO_GETTER = {"reduce_errors": _execute_forecast_plan}
 
 
 class ExecutePlanParams(BaseModel):

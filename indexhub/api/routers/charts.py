@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 OBJECTIVE_TAG_TO_BUILDERS = {
-    "forecast_panel": {
+    "reduce_errors": {
         "single_forecast": _create_single_forecast_chart,
         "multi_forecast": _create_multi_forecast_chart,
         "segment": _create_segmentation_chart,
@@ -59,7 +59,7 @@ class SegChartParams(BaseModel):
 
 
 OBJECTIVE_TAG_TO_PARAMS = {
-    "forecast_panel": {
+    "reduce_errors": {
         "single_forecast": TrendChartParams,
         "multi_forecast": TrendChartParams,
         "segment": SegChartParams,

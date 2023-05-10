@@ -212,7 +212,7 @@ def _get_forecast_results(
     return results
 
 
-OBJECTIVE_TAG_TO_GETTER = {"forecast_panel": _get_forecast_results}
+OBJECTIVE_TAG_TO_GETTER = {"reduce_errors": _get_forecast_results}
 
 
 @router.get("/stats/{objective_id}")

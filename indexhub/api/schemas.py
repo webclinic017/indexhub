@@ -347,6 +347,7 @@ SOURCE_FIELDS_SCHEMA = {
             "entity_cols": ENTITY_COLS_SCHEMA,
             "time_col": TIME_COL_SCHEMA,
             "target_col": TARGET_COL_SCHEMA,
+            "feature_cols": FEATURE_COLS_SCHEMA,
             "agg_method": AGG_METHOD_SCHEMA,
             "impute_method": IMPUTE_METHOD_SCHEMA,
             "freq": SUPPORTED_FREQ,
@@ -358,6 +359,7 @@ SOURCE_FIELDS_SCHEMA = {
         "fields": {
             "entity_cols": ENTITY_COLS_SCHEMA,
             "time_col": TIME_COL_SCHEMA,
+            "target_col": TARGET_COL_SCHEMA,
             "quantity_col": QUANTITY_COL_SCHEMA,
             "price_col": PRICE_COL_SCHEMA,
             "invoice_col": INVOICE_COL_SCHEMA,
@@ -444,36 +446,10 @@ def SOURCE_SCHEMAS(user: User):
 def OBJECTIVE_SCHEMAS(sources: List[Source]):
     """User input schemas for objective selection."""
     schemas = {
-        "forecast_panel": {
+        "reduce_errors": {
             "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
-            "description": "Choose this objective if you have panel data (i.e. time-series data across multiple entities).",
+            "description": "This objective is suitable for forecasting sales, demands on items, inventory, prices, etc.",
             "sources": SOURCES_SCHEMA(sources, type="panel"),
-            "fields": {
-                **OBJECTIVE_FIELDS_SCHEMA(),
-                "goal": {
-                    "title": "Goal",
-                    "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
-                    "values": list(range(1, 99)),
-                    "default": 15,
-                },
-            },
-        },
-        "forecast_transaction": {
-            "objective": "{direction} {target_col} {error_type} for {entity_cols}.",
-            "description": "Choose this objective if you have transactions data (e.g. point-of-sales).",
-            "sources": {
-                **SOURCES_SCHEMA(sources, type="transaction"),
-                "transaction": {
-                    "title": "Transaction Dataset",
-                    "subtitle": (
-                        "Select one dataset of transactions (e.g. point-of-sales data) to forecast."
-                        " Must include columns specifying the invoice ID and the product ID."
-                    ),
-                    "values": {
-                        src.name: src.id for src in sources if src.type == "transaction"
-                    },
-                },
-            },
             "fields": {
                 **OBJECTIVE_FIELDS_SCHEMA(),
                 "goal": {

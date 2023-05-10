@@ -263,7 +263,7 @@ def _get_uplift_table():
 
 
 TAGS_TO_GETTER = {
-    "forecast_panel": {
+    "reduce_errors": {
         "forecast": _get_forecast_table,
         "uplift": _get_uplift_table,
     }

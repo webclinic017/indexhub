@@ -48,7 +48,6 @@ class CreateObjectiveParams(BaseModel):
 
 @router.post("/objectives")
 def create_objective(params: CreateObjectiveParams):
-
     with Session(engine) as session:
         objective = Objective(**params.__dict__)
         user = session.get(User, objective.user_id)
@@ -57,7 +56,7 @@ def create_objective(params: CreateObjectiveParams):
         objective_fields = json.loads(objective.fields)
         source = get_source(objective_sources["panel"])["source"]
         source_fields = json.loads(source.fields)
-        if objective.tag == "forecast_panel":
+        if objective.tag == "reduce_errors":
             flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             holiday_regions = objective_fields["holiday_regions"]
             if holiday_regions is not None:
