@@ -64,13 +64,24 @@ def create_objective(params: CreateObjectiveParams):
                     SUPPORTED_COUNTRIES[country]
                     for country in objective_fields["holiday_regions"]
                 ]
+
+            # Set quantity as target if transaction type
+            target_col = source_fields.get(
+                "target_col", source_fields.get("quantity_col")
+            )
+            entity_cols = source_fields["entity_cols"]
+            if source.type == "transaction":
+                # Set product as entity if transaction type
+                entity_cols = [source_fields["product_col"], *entity_cols]
+
             flow.call(
                 user_id=objective.user_id,
                 objective_id=objective.id,
                 panel_path=objective_sources["panel"],
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                target_col=source_fields["target_col"],
+                target_col=target_col,
+                entity_cols=entity_cols,
                 min_lags=int(objective_fields["min_lags"]),
                 max_lags=int(objective_fields["max_lags"]),
                 fh=int(objective_fields["fh"]),

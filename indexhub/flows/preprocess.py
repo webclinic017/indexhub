@@ -13,7 +13,6 @@ from sqlmodel import Session, select
 
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
-from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
@@ -74,13 +73,9 @@ def _clean_panel(
 def _merge_multilevels(
     X: pl.DataFrame,
     entity_cols: List[str],
-    target_cols: List[str],
+    target_col: str,
 ) -> pl.DataFrame:
     entity_col = "__".join(entity_cols)
-    if len(entity_cols) == 1:
-        exclude_cols = [entity_col, "time", *target_cols]
-    else:
-        exclude_cols = [*entity_cols, entity_col, "time", *target_cols]
     X_new = (
         # Combine subset of entity columns
         X.lazy()
@@ -94,8 +89,8 @@ def _merge_multilevels(
             [
                 entity_col,
                 "time",
-                *target_cols,
-                pl.exclude(exclude_cols),
+                target_col,
+                pl.exclude([entity_col, "time", target_col]),
             ]
         )
         .sort([entity_col, "time"])
@@ -172,20 +167,13 @@ def _impute(
 def _resample_panel(
     X: pl.DataFrame,
     freq: str,
+    target_col: str,
     agg_method: Optional[str] = "mean",
     impute_method: Optional[Union[str, int, float]] = 0,
-    target_col: Optional[str] = None,
     price_col: Optional[str] = None,
-    quantity_col: Optional[str] = None,
 ) -> pl.DataFrame:
     entity_col, time_col = X.columns[:2]
-    # For panel, group by entity and non-numeric feature cols
-    # For transaction, group by entity, invoice, product and non-numeric feature cols
-    groupby_cols = X.select(
-        pl.exclude([*PL_FLOAT_DTYPES, *PL_INT_DTYPES]).exclude(time_col)
-    ).columns
-    # For panel, agg target and numeric feature cols
-    # For transaction, agg price, quantity and numeric feature cols
+    # Agg target, numeric transaction cols, and numeric feature cols
     agg_cols = [*PL_FLOAT_DTYPES, *PL_INT_DTYPES]
     agg_to_expr = {
         "sum": pl.col(agg_cols).sum(),
@@ -196,21 +184,19 @@ def _resample_panel(
     # Transaction type
     if price_col is not None:
         agg_exprs = [
-            # Fixed agg methods for price and quantity cols
+            # Fixed agg methods for quantity and price cols
+            pl.col(target_col).sum(),
             pl.col(price_col).mean(),
-            pl.col(quantity_col).sum(),
-            agg_to_expr[agg_method].exclude([price_col, quantity_col]),
+            agg_to_expr[agg_method].exclude([target_col, price_col]),
         ]
-        target_cols = [price_col, quantity_col]
     # Panel type
     else:
         agg_exprs = [agg_to_expr[agg_method]]
-        target_cols = [target_col]
 
     X_new = (
         # Defensive resampling
         X.lazy()
-        .groupby_dynamic(time_col, every=freq, by=groupby_cols)
+        .groupby_dynamic(time_col, every=freq, by=entity_col)
         .agg(agg_exprs)
         # Must defensive sort columns otherwise time_col and target_col
         # positions are incorrectly swapped in lazy
@@ -218,8 +204,8 @@ def _resample_panel(
             [
                 entity_col,
                 time_col,
-                *target_cols,
-                pl.exclude([entity_col, time_col, *target_cols]),
+                target_col,
+                pl.exclude([entity_col, time_col, target_col]),
             ]
         )
         # Reindex full (entity, time) index
@@ -275,6 +261,7 @@ def run_preprocess(
     source_id: int,
     source_tag: str,
     source_variables: Mapping[str, Any],
+    source_type: str,
     source_fields: Mapping[str, Any],
     storage_tag: str,
     storage_bucket_name: str,
@@ -291,38 +278,38 @@ def run_preprocess(
         # Read data from source
         read = SOURCE_TAG_TO_READER[source_tag]
         raw_panel_data = read(**source_variables, **source_creds)
-        if source_fields.get("price_col"):
-            target_cols = [source_fields["price_col"], source_fields["quantity_col"]]
-        else:
-            target_cols = [source_fields["target_col"]]
+        # Set quantity as target if transaction type
+        target_col = source_fields.get("target_col", source_fields.get("quantity_col"))
+        entity_cols = source_fields["entity_cols"]
+        if source_type == "transaction":
+            # Set product as entity if transaction type
+            entity_cols = [source_fields["product_col"], *entity_cols]
         panel_data = (
             raw_panel_data
             # Clean data
             .pipe(
                 _clean_panel,
-                entity_cols=source_fields["entity_cols"],
+                entity_cols=entity_cols,
                 time_col=source_fields["time_col"],
                 datetime_fmt=source_fields["datetime_fmt"],
             )
             # Merge multi levels
             .pipe(
                 _merge_multilevels,
-                entity_cols=source_fields["entity_cols"],
-                target_cols=target_cols,
+                entity_cols=entity_cols,
+                target_col=target_col,
             )
             # Resample panel
             .pipe(
                 _resample_panel,
                 freq=SUPPORTED_FREQ[source_fields["freq"]],
+                target_col=target_col,
                 agg_method=source_fields.get("agg_method", "mean"),
                 impute_method=source_fields.get("impute_method", 0),
-                target_col=source_fields.get("target_col", None),
                 price_col=source_fields.get("price_col", None),
-                quantity_col=source_fields.get("quantity_col", None),
             )
         )
         # Write data to data lake storage
-        status, msg = "SUCCESS", "OK"
         updated_at = datetime.utcnow()
         write = STORAGE_TAG_TO_WRITER[storage_tag]
         output_path = _make_output_path(source_id=source_id, updated_at=updated_at)
@@ -334,9 +321,7 @@ def run_preprocess(
         )
     except ClientError as exc:
         panel_data = None
-        updated_at = datetime.utcnow()
         output_path = None
-        status = "FAILED"
         error_code = exc.response["Error"]["Code"]
 
         if error_code == "InvalidSignatureException":
@@ -345,37 +330,103 @@ def run_preprocess(
             msg = "Insufficient permissions errors"
         else:
             msg = repr(exc)
+
+        raise Exception(f"Error in `run_preprocess`: {msg}") from exc
     except HTTPException as exc:
         # Source file / table not found errors
         panel_data = None
-        updated_at = datetime.utcnow()
         output_path = None
-        status = "FAILED"
-        msg = exc.detail
+        raise Exception(f"Error in `run_preprocess`: {exc}") from exc
     except ValueError as exc:
         # Data cleaning errors
         panel_data = None
-        updated_at = datetime.utcnow()
         output_path = None
-        status = "FAILED"
-        msg = exc
+        raise Exception(f"Error in `run_preprocess`: {exc}") from exc
     except Exception as exc:
         panel_data = None
-        updated_at = datetime.utcnow()
+        output_path = None
+        raise Exception(f"Error in `run_preprocess`: {repr(exc)}") from exc
+
+    return panel_data, output_path
+
+
+@stub.function
+def run_embeddings(
+    panel_data: pl.DataFrame,
+    source_id: int,
+    source_fields: Mapping[str, Any],
+    storage_bucket_name: str,
+):
+    try:
+        ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
+        embeddings_paths = {}
+        # Unpack panel data cols based on source type
+        entity_col = panel_data.columns[0]
+        target_col = source_fields.get("target_col", source_fields.get("price_col"))
+
+        logger.info(f"Generating embeddings for panel with source: {source_id}")
+        # Generate embeddings for panel
+        ts_emb_flow.call(
+            panel_data,
+            entity_col=entity_col,
+            target_col=target_col,
+            s3_bucket=storage_bucket_name,
+            s3_key=f"embeddings/{source_id}/ts/",
+        )
+        # Export embeddings to s3
+        embeddings_paths["ts"] = f"embeddings/{source_id}/ts/embeddings_ts.lance/"
+        logger.info(f"Completed embeddings for panel with source: {source_id}")
+    except Exception as exc:
+        raise Exception(f"Error in `run_embeddings`: {repr(exc)}") from exc
+
+
+@stub.function(
+    secrets=[
+        modal.Secret.from_name("postgres-credentials"),
+        modal.Secret.from_name("aws-credentials"),
+    ]
+)
+def run_preprocess_and_embs(
+    user_id: int,
+    source_id: int,
+    source_tag: str,
+    source_variables: Mapping[str, Any],
+    source_type: str,
+    source_fields: Mapping[str, Any],
+    storage_tag: str,
+    storage_bucket_name: str,
+):
+    try:
+        status, msg = "SUCCESS", "OK"
+        panel_data, output_path = run_preprocess(
+            user_id=user_id,
+            source_id=source_id,
+            source_tag=source_tag,
+            source_variables=source_variables,
+            source_type=source_type,
+            source_fields=source_fields,
+            storage_tag=storage_tag,
+            storage_bucket_name=storage_bucket_name,
+        )
+
+        run_embeddings(
+            panel_data=panel_data,
+            source_id=source_id,
+            source_fields=source_fields,
+            storage_bucket_name=storage_bucket_name,
+        )
+    except (Exception, pl.PolarsPanicError) as exc:
         output_path = None
         status, msg = "FAILED", repr(exc)
+        logger.error(msg)
     finally:
-        if status == "FAILED":
-            logger.error(msg)
         _update_source(
             source_id=source_id,
-            updated_at=updated_at,
+            updated_at=datetime.utcnow(),
             output_path=output_path,
             status=status,
             msg=msg,
         )
-
-    return panel_data
 
 
 def _get_all_sources() -> List[Source]:
@@ -423,12 +474,13 @@ def flow():
         # 4. Run preprocess flow
         current_datetime = datetime.now().replace(microsecond=0)
         if (current_datetime >= run_dt) or source.status == "FAILED":
-            # Spawn preprocess flow for source
-            futures[source.id] = run_preprocess.spawn(
+            # Spawn preprocess and embs flow for source
+            futures[source.id] = run_preprocess_and_embs.spawn(
                 user_id=source.user_id,
                 source_id=source.id,
                 source_tag=source.tag,
                 source_variables=json.loads(source.variables),
+                source_type=source.type,
                 source_fields=fields,
                 storage_tag=user.storage_tag,
                 storage_bucket_name=user.storage_bucket_name,
@@ -436,67 +488,7 @@ def flow():
     # 5. Get future for each source
     for source_id, future in futures.items():
         logger.info(f"Running preprocess flow for source: {source_id}")
-        panel_data = future.get()
-
-        if panel_data is not None:
-            # 6. Create embeddings for each source
-            product_emb_flow = modal.Function.lookup(
-                "functime-embeddings", "product_emb_flow"
-            )
-            ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
-            cluster_emb_flow = modal.Function.lookup(
-                "functime-embeddings", "cluster_emb_flow"
-            )
-            embeddings_paths = {}
-            # Unpack panel data cols based on source type
-            source = get_source(source_id)["source"]
-            fields = json.loads(source.fields)
-            entity_col = "__".join(fields["entity_cols"])
-            target_col = fields.get("target_col", fields.get("price_col"))
-
-            logger.info(f"Generating embeddings for panel with source: {source_id}")
-            # Generate embeddings for panel
-            ts_emb_flow.call(
-                panel_data,
-                entity_col=entity_col,
-                target_col=target_col,
-                s3_bucket=user.storage_bucket_name,
-                s3_key=f"embeddings/{source_id}/ts/",
-            )
-            # Export embeddings to s3
-            embeddings_paths["ts"] = f"embeddings/{source_id}/ts/embeddings_ts.lance/"
-            logger.info(f"Completed embeddings for panel with source: {source_id}")
-
-            if fields.get("product_col"):
-                logger.info(f"Generate embeddings(products) for source: {source_id}")
-                # Generate embeddings for products (all, 2D, 3D)
-                embeddings = product_emb_flow.call(
-                    panel_data.drop_nulls(),
-                    product_col=fields["product_col"],
-                    invoice_col=fields["invoice_col"],
-                    target_col=target_col,
-                    s3_bucket=user.storage_bucket_name,
-                    s3_key=f"embeddings/{source_id}/product/",
-                )
-                # Export embeddings to s3
-                for name in embeddings.keys():
-                    embeddings_paths[
-                        name
-                    ] = f"embeddings/{source_id}/product/embeddings_product_{name}.lance"
-
-                # Obtain cluster_id for 3D embeddings
-                cluster_emb_flow.call(
-                    embeddings["3D"],
-                    fields["product_col"],
-                    s3_bucket=user.storage_bucket_name,
-                    s3_key=f"embeddings/{source_id}/cluster/",
-                )
-                # Export embeddings to s3
-                embeddings_paths[
-                    "cluster"
-                ] = f"embeddings/{source_id}/cluster/embeddings_clusters.lance/"
-                logger.info(f"Completed embeddings(products) for source: {source_id}")
-
+        future.get()
         logger.info(f"Preprocess flow completed for source: {source_id}")
 
     logger.info("Flow completed")
@@ -514,6 +506,7 @@ def test():
         "object_path": "tourism/tourism_20221212.parquet",
         "file_ext": "parquet",
     }
+    source_type = "panel"
     fields = {
         "entity_cols": ["country", "territory", "state"],
         "time_col": "time",
@@ -532,6 +525,7 @@ def test():
         source_id=source_id,
         source_tag=source_tag,
         source_variables=source_variables,
+        source_type=source_type,
         source_fields=fields,
         storage_tag=storage_tag,
         storage_bucket_name=storage_bucket_name,

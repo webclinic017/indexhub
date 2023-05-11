@@ -1,6 +1,6 @@
 import io
-from typing import Optional
 import json
+from typing import List, Optional
 
 import polars as pl
 from fastapi import HTTPException
@@ -8,7 +8,9 @@ from polars.exceptions import ArrowError, ComputeError
 from xlsx2csv import InvalidXlsxFileException
 
 
-def parse_excel(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
+def parse_excel(
+    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+) -> pl.DataFrame:
     try:
         raw_panel = pl.read_excel(
             io.BytesIO(obj),
@@ -28,7 +30,9 @@ def parse_excel(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
         return raw_panel
 
 
-def parse_csv(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
+def parse_csv(
+    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+) -> pl.DataFrame:
     try:
         raw_panel = pl.read_csv(io.BytesIO(obj), n_rows=n_rows)
     except ComputeError as err:
@@ -37,16 +41,20 @@ def parse_csv(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
         return raw_panel
 
 
-def parse_parquet(obj: str, n_rows: Optional[int] = None) -> pl.DataFrame:
+def parse_parquet(
+    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+) -> pl.DataFrame:
     try:
-        raw_panel = pl.read_parquet(io.BytesIO(obj), n_rows=n_rows)
+        raw_panel = pl.read_parquet(io.BytesIO(obj), n_rows=n_rows, columns=columns)
     except ArrowError as err:
         raise HTTPException(status_code=400, detail="Invalid parquet file") from err
     else:
         return raw_panel
 
 
-def parse_json(obj: str, n_rows: Optional[int] = None) -> dict:
+def parse_json(
+    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+) -> dict:
     try:
         content = obj.decode("utf-8")
         data = json.loads(content)

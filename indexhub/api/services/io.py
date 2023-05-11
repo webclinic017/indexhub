@@ -1,5 +1,5 @@
 import io
-from typing import Optional
+from typing import List, Optional
 
 import boto3
 import botocore
@@ -9,8 +9,8 @@ from fastapi import APIRouter, HTTPException
 from indexhub.api.services.parsers import (
     parse_csv,
     parse_excel,
-    parse_parquet,
     parse_json,
+    parse_parquet,
 )
 
 
@@ -29,6 +29,7 @@ def read_data_from_s3(
     object_path: str,
     file_ext: str,
     n_rows: Optional[int] = None,
+    columns: Optional[List[str]] = None,
     AWS_ACCESS_KEY_ID: Optional[str] = None,
     AWS_SECRET_KEY_ID: Optional[str] = None,
 ):
@@ -62,7 +63,7 @@ def read_data_from_s3(
             raise err
     s3_client.close()
     parser = FILE_EXT_TO_PARSER[file_ext]
-    data = parser(obj, n_rows)
+    data = parser(obj, n_rows, columns)
     return data
 
 

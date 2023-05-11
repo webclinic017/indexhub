@@ -21,9 +21,7 @@ class CreateSourceParams(BaseModel):
     name: str
     type: str
     variables: str
-    freq: str
-    datetime_fmt: str
-    columns: str
+    fields: str
 
 
 @router.get("/sources/schema/{user_id}")
@@ -41,7 +39,7 @@ def create_source(params: CreateSourceParams):
         user = session.get(User, source.user_id)
         source.status = "RUNNING"
         source_fields = json.loads(source.fields)
-        flow = modal.Function.lookup("indexhub-preprocess", "flow")
+        flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess_and_embs")
         flow.call(
             user_id=source.user_id,
             source_id=source.id,

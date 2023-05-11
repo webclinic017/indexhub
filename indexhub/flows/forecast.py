@@ -318,6 +318,7 @@ def run_forecast(
     storage_tag: str,
     bucket_name: str,
     target_col: str,
+    entity_cols: List[str],
     min_lags: int,
     max_lags: int,
     fh: int,
@@ -358,11 +359,17 @@ def run_forecast(
         )
 
         # 4. Read y from storage
-        y_panel = read(object_path=panel_path)
-        entity_col = y_panel.columns[0]
-        time_col = y_panel.select(
-            pl.col([pl.Date, pl.Datetime, pl.Datetime("ns")])
-        ).columns[0]
+        # Entity cols are merged into a single column in preprocess
+        entity_col = "__".join(entity_cols)
+        # Time column is renamed to "time" in preprocess
+        time_col = "time"
+        select_cols = [entity_col, time_col, target_col]
+        if feature_cols is not None:
+            select_cols = [*select_cols, *feature_cols]
+        y_panel = read(
+            object_path=panel_path,
+            columns=select_cols,
+        )
 
         # 5. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
@@ -472,16 +479,14 @@ def run_forecast(
             write=write,
         )
 
-    except Exception as exc:
+    except (Exception, pl.PolarsPanicError) as exc:
         updated_at = datetime.utcnow()
         outputs = None
         status = "FAILED"
         msg = repr(exc)
-
+        logger.error(msg)
     finally:
         pl.toggle_string_cache(False)
-        if status == "FAILED":
-            logger.error(msg)
         _update_objective(
             objective_id=objective_id,
             updated_at=updated_at,
@@ -575,6 +580,15 @@ def flow():
                     for country in fields["holiday_regions"]
                 ]
 
+            # Set quantity as target if transaction type
+            target_col = source_fields.get(
+                "target_col", source_fields.get("quantity_col")
+            )
+            entity_cols = source_fields["entity_cols"]
+            if panel_source.type == "transaction":
+                # Set product as entity if transaction type
+                entity_cols = [source_fields["product_col"], *entity_cols]
+
             # Spawn forecast flow for objective
             futures[objective.id] = run_forecast.spawn(
                 user_id=objective.user_id,
@@ -582,7 +596,8 @@ def flow():
                 panel_path=panel_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
-                target_col=source_fields["target_col"],
+                target_col=target_col,
+                entity_cols=entity_cols,
                 min_lags=fields["min_lags"],
                 max_lags=fields["max_lags"],
                 fh=fields["fh"],
@@ -627,6 +642,7 @@ def test(user_id: str = "indexhub-demo"):
 
     source_fields = {
         "target_col": "trips_in_000s",
+        "entity_cols": ["country", "territory", "state"],
         "freq": "1mo",
         "agg_method": "sum",
         "impute_method": 0,
@@ -655,6 +671,7 @@ def test(user_id: str = "indexhub-demo"):
         storage_tag=storage_tag,
         bucket_name=storage_bucket_name,
         target_col=source_fields["target_col"],
+        entity_cols=source_fields["entity_cols"],
         min_lags=fields["min_lags"],
         max_lags=fields["max_lags"],
         fh=fields["fh"],

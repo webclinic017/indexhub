@@ -357,13 +357,19 @@ SOURCE_FIELDS_SCHEMA = {
     "transaction": {
         "description": "Choose this source if you have transactions data (e.g. point-of-sales).",
         "fields": {
-            "entity_cols": ENTITY_COLS_SCHEMA,
             "time_col": TIME_COL_SCHEMA,
-            "target_col": TARGET_COL_SCHEMA,
             "quantity_col": QUANTITY_COL_SCHEMA,
             "price_col": PRICE_COL_SCHEMA,
             "invoice_col": INVOICE_COL_SCHEMA,
             "product_col": PRODUCT_COL_SCHEMA,
+            # In backend, set quantity col as target and product col as entity col
+            # Allow to add other entity cols
+            "entity_cols": {
+                "title": "Other entity column(s)",
+                "subtitle": "Run forecast by product and other entity columns such as region, customer, etc.",
+                "values": [],
+                "is_required": False,
+            },
             "feature_cols": FEATURE_COLS_SCHEMA,
             "agg_method": AGG_METHOD_SCHEMA,
             "impute_method": IMPUTE_METHOD_SCHEMA,
