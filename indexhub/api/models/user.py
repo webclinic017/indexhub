@@ -15,3 +15,5 @@ class User(SQLModel, table=True):
     storage_tag: Optional[str] = None
     storage_bucket_name: Optional[str] = None
     storage_created_at: Optional[datetime] = None
+    integration_ids: Optional[str] = None  # list[int]
+

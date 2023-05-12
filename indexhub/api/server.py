@@ -18,6 +18,7 @@ from .routers import (
     tables,
     tests,
     users,
+    integrations,
 )
 
 dependencies = None
@@ -37,6 +38,7 @@ app.include_router(stats.router)
 app.include_router(tests.router)
 app.include_router(plans.router)
 app.include_router(copilot.router)
+app.include_router(integrations.router)
 
 
 origins = ["http://localhost:3000", "https://indexhub.vercel.app"]
