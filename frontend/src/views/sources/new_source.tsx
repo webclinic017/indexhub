@@ -252,7 +252,7 @@ export default function NewSource() {
   return (
     <>
       <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
-        New Source
+        New data source
       </Text>
       <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
         <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
@@ -278,7 +278,7 @@ export default function NewSource() {
               {source_type && (
                 <SourceCredentials
                   required_credentials_schema={
-                    sources_schema[source_type]["credentials"]
+                    sources_schema[source_type]["panel"]["credentials"]
                   }
                   submitSourceCreds={submitSourceCreds}
                 />

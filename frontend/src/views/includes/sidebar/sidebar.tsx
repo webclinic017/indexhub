@@ -59,7 +59,7 @@ export const Sidebar = () => {
                         </InputGroup> */}
                         <Stack spacing="4">
                             <NavButton isActive={current_path.split("/")[1] == "dashboard"} label="Dashboard" icon={faHouse} onClick={() => navigate("/dashboard")} />
-                            <NavButton isActive={current_path.split("/")[1] == "sources"} label="Sources" icon={faDatabase} onClick={() => navigate("/sources")} />
+                            <NavButton isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
                             <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
                             <Popover isLazy placement="right">
                                 <PopoverTrigger>

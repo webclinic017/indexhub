@@ -6,7 +6,7 @@ interface propState {
   new_report: boolean;
 }
 
-export default function Sources() {
+export default function Data() {
   const location = useLocation();
   let new_report_state = false;
 

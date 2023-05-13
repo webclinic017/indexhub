@@ -7,14 +7,14 @@ import Reports from "./views/reports/reports";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import { themes } from "./theme/theme";
-import Sources from "./views/sources/sources";
+import Data from "./views/sources/data";
 import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
 import Docs from "./views/docs";
 import Forecast_Recommendations from "./views/reports/report_types/forecast_prediction";
 import NewSource from "./views/sources/new_source";
-import SourcesTable from "./views/sources/sources_table";
+import DataAndIntegrations from "./views/sources/data_integrations";
 import SourceProfiling from "./views/reports/profiling";
 import NewStorage from "./views/storage/new_storage";
 import NewObjective from "./views/objectives/new_objective";
@@ -34,9 +34,9 @@ function App() {
               <Route index element={<Home />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="docs" element={<Docs />} />
-              <Route path="sources" element={<Sources />}>
-                <Route index element={<SourcesTable />} />
-                <Route path="new_source" element={<NewSource />} />
+              <Route path="data" element={<Data />}>
+                <Route index element={<DataAndIntegrations />} />
+                {/* <Route path="new_source" element={<NewSource />} /> */}
               </Route>
               <Route path="objectives" element={<Objectives />}>
                 <Route index element={<ObjectivesDashboard />} />

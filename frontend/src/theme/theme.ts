@@ -45,6 +45,10 @@ export const colors = {
 // Add themes in the same format with different color mappings (eg dark_theme, light_theme)
 const default_theme = extendTheme({
   colors: {
+    text: {
+      black: "#1a202c",
+      grey: "#797986"
+    },
     navbar: {
       background: colors.primary.brand_colors.white,
       icon: colors.primary.brand_colors.not_black_black,
