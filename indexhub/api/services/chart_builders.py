@@ -420,9 +420,11 @@ def _create_segmentation_chart(
     chart_width: str = "800px",
     symbol_size: int = 12,
     # Added following params to silence undefined params error, might have to think of a better solution here
+    source_fields: Mapping[str, str] = {},
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
+    
 ):
     pl.toggle_string_cache(True)
 
