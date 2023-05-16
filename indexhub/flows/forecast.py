@@ -23,7 +23,6 @@ from indexhub.api.schemas import (
 )
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
-from indexhub.deployment import IMAGE
 
 
 def _logger(name, level=logging.INFO):
@@ -41,6 +40,7 @@ def _logger(name, level=logging.INFO):
 logger = _logger(name=__name__)
 
 
+IMAGE = modal.Image.from_name("indexhub-image")
 stub = modal.Stub("indexhub-forecast", image=IMAGE)
 
 
@@ -175,11 +175,9 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
         .pipe(lambda df: df.explode(df.columns[1:]))
         # Replace inf with null
         .with_columns(
-            pl.when(
-                pl.all().exclude([entity_col, "updated_at", "window"]).is_infinite()
-            )
+            pl.when(pl.col([pl.Float32, pl.Float64]).is_infinite())
             .then(None)
-            .otherwise(pl.all())
+            .otherwise(pl.col([pl.Float32, pl.Float64]))
             .keep_name()
         )
     )
@@ -304,8 +302,8 @@ def _update_objective(
 
 @stub.function(
     memory=5120,
-    cpu=4.0,
-    timeout=900,
+    cpu=8.0,
+    timeout=3600,  # 60 mins
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
@@ -524,8 +522,8 @@ FREQ_TO_DURATION = {
 
 @stub.function(
     memory=5120,
-    cpu=4.0,
-    timeout=900,
+    cpu=8.0,
+    timeout=3600,
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),

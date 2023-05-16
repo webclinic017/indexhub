@@ -16,7 +16,6 @@ from indexhub.api.models.source import Source
 from indexhub.api.schemas import SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
-from indexhub.deployment import IMAGE
 from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
 
 
@@ -39,6 +38,7 @@ PL_INT_DTYPES = [pl.Int8, pl.Int16, pl.Int32, pl.Int64]
 PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
+IMAGE = modal.Image.from_name("indexhub-image")
 stub = modal.Stub("indexhub-preprocess", image=IMAGE)
 
 

@@ -98,11 +98,13 @@ def _get_forecast_results(
 
     # AI predicted uplift for next fh
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
-    uplift_value = uplift.select(agg_method(f"{metric}__uplift")).get_column(
+    # Select uplift where AI is better than baseline
+    uplift_filtered = uplift.filter(pl.col(f"{metric}__uplift") >= 0)
+    uplift_value = uplift_filtered.select(agg_method(f"{metric}__uplift")).get_column(
         f"{metric}__uplift"
     )[0]
     uplift_pct = (
-        uplift.with_columns(
+        uplift_filtered.with_columns(
             # Replace inf with null
             pl.when(pl.col(f"{metric}__uplift_pct").is_infinite())
             .then(None)

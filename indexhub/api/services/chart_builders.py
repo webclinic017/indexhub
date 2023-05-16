@@ -111,7 +111,7 @@ def _create_single_forecast_chart(
     agg_exprs = [
         AGG_METHODS[agg_method](col)
         for col in joined.select(
-            [pl.col(pl.Int64), pl.col(pl.Float64), pl.col(pl.Float32)]
+            pl.col([pl.Int16, pl.Int32, pl.Int64, pl.Float64, pl.Float32])
         ).columns
     ]
     # Aggredate data and round to two d.p.
@@ -407,6 +407,7 @@ SEGMENTATION_FACTOR_TO_EXPR = {
 def _create_segmentation_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
     user: User,
     objective_id: str,
     segmentation_factor: Literal[

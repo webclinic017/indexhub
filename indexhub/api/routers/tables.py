@@ -109,7 +109,9 @@ def _get_forecast_table(
             (pl.col("current_window__stat") - pl.col("last_window__stat")).alias(
                 "diff"
             ),
-            pl.when(pl.col("pct_change").is_infinite())
+            pl.when(
+                (pl.col("pct_change").is_infinite()) | (pl.col("pct_change").is_nan())
+            )
             .then(0)
             .otherwise(pl.col("pct_change"))
             .keep_name(),
