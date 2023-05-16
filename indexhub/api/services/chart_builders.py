@@ -425,7 +425,6 @@ def _create_segmentation_chart(
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
-    
 ):
     pl.toggle_string_cache(True)
 
@@ -675,3 +674,93 @@ def _create_3d_cluster_chart(
             ],
         )
     return cluster_3d.dump_options()
+
+
+def _create_rolling_forecasts_chart(
+    fields: Mapping[str, str],
+    outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
+    user: User,
+    objective_id: str,
+):
+    """
+    Creates rolling forecasts chart using the baseline and rolling forecasts artifacts.
+    The line chart includes baseline and forecasts based on the `updated_at` column.
+
+    Returns a dictionary of {entity: chart_json} for each of the entities in the rolling forecasts.
+    """
+    # Get credentials
+    storage_creds = get_aws_secret(
+        tag=user.storage_tag, secret_type="storage", user_id=user.id
+    )
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        file_ext="parquet",
+        **storage_creds,
+    )
+    baseline_model = fields["baseline_model"]
+    # Read artifacts
+    rolling_forecasts = read(
+        object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet"
+    )
+    baseline = read(object_path=outputs["forecasts"][baseline_model])
+
+    entity_col, time_col, target_col = baseline.columns
+    entities = rolling_forecasts.get_column(entity_col).unique().to_list()
+
+    output_json = {}
+    for entity in entities:
+        filtered_forecasts = rolling_forecasts.filter(pl.col(entity_col) == entity)
+        filtered_baseline = baseline.filter(pl.col(entity_col) == entity)
+        y_baseline = filtered_baseline.get_column(target_col).to_list()
+
+        # Get list of updated_date values
+        updated_dates = filtered_forecasts.get_column("updated_at").unique().to_list()
+
+        # Set colors and create cycler
+        colors = ["#0a0a0a", "#194fdc", "#44aa7e", "#b56321"]
+        colors_cycle = itertools.cycle(colors)
+        # Create a Line chart
+        line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
+        for updated_date in updated_dates:
+            entity_data = filtered_forecasts.filter(
+                pl.col("updated_at") == updated_date
+            )
+            x_values = [f"fh-{fh}" for fh in entity_data.get_column("fh").to_list()]
+            y_values = entity_data.get_column("forecast").to_list()
+            dt_str = updated_date.strftime("%Y-%m-%d")
+
+            line_chart.add_xaxis(x_values)
+            line_chart.add_yaxis(
+                dt_str,
+                y_values,
+                label_opts=opts.LabelOpts(is_show=False),
+                color=next(colors_cycle),
+                linestyle_opts=opts.LineStyleOpts(width=3),
+                symbol_size=7,
+            )
+
+            line_chart.set_global_opts(
+                xaxis_opts=opts.AxisOpts(
+                    splitline_opts=opts.SplitLineOpts(is_show=False)
+                ),
+                yaxis_opts=opts.AxisOpts(
+                    name="Forecast",
+                    is_show=True,
+                    splitline_opts=opts.SplitLineOpts(is_show=False),
+                    offset=20,
+                    axislabel_opts=opts.LabelOpts(horizontal_align="left"),
+                ),
+            )
+        line_chart.add_yaxis(
+            "Baseline",
+            y_baseline,
+            label_opts=opts.LabelOpts(is_show=False),
+            color=next(colors_cycle),
+            linestyle_opts=opts.LineStyleOpts(width=3),
+            symbol_size=7,
+        )
+        output_json[entity] = line_chart
+
+    return output_json

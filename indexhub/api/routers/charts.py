@@ -13,6 +13,7 @@ from indexhub.api.routers.sources import get_source
 from indexhub.api.services.chart_builders import (
     _create_3d_cluster_chart,
     _create_multi_forecast_chart,
+    _create_rolling_forecasts_chart,
     _create_segmentation_chart,
     _create_single_forecast_chart,
 )
@@ -25,7 +26,8 @@ OBJECTIVE_TAG_TO_BUILDERS = {
         "single_forecast": _create_single_forecast_chart,
         "multi_forecast": _create_multi_forecast_chart,
         "segment": _create_segmentation_chart,
-        "3d_cluster": _create_3d_cluster_chart,
+        "cluster_3d": _create_3d_cluster_chart,
+        "rolling_forecast": _create_rolling_forecasts_chart,
     }
 }
 
@@ -34,6 +36,8 @@ class ChartTag(str, Enum):
     single_forecast = "single_forecast"
     multi_forecast = "multi_forecast"
     segment = "segment"
+    cluster_3d = "cluster_3d"
+    rolling_forecast = "rolling_forecast"
 
 
 class AggregationMethod(str, Enum):
