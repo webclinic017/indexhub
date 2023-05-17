@@ -67,7 +67,6 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
 
     objective = get_objective(params.objective_id)["objective"]
     outputs = json.loads(objective.outputs)
-    best_model = outputs["best_model"]
 
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -79,10 +78,10 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
     )
 
     forecast: pl.DataFrame = read(
-        object_path=outputs["forecasts"][best_model], file_ext="parquet"
+        object_path=outputs["forecasts"]["best_models"], file_ext="parquet"
     ).filter(pl.col(params.entity_col) == params.entity_id)
     quantiles: pl.DataFrame = (
-        read(object_path=outputs["quantiles"][best_model], file_ext="parquet")
+        read(object_path=outputs["quantiles"]["best_models"], file_ext="parquet")
         .filter(pl.col(params.entity_col) == params.entity_id)
         .filter(pl.col("quantile").is_in([10, 90]))
     )

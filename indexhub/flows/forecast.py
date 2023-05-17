@@ -63,15 +63,15 @@ def compute_rolling_forecast(
     dt = updated_at.replace(microsecond=0)
 
     # Read forecast artifacts from s3 and postproc
-    best_model = output_json["best_model"]
-    forecast = read(object_path=output_json["forecasts"][best_model]).pipe(
+    best_models = output_json["best_models"]
+    forecast = read(object_path=output_json["forecasts"]["best_models"]).pipe(
         # Rename target_col to "forecast"
         lambda df: df.rename({df.columns[-1]: "forecast"}).with_columns(
             [
                 # Assign updated_at column
                 pl.lit(dt).alias("updated_at"),
                 # Assign best_model column
-                pl.lit(best_model).alias("best_model"),
+                pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
                 # Assign fh column
                 pl.col("time").rank("ordinal").over(df.columns[0]).alias("fh"),
             ]
@@ -386,7 +386,6 @@ def run_forecast(
             freq=freq,
             n_splits=n_splits,
             holiday_regions=holiday_regions,
-            objective=objective,
             X=X,
         )
         outputs["y"] = make_path(prefix="y")
@@ -423,7 +422,7 @@ def run_forecast(
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
         kwargs = {"y": y, "y_baseline": y_baseline}
         baseline_scores, baseline_metrics, uplift = uplift_flow.call(
-            outputs["scores"][outputs["best_model"]],
+            outputs["scores"]["best_models"],
             **kwargs,
         )
         outputs["y_baseline"] = make_path(prefix="y_baseline")

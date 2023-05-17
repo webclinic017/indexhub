@@ -40,14 +40,13 @@ def _create_single_forecast_chart(
     )
 
     # Read artifacts
-    best_model = outputs["best_model"]
-    forecast = read(object_path=outputs["forecasts"][best_model])
-    backtest = read(object_path=outputs["backtests"][best_model]).pipe(
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
+    backtest = read(object_path=outputs["backtests"]["best_models"]).pipe(
         lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
     )
     actual = read(object_path=outputs["y"])
     y_baseline = read(object_path=outputs["y_baseline"])
-    quantiles = read(object_path=outputs["quantiles"][best_model])
+    quantiles = read(object_path=outputs["quantiles"]["best_models"])
     quantiles_lower = quantiles.filter(pl.col("quantile") == quantile_lower).drop(
         "quantile"
     )
@@ -248,9 +247,8 @@ def _create_multi_forecast_chart(
     )
 
     # Read artifacts
-    best_model = outputs["best_model"]
-    forecast = read(object_path=outputs["forecasts"][best_model])
-    backtest = read(object_path=outputs["backtests"][best_model]).pipe(
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
+    backtest = read(object_path=outputs["backtests"]["best_models"]).pipe(
         lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
     )
     actual = read(object_path=outputs["y"])
@@ -421,7 +419,6 @@ def _create_segmentation_chart(
     chart_width: str = "800px",
     symbol_size: int = 12,
     # Added following params to silence undefined params error, might have to think of a better solution here
-    source_fields: Mapping[str, str] = {},
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
@@ -440,9 +437,8 @@ def _create_segmentation_chart(
     )
 
     # Read forecast
-    best_model = outputs["best_model"]
-    forecast = read(object_path=outputs["forecasts"][best_model])
-    scores = read(object_path=outputs["scores"][best_model])
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
+    scores = read(object_path=outputs["scores"]["best_models"])
     entity_col, time_col, target_col = forecast.columns
     entities = forecast.get_column(entity_col).unique()
 

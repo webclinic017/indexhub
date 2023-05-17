@@ -49,9 +49,8 @@ def _get_forecast_results(
 
     # Read artifacts
     y = read(object_path=outputs["y"]).lazy()
-    best_model = outputs["best_model"]
-    forecasts = read(object_path=outputs["forecasts"][best_model])
-    backtests = read(object_path=outputs["backtests"][best_model])
+    forecasts = read(object_path=outputs["forecasts"]["best_models"])
+    backtests = read(object_path=outputs["backtests"]["best_models"])
     fields_agg_method = source_fields["agg_method"]
     agg_method = AGG_METHODS[fields_agg_method]
     statistics = read(

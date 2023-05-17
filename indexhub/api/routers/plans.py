@@ -44,8 +44,7 @@ def _execute_forecast_plan(
     )
 
     # Read forecast and baseline artifacts
-    best_model = outputs["best_model"]
-    forecast = read(object_path=outputs["forecasts"][best_model])
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
     y_baseline = read(object_path=outputs["y_baseline"])
 
     entity_col, time_col, target_col = forecast.columns

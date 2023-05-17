@@ -48,9 +48,8 @@ def _get_forecast_table(
     )
 
     # Read artifacts
-    best_model = outputs["best_model"]
-    forecast = read(object_path=outputs["forecasts"][best_model])
-    quantiles = read(object_path=outputs["quantiles"][best_model])
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
+    quantiles = read(object_path=outputs["quantiles"]["best_models"])
     y_baseline = read(object_path=outputs["y_baseline"])
     y = read(object_path=outputs["y"])
 
