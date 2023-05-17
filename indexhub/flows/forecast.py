@@ -267,6 +267,76 @@ def compute_rolling_uplift(
         pl.toggle_string_cache(False)
 
 
+@stub.function(
+    secrets=[
+        modal.Secret.from_name("postgres-credentials"),
+        modal.Secret.from_name("aws-credentials"),
+    ]
+)
+def create_best_plan(
+    output_json: Mapping[str, Any],
+    objective: str,
+    read: Callable,
+    write: Callable,
+    output_path: str,
+):
+    logger.info("Creating best plan")
+    pl.toggle_string_cache(True)
+
+    try:
+        forecast = read(object_path=output_json["forecasts"]["best_models"])
+        y_baseline = read(object_path=output_json["y_baseline"])
+        uplift = read(object_path=output_json["uplift"])
+        entity_col, time_col, target_col = forecast.columns
+        idx_cols = entity_col, time_col
+
+        # Create best plan
+        best_plan = (
+            forecast.lazy()
+            .rename({target_col: "forecast"})
+            # Join with baseline
+            .join(
+                y_baseline.lazy().rename({target_col: "baseline"}),
+                on=idx_cols,
+                how="left",
+            )
+            # Join with uplift
+            .join(uplift.lazy(), on=entity_col)
+            # Set default `use_ai` and `use_benchmark`
+            .with_columns(
+                pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
+                .then(True)
+                .otherwise(False)
+                .alias("use_ai"),
+                pl.when(pl.col(f"{objective}__uplift_pct") < 0)
+                .then(True)
+                .otherwise(False)
+                .alias("use_benchmark"),
+            )
+            # Add fh column
+            .groupby(entity_col, maintain_order=True)
+            .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
+            .pipe(lambda df: df.explode(df.columns[1:]))
+            .rename({entity_col: "entity"})
+            .with_columns(
+                pl.when(pl.col("use_ai"))
+                .then(pl.col("forecast"))
+                .otherwise(pl.col("baseline"))
+                .alias("best_plan")
+            )
+            .select(["entity", "time", "fh", "best_plan", "use_ai", "use_benchmark"])
+            .collect()
+        )
+
+        # Export best_plan artifact
+        write(best_plan, object_path=output_path)
+    except Exception as err:
+        raise err
+    finally:
+        pl.toggle_string_cache(False)
+        logger.info("Best plan created and exported")
+
+
 def _make_output_path(objective_id: int, updated_at: datetime, prefix: str) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
     path = f"artifacts/{objective_id}/{timestamp}/{prefix}.parquet"
@@ -457,7 +527,18 @@ def run_forecast(
             write(df, object_path=output_path)
             outputs["statistics"][key] = output_path
 
-        # 9. Run rolling forecast
+        # 9. Create and export best plan
+        output_path = make_path(prefix="best_plan")
+        create_best_plan.call(
+            output_json=outputs,
+            objective=objective,
+            read=read,
+            write=write,
+            output_path=output_path,
+        )
+        outputs["best_plan"] = output_path
+
+        # 10. Run rolling forecast
         compute_rolling_forecast.call(
             output_json=outputs,
             objective_id=objective_id,
@@ -466,7 +547,7 @@ def run_forecast(
             write=write,
         )
 
-        # 10. Run rolling uplift
+        # 11. Run rolling uplift
         compute_rolling_uplift.call(
             output_json=outputs,
             objective_id=objective_id,
