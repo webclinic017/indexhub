@@ -39,10 +39,10 @@ class FastAPIStack(Stack):
 
         # SECRETS
         psql_secret = Secret.from_secret_name_v2(
-            self, "Secret", secret_name="prod/indexhub/postgres"
+            self, "PostgresSecret", secret_name="prod/indexhub/postgres"
         )
         modal_secret = Secret.from_secret_name_v2(
-            self, "Secret", secret_name="prod/indexhub/modal"
+            self, "ModalSecret", secret_name="prod/indexhub/modal"
         )
 
         # EXECUTION ROLE
