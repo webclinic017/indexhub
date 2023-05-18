@@ -1,6 +1,5 @@
 """Defines the IndexHub FastAPI app.
 """
-import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +9,7 @@ from .dependencies import verify_oauth_token
 from .routers import (
     charts,
     copilot,
+    integrations,
     objectives,
     plans,
     readers,
@@ -18,14 +18,9 @@ from .routers import (
     tables,
     tests,
     users,
-    integrations,
 )
 
-dependencies = None
-
-if (os.getenv("DEBUG", "true").lower()) == "false":
-    dependencies = [Depends(verify_oauth_token)]
-
+dependencies = [Depends(verify_oauth_token)]
 app = FastAPI(dependencies=dependencies)
 
 app.include_router(users.router)

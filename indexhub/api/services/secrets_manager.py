@@ -3,12 +3,15 @@
 # https://aws.amazon.com/developer/language/python/
 
 import json
+import os
 from typing import Mapping
 
 import boto3
 from botocore.exceptions import ClientError
 
-from indexhub.settings import AWS_DEFAULT_REGION, ENV
+
+ENV_NAME = os.environ["ENV_NAME"]
+AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
 
 
 def get_aws_secret(tag: str, secret_type: str, user_id: str):
@@ -20,7 +23,7 @@ def get_aws_secret(tag: str, secret_type: str, user_id: str):
     )
 
     try:
-        secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
+        secret_name = f"{ENV_NAME}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
         response = client.get_secret_value(SecretId=secret_name)
     except ClientError as e:
         # For a list of exceptions thrown, see
@@ -42,10 +45,9 @@ def create_aws_secret(
     )
 
     try:
-        secret_name = f"{ENV}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
+        secret_name = f"{ENV_NAME}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
         response = client.create_secret(
-            Name=secret_name,
-            SecretString=json.dumps(secret)
+            Name=secret_name, SecretString=json.dumps(secret)
         )
     except ClientError as e:
         # For a list of exceptions thrown, see

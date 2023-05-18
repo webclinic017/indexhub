@@ -6,7 +6,7 @@ services:
       dockerfile: ./indexhub/Dockerfile
     container_name: fastapi
     environment:
-      DEBUG: true
+      ENV_NAME: dev
       RUST_BACKTRACE: 1
       PSQL_DBNAME: ${PSQL_DBNAME}
       PSQL_PORT: ${PSQL_PORT}

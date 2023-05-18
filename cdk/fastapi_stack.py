@@ -123,7 +123,7 @@ class FastAPIStack(Stack):
             ),
             container_port=8000,
             environment={
-                "DEBUG": "false",
+                "ENV_NAME": "prod",
                 "PSQL_SSLMODE": "require",
                 "AWS_DEFAULT_REGION": AWS_DEFAULT_REGION,
             },
@@ -138,7 +138,9 @@ class FastAPIStack(Stack):
                 ),
                 "PSQL_HOST": ecs.Secret.from_secrets_manager(psql_secret, "host"),
                 "MODAL_TOKEN_ID": ecs.Secret.from_secrets_manager(modal_secret, "id"),
-                "MODAL_TOKEN_SECRET": ecs.Secret.from_secrets_manager(modal_secret, "secret"),
+                "MODAL_TOKEN_SECRET": ecs.Secret.from_secrets_manager(
+                    modal_secret, "secret"
+                ),
             },
             execution_role=execution_role,
             task_role=task_role,
