@@ -4,9 +4,6 @@ services:
     build:
       context: ./
       dockerfile: ./indexhub/Dockerfile
-      args:
-        MODAL_TOKEN_ID: ${MODAL_TOKEN_ID}
-        MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET}
     container_name: fastapi
     environment:
       DEBUG: true
@@ -20,6 +17,8 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      MODAL_TOKEN_ID: ${MODAL_TOKEN_ID}
+      MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET}
     volumes:
       - ./indexhub:/app/indexhub
     ports:

@@ -41,6 +41,9 @@ class FastAPIStack(Stack):
         psql_secret = Secret.from_secret_name_v2(
             self, "Secret", secret_name="prod/indexhub/postgres"
         )
+        modal_secret = Secret.from_secret_name_v2(
+            self, "Secret", secret_name="prod/indexhub/modal"
+        )
 
         # EXECUTION ROLE
         execution_role = iam.Role(
@@ -69,7 +72,7 @@ class FastAPIStack(Stack):
                         "secretsmanager:GetSecretValue",
                         "secretsmanager:DescribeSecret",
                     ],
-                    resources=[psql_secret.secret_arn],
+                    resources=[psql_secret.secret_arn, modal_secret.secret_arn],
                 ),
             ],
             roles=[execution_role],
@@ -134,6 +137,8 @@ class FastAPIStack(Stack):
                     psql_secret, "password"
                 ),
                 "PSQL_HOST": ecs.Secret.from_secrets_manager(psql_secret, "host"),
+                "MODAL_TOKEN_ID": ecs.Secret.from_secrets_manager(modal_secret, "id"),
+                "MODAL_TOKEN_SECRET": ecs.Secret.from_secrets_manager(modal_secret, "secret"),
             },
             execution_role=execution_role,
             task_role=task_role,
