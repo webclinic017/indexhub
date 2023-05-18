@@ -260,9 +260,9 @@ def run_preprocess(
     user_id: int,
     source_id: int,
     source_tag: str,
-    source_variables: Mapping[str, Any],
+    conn_fields: Mapping[str, Any],
     source_type: str,
-    source_fields: Mapping[str, Any],
+    data_fields: Mapping[str, Any],
     storage_tag: str,
     storage_bucket_name: str,
 ):
@@ -277,21 +277,21 @@ def run_preprocess(
         )
         # Read data from source
         read = SOURCE_TAG_TO_READER[source_tag]
-        raw_panel_data = read(**source_variables, **source_creds)
+        raw_panel_data = read(**conn_fields, **source_creds)
         # Set quantity as target if transaction type
-        target_col = source_fields.get("target_col", source_fields.get("quantity_col"))
-        entity_cols = source_fields["entity_cols"]
+        target_col = data_fields.get("target_col", data_fields.get("quantity_col"))
+        entity_cols = data_fields["entity_cols"]
         if source_type == "transaction":
             # Set product as entity if transaction type
-            entity_cols = [source_fields["product_col"], *entity_cols]
+            entity_cols = [data_fields["product_col"], *entity_cols]
         panel_data = (
             raw_panel_data
             # Clean data
             .pipe(
                 _clean_panel,
                 entity_cols=entity_cols,
-                time_col=source_fields["time_col"],
-                datetime_fmt=source_fields["datetime_fmt"],
+                time_col=data_fields["time_col"],
+                datetime_fmt=data_fields["datetime_fmt"],
             )
             # Merge multi levels
             .pipe(
@@ -302,11 +302,11 @@ def run_preprocess(
             # Resample panel
             .pipe(
                 _resample_panel,
-                freq=SUPPORTED_FREQ[source_fields["freq"]],
+                freq=SUPPORTED_FREQ[data_fields["freq"]],
                 target_col=target_col,
-                agg_method=source_fields.get("agg_method", "mean"),
-                impute_method=source_fields.get("impute_method", 0),
-                price_col=source_fields.get("price_col", None),
+                agg_method=data_fields.get("agg_method", "mean"),
+                impute_method=data_fields.get("impute_method", 0),
+                price_col=data_fields.get("price_col", None),
             )
         )
         # Write data to data lake storage
@@ -354,7 +354,7 @@ def run_preprocess(
 def run_embeddings(
     panel_data: pl.DataFrame,
     source_id: int,
-    source_fields: Mapping[str, Any],
+    data_fields: Mapping[str, Any],
     storage_bucket_name: str,
 ):
     try:
@@ -362,7 +362,7 @@ def run_embeddings(
         embeddings_paths = {}
         # Unpack panel data cols based on source type
         entity_col = panel_data.columns[0]
-        target_col = source_fields.get("target_col", source_fields.get("price_col"))
+        target_col = data_fields.get("target_col", data_fields.get("price_col"))
 
         logger.info(f"Generating embeddings for panel with source: {source_id}")
         # Generate embeddings for panel
@@ -390,9 +390,9 @@ def run_preprocess_and_embs(
     user_id: int,
     source_id: int,
     source_tag: str,
-    source_variables: Mapping[str, Any],
+    conn_fields: Mapping[str, Any],
     source_type: str,
-    source_fields: Mapping[str, Any],
+    data_fields: Mapping[str, Any],
     storage_tag: str,
     storage_bucket_name: str,
 ):
@@ -402,9 +402,9 @@ def run_preprocess_and_embs(
             user_id=user_id,
             source_id=source_id,
             source_tag=source_tag,
-            source_variables=source_variables,
+            conn_fields=conn_fields,
             source_type=source_type,
-            source_fields=source_fields,
+            data_fields=data_fields,
             storage_tag=storage_tag,
             storage_bucket_name=storage_bucket_name,
         )
@@ -412,7 +412,7 @@ def run_preprocess_and_embs(
         run_embeddings(
             panel_data=panel_data,
             source_id=source_id,
-            source_fields=source_fields,
+            data_fields=data_fields,
             storage_bucket_name=storage_bucket_name,
         )
     except (Exception, pl.PolarsPanicError) as exc:
@@ -456,13 +456,13 @@ def flow():
     futures = {}
     for source in sources:
         logger.info(f"Checking source: {source.id}")
-        fields = json.loads(source.fields)
+        data_fields = json.loads(source.data_fields)
 
         # 2. Get user
         user = get_user(source.user_id)
 
         # 3. Check freq from source for schedule
-        duration = FREQ_TO_DURATION[fields["freq"]]
+        duration = FREQ_TO_DURATION[data_fields["freq"]]
         updated_at = source.updated_at.replace(microsecond=0)
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
@@ -479,9 +479,9 @@ def flow():
                 user_id=source.user_id,
                 source_id=source.id,
                 source_tag=source.tag,
-                source_variables=json.loads(source.variables),
+                conn_fields=json.loads(source.conn_fields),
                 source_type=source.type,
-                source_fields=fields,
+                data_fields=data_fields,
                 storage_tag=user.storage_tag,
                 storage_bucket_name=user.storage_bucket_name,
             )
@@ -501,13 +501,13 @@ def test():
     # Source
     source_id = 1
     source_tag = "s3"
-    source_variables = {
+    conn_fields = {
         "bucket_name": "indexhub-demo",
         "object_path": "tourism/tourism_20221212.parquet",
         "file_ext": "parquet",
     }
     source_type = "panel"
-    fields = {
+    data_fields = {
         "entity_cols": ["country", "territory", "state"],
         "time_col": "time",
         "target_col": "trips_in_000s",
@@ -524,9 +524,9 @@ def test():
         user_id=user_id,
         source_id=source_id,
         source_tag=source_tag,
-        source_variables=source_variables,
+        conn_fields=conn_fields,
         source_type=source_type,
-        source_fields=fields,
+        data_fields=data_fields,
         storage_tag=storage_tag,
         storage_bucket_name=storage_bucket_name,
     )

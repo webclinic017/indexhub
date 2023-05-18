@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.schemas import SOURCE_SCHEMAS
+from indexhub.api.schemas import CONNECTION_SCHEMA, DATASET_SCHEMA
 
 
 router = APIRouter()
@@ -20,16 +20,21 @@ class CreateSourceParams(BaseModel):
     tag: str
     name: str
     type: str
-    variables: str
-    fields: str
+    conn_fields: str
+    data_fields: str
 
 
-@router.get("/sources/schema/{user_id}")
-def list_source_schemas(user_id: str):
+@router.get("/sources/conn_schema/{user_id}")
+def list_conn_schemas(user_id: str):
     with Session(engine) as session:
         query = select(User).where(User.id == user_id)
         user = session.exec(query).first()
-        return SOURCE_SCHEMAS(user=user)
+        return CONNECTION_SCHEMA(user=user)
+
+
+@router.get("/sources/dataset_schema")
+def list_dataset_schemas():
+    return DATASET_SCHEMA
 
 
 @router.post("/sources")
@@ -38,14 +43,15 @@ def create_source(params: CreateSourceParams):
         source = Source(**params.__dict__)
         user = session.get(User, source.user_id)
         source.status = "RUNNING"
-        source_fields = json.loads(source.fields)
+        conn_fields = json.loads(source.conn_fields)
+        data_fields = json.loads(source.data_fields)
         flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess_and_embs")
         flow.call(
             user_id=source.user_id,
             source_id=source.id,
             source_tag=source.tag,
-            source_variables=source.variables,
-            source_fields=source_fields,
+            conn_fields=conn_fields,
+            data_fields=data_fields,
             storage_tag=user.storage_tag,
             storage_bucket_name=user.storage_bucket_name,
         )

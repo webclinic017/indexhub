@@ -13,7 +13,20 @@ class Source(SQLModel, table=True):
     created_at: datetime
     updated_at: datetime
     type: str
-    variables: str
-    fields: str
+    # Connection fields
+    # object_path: str
+    # bucket_name: str
+    # file_ext: str
+    conn_fields: str
+    # Data fields
+    # entity_cols: List[str]
+    # time_col: str
+    # target_col: str
+    # feature_cols: List[str]
+    # agg_method: str
+    # impute_method: Union[str, int]
+    # freq: str
+    # datetime_fmt: str
+    data_fields: str
     output_path: Optional[str] = None
     msg: Optional[str] = None

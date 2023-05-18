@@ -340,10 +340,52 @@ def OBJECTIVE_FIELDS_SCHEMA():
     }
 
 
-SOURCE_FIELDS_SCHEMA = {
+def CONNECTION_SCHEMA(user: User):
+    """User input schemas for connection setup."""
+    return {
+        "s3": {
+            "available": True,
+            "is_authenticated": user.has_s3_creds,
+            "credentials": STORAGE_SCHEMAS["s3"],
+            "description": "",
+            "conn_fields": {
+                "bucket_name": {
+                    "title": "Bucket name",
+                    "subtitle": "",
+                },
+                "object_path": {
+                    "title": "Object path",
+                    "subtitle": "",
+                },
+                "file_ext": SUPPORTED_FILE_EXT,
+            },
+        },
+        "azure": {
+            "available": False,
+            "is_authenticated": user.has_azure_creds,
+            "credentials": STORAGE_SCHEMAS["azure"],
+            "description": "",
+            "conn_fields": {
+                "bucket_name": {
+                    "title": "Bucket name",
+                    "subtitle": "",
+                },
+                "object_path": {
+                    "title": "Object path",
+                    "subtitle": "",
+                },
+                "file_ext": SUPPORTED_FILE_EXT,
+            },
+        },
+    }
+
+
+# User input schemas for source selection.
+DATASET_SCHEMA = {
     "panel": {
         "description": "Choose this source if you have panel data (i.e. time-series data across multiple entities).",
-        "fields": {
+        "type": ["panel", "baseline", "inventory"],
+        "data_fields": {
             "entity_cols": ENTITY_COLS_SCHEMA,
             "time_col": TIME_COL_SCHEMA,
             "target_col": TARGET_COL_SCHEMA,
@@ -356,7 +398,8 @@ SOURCE_FIELDS_SCHEMA = {
     },
     "transaction": {
         "description": "Choose this source if you have transactions data (e.g. point-of-sales).",
-        "fields": {
+        "type": ["panel", "baseline", "inventory", "transaction"],
+        "data_fields": {
             "time_col": TIME_COL_SCHEMA,
             "quantity_col": QUANTITY_COL_SCHEMA,
             "price_col": PRICE_COL_SCHEMA,
@@ -378,75 +421,6 @@ SOURCE_FIELDS_SCHEMA = {
         },
     },
 }
-
-
-def CONNECTION_SCHEMA(user: User):
-    return {
-        "s3": {
-            "available": True,
-            "is_authenticated": user.has_s3_creds,
-            "credentials": STORAGE_SCHEMAS["s3"],
-            "description": "",
-            "variables": {
-                "bucket_name": {
-                    "title": "Bucket name",
-                    "subtitle": "",
-                },
-                "object_path": {
-                    "title": "Object path",
-                    "subtitle": "",
-                },
-                "file_ext": SUPPORTED_FILE_EXT,
-            },
-        },
-        "azure": {
-            "available": False,
-            "is_authenticated": user.has_azure_creds,
-            "credentials": STORAGE_SCHEMAS["azure"],
-            "description": "",
-            "variables": {
-                "bucket_name": {
-                    "title": "Bucket name",
-                    "subtitle": "",
-                },
-                "object_path": {
-                    "title": "Object path",
-                    "subtitle": "",
-                },
-                "file_ext": SUPPORTED_FILE_EXT,
-            },
-        },
-    }
-
-
-def SOURCE_SCHEMAS(user: User):
-    """User input schemas for source selection."""
-    return {
-        "s3": {
-            "panel": {
-                **CONNECTION_SCHEMA(user)["s3"],
-                "fields": SOURCE_FIELDS_SCHEMA["panel"],
-                "type": ["panel", "baseline", "inventory"],
-            },
-            "transaction": {
-                **CONNECTION_SCHEMA(user)["s3"],
-                "fields": SOURCE_FIELDS_SCHEMA["transaction"],
-                "type": ["panel", "baseline", "inventory", "transaction"],
-            },
-        },
-        "azure": {
-            "panel": {
-                **CONNECTION_SCHEMA(user)["azure"],
-                "fields": SOURCE_FIELDS_SCHEMA["panel"],
-                "type": ["panel", "baseline", "inventory"],
-            },
-            "transaction": {
-                **CONNECTION_SCHEMA(user)["azure"],
-                "fields": SOURCE_FIELDS_SCHEMA["transaction"],
-                "type": ["panel", "baseline", "inventory", "transaction"],
-            },
-        },
-    }
 
 
 def OBJECTIVE_SCHEMAS(sources: List[Source]):
