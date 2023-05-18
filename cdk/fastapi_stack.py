@@ -18,7 +18,7 @@ AWS_ACCOUNT_ID = os.environ["AWS_ACCOUNT_ID"]
 AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
 HOSTED_ZONE_NAME = os.environ.get("HOSTED_ZONE_NAME", "indexhub.ai")
 HOSTED_ZONE_ID = os.environ.get("HOSTED_ZONE_ID", "Z036403337CGSDN2VWQ2C")
-APP_DNS_NAME = os.environ.get("APP_DNS_NAME", "api.pricepod.ai")
+APP_DNS_NAME = os.environ.get("APP_DNS_NAME", "api.indexhub.ai")
 CERTIFICATE_ARN = os.environ.get(
     "CERTIFICATE_ARN",
     "arn:aws:acm:us-west-2:472617627528:certificate/32f09b92-f755-4d85-bac7-cd55bb8a3541",
