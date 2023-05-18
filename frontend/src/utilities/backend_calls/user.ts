@@ -1,7 +1,7 @@
 import { User } from "@auth0/auth0-react";
 
 export const getUserDetails = async (user_id: string, access_token: string) => {
-  const get_user_details_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/${user_id}`;
+  const get_user_details_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/users/${user_id}`;
   const get_user_details_response = await fetch(get_user_details_url, {
     method: "GET",
     headers: {
@@ -16,7 +16,7 @@ export const createUser = async (
   user: User | undefined,
   access_token: string
 ) => {
-  const create_user_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users`;
+  const create_user_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/users`;
   const create_user_response = await fetch(create_user_url, {
     method: "POST",
     headers: {
@@ -36,7 +36,7 @@ export const createUser = async (
 };
 
 export const getStorageSchema = async (access_token: string) => {
-  const get_storage_schema_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/schema/storage`;
+  const get_storage_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/users/schema/storage`;
   const get_storage_schema_response = await fetch(get_storage_schema_url, {
     method: "GET",
     headers: {
@@ -57,7 +57,7 @@ export const createStorage = async (
   user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const create_storage_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/${user_id}/storage`;
+  const create_storage_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/users/${user_id}/storage`;
 
   const create_credentials_response = await fetch(create_storage_url, {
     method: "POST",

@@ -33,7 +33,7 @@ const objective_status_to_color: any = {
 
 const ObjectivesDashboard = () => {
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/objectives/ws`
+    `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/objectives/ws`
   );
   const [objectives, setObjectives] = useState<Objective[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [wsCallStarted, setWsCallStarted] = useState(false);

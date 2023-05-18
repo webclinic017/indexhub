@@ -5,7 +5,7 @@ export const getAIRecommendationTable = async (
     access_token_indexhub_api: string,
     filter_by: Record<string, any> = {}
 ) => {
-    const get_ai_recommendation_table_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/tables/${objective_id}/forecast`;
+    const get_ai_recommendation_table_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/tables/${objective_id}/forecast`;
 
     const get_ai_recommendation_table_response = await fetch(get_ai_recommendation_table_url, {
         method: "POST",
@@ -30,7 +30,7 @@ export const exportAIRecommendationTable = async (
     access_token_indexhub_api: string,
 
 ) => {
-    const execute_plan_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/plans/${objective_id}`;
+    const execute_plan_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/plans/${objective_id}`;
 
     const execute_plan_response = await fetch(execute_plan_url, {
         method: "POST",

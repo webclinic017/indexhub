@@ -4,7 +4,7 @@ export const createCredentials = async (
   user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const create_credentials_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/users/${user_id}/credentials`;
+  const create_credentials_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/users/${user_id}/credentials`;
 
   const create_credentials_response = await fetch(create_credentials_url, {
     method: "POST",

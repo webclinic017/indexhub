@@ -28,10 +28,10 @@ root.render(
   <React.StrictMode>
     <Provider store={store}>
       <Auth0Provider
-        domain={process.env.REACT_APP_AUTH0_DOMAIN!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
-        clientId={process.env.REACT_APP_CLIENT_ID!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        domain={process.env.REACT_APP__AUTH0_SPA__DOMAIN!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        clientId={process.env.REACT_APP__AUTH0_SPA__CLIENT_ID!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
         redirectUri={window.location.origin}
-        audience={process.env.REACT_APP_INDEXHUB_API_AUDIENCE!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
+        audience={process.env.REACT_APP__AUTH0_M2M__AUDIENCE!} // eslint-disable-line @typescript-eslint/no-non-null-assertion
         cacheLocation="localstorage"
         onRedirectCallback={onAuth0RedirectCallback}
       >

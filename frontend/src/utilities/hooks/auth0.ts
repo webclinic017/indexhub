@@ -9,7 +9,7 @@ export const useAuth0AccessToken = () => {
     const getAccessToken = async () => {
       try {
         const access_token = await getAccessTokenSilently({
-          audience: process.env.REACT_APP_INDEXHUB_API_AUDIENCE!, // eslint-disable-line @typescript-eslint/no-non-null-assertion
+          audience: process.env.REACT_APP__AUTH0_M2M__AUDIENCE!, // eslint-disable-line @typescript-eslint/no-non-null-assertion
         });
         setAuth0AccessToken(access_token);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

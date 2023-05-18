@@ -30,7 +30,7 @@ const AiAnalysisModal = (props: {
     const [questions, setQuestions] = useState<string[] | null>(null)
 
     const { sendMessage, lastMessage, readyState } = useWebSocket(
-        `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/copilot/ws`, {
+        `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/copilot/ws`, {
         shouldReconnect: (closeEvent) => true,
     }
     );

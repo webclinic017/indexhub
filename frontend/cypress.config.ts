@@ -14,6 +14,6 @@ export default defineConfig({
   env: {
     auth0_username: process.env.AUTH0_USERNAME,
     auth0_password: process.env.AUTH0_PASSWORD,
-    auth0_domain: process.env.REACT_APP_AUTH0_DOMAIN,
+    auth0_domain: process.env.REACT_APP__AUTH0_SPA__DOMAIN,
   },
 });

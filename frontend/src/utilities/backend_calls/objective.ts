@@ -2,7 +2,7 @@ export const getObjectivesSchema = async (
   user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const get_objective_schema_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/objectives/schema/${user_id}`;
+  const get_objective_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives/schema/${user_id}`;
 
   const get_objective_schema_response = await fetch(get_objective_schema_url, {
     method: "GET",
@@ -22,7 +22,7 @@ export const createObjective = async (
   objective_configs: Record<string, any>, // eslint-disable-line @typescript-eslint/no-explicit-any
   access_token_indexhub_api: string
 ) => {
-  const create_objective_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/objectives`;
+  const create_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives`;
   const create_objective_response = await fetch(create_objective_url, {
     method: "POST",
     headers: {
@@ -78,9 +78,9 @@ export const getObjective = async (
   let get_objective_url = "";
 
   if (objective_id) {
-    get_objective_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/objectives/${objective_id}`;
+    get_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives/${objective_id}`;
   } else {
-    get_objective_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/objectives?user_id=${user_id}`;
+    get_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives?user_id=${user_id}`;
   }
   const get_objective_response = await fetch(get_objective_url, {
     method: "GET",

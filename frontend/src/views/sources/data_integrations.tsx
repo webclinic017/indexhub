@@ -79,7 +79,7 @@ export type SelectedSource = {
 export default function DataAndIntegrations() {
   // const access_token_indexhub_api = useAuth0AccessToken();
   const { sendMessage, lastMessage, readyState } = useWebSocket(
-    `${process.env.REACT_APP_INDEXHUB_API_DOMAIN_WEBSOCKET}/sources/ws`
+    `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/sources/ws`
   );
   const [sources, setSources] = useState<Source[] | null>(null);
   const [userIntegrations, setUserIntegrations] = useState<Record<string, any>[] | null>(null)

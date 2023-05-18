@@ -10,7 +10,7 @@ export const createSource = async (
   datetime_fmt: string,
   access_token_indexhub_api: string
 ) => {
-  const create_source_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/sources`;
+  const create_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources`;
   const create_source_response = await fetch(create_source_url, {
     method: "POST",
     headers: {
@@ -40,7 +40,7 @@ export const deleteSource = async (
   access_token_indexhub_api: string,
   source_id: string
 ) => {
-  const delete_source_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/sources?source_id=${source_id}`;
+  const delete_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources?source_id=${source_id}`;
   const delete_source_response = await fetch(delete_source_url, {
     method: "DELETE",
     headers: {
@@ -61,9 +61,9 @@ export const getSource = async (
   let get_source_url = "";
 
   if (source_id) {
-    get_source_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/sources?source_id=${source_id}`;
+    get_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources?source_id=${source_id}`;
   } else {
-    get_source_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/sources?user_id=${user_id}`;
+    get_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources?user_id=${user_id}`;
   }
   const get_source_response = await fetch(get_source_url, {
     method: "GET",
@@ -81,7 +81,7 @@ export const getSourcesSchema = async (
   user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const get_sources_schema_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/sources/schema/${user_id}`;
+  const get_sources_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/schema/${user_id}`;
 
   const get_sources_schema_response = await fetch(get_sources_schema_url, {
     method: "GET",
@@ -102,9 +102,8 @@ export const getS3SourceColumns = async (
   file_ext: string,
   access_token_indexhub_api: string
 ) => {
-  const get_source_columns_url = `${
-    process.env.REACT_APP_INDEXHUB_API_DOMAIN
-  }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list&n_rows=${1}`;
+  const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN
+    }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list&n_rows=${1}`;
 
   const get_source_columns_response = await fetch(get_source_columns_url, {
     method: "GET",
