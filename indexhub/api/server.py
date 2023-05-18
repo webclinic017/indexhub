@@ -46,7 +46,11 @@ app.include_router(copilot.router)
 app.include_router(integrations.router)
 
 
-origins = ["http://localhost:3000", "https://indexhub.vercel.app"]
+origins = [
+    "http://localhost:3000",
+    "https://indexhub.vercel.app",
+    "https://app.indexhub.ai",
+]
 
 app.add_middleware(
     CORSMiddleware,
