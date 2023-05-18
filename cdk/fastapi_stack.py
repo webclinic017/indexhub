@@ -4,16 +4,25 @@ import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_ecs as ecs
 import aws_cdk.aws_ecs_patterns as ecs_patterns
 from aws_cdk import Duration, Stack
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
 from aws_cdk import aws_iam as iam
+from aws_cdk import aws_route53 as route53
 from aws_cdk.aws_secretsmanager import Secret
 from constructs import Construct
 
 
 AWS_ACCOUNT_ID = os.environ["AWS_ACCOUNT_ID"]
 AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
+HOSTED_ZONE_NAME = os.environ.get("HOSTED_ZONE_NAME", "indexhub.ai")
+HOSTED_ZONE_ID = os.environ.get("HOSTED_ZONE_ID", "Z036403337CGSDN2VWQ2C")
+APP_DNS_NAME = os.environ.get("APP_DNS_NAME", "api.pricepod.ai")
+CERTIFICATE_ARN = os.environ.get(
+    "CERTIFICATE_ARN",
+    "arn:aws:acm:us-west-2:472617627528:certificate/32f09b92-f755-4d85-bac7-cd55bb8a3541",
+)
 
 
 class FastAPIStack(Stack):
@@ -35,6 +44,17 @@ class FastAPIStack(Stack):
             vpc=self.vpc,
             # enable_fargate_capacity_providers=True,
             # container_insights=True
+        )
+
+        # Get hosted zone and certificate (created from AWS console)
+        hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
+            self,
+            "HostedZone",
+            hosted_zone_id=HOSTED_ZONE_ID,
+            zone_name=HOSTED_ZONE_NAME,
+        )
+        cert = acm.Certificate.from_certificate_arn(
+            self, "SubdomainCertificate", CERTIFICATE_ARN
         )
 
         # SECRETS
@@ -117,7 +137,7 @@ class FastAPIStack(Stack):
         )
 
         # ECS Task
-        image = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+        image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
             image=ecs.ContainerImage.from_asset(
                 directory=".", file="indexhub/Dockerfile"
             ),
@@ -153,6 +173,11 @@ class FastAPIStack(Stack):
             cpu=256,
             memory_limit_mib=512,
             desired_count=2,
-            task_image_options=image,
+            certificate=cert,
+            domain_name=APP_DNS_NAME,
+            domain_zone=hosted_zone,
+            task_image_options=image_options,
+            public_load_balancer=True,
+            redirect_http=True,
             health_check_grace_period=Duration.seconds(150),
         )
