@@ -181,3 +181,8 @@ class FastAPIStack(Stack):
             redirect_http=True,
             health_check_grace_period=Duration.seconds(150),
         )
+
+        # Retrieve the target group
+        target_group = self.ecs_service.target_group
+        # Change the success codes
+        target_group.configure_health_check(path="/", healthy_http_codes="403")
