@@ -48,6 +48,7 @@ stub = modal.Stub("indexhub-forecast", image=IMAGE)
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ]
 )
 def compute_rolling_forecast(
@@ -64,13 +65,15 @@ def compute_rolling_forecast(
 
     # List of columns for rolling forecast panel
     selected_cols = [
-        "forecast",
-        "best_plan",
-        "baseline",
         "actual",
+        "ai",
+        "baseline",
+        "best_plan",
+        "plan",
         "residual_ai",
         "residual_baseline",
         "residual_best_plan",
+        "residual_plan",
         "best_model",
     ]
 
@@ -80,7 +83,7 @@ def compute_rolling_forecast(
         read(object_path=output_json["forecasts"]["best_models"])
         .pipe(
             # Rename target_col to "forecast"
-            lambda df: df.rename({df.columns[-1]: "forecast"}).with_columns(
+            lambda df: df.rename({df.columns[-1]: "ai"}).with_columns(
                 [
                     # Assign updated_at column
                     pl.lit(dt).alias("updated_at"),
@@ -97,7 +100,6 @@ def compute_rolling_forecast(
         )
         .select(pl.all().shrink_dtype())
     )
-    entity_col = forecast.columns[0]
 
     # Read actual from y panel in s3 and postproc
     actual = (
@@ -123,29 +125,26 @@ def compute_rolling_forecast(
         .select(pl.all().shrink_dtype())
     )
 
-    # Read forecast_ai from ensemble[automl] panel in s3 and postproc
-    forecast_best_plan = (
-        read(object_path=output_json["best_plan"])
-        .pipe(
-            lambda df: df.rename(
-                # Rename entity_col
-                {df.columns[0]: entity_col}
-            )
-        )
-        .select(pl.all().shrink_dtype())
+    # Read best plan from best_plan panel in s3 and postproc
+    forecast_best_plan = read(object_path=output_json["best_plan"]).select(
+        pl.all().shrink_dtype()
     )
 
     # Combine forecast and actual artifacts
     latest_forecasts = (
         forecast.join(actual, on=forecast.columns[:2], how="left")
-        .with_columns((pl.col("forecast") - pl.col("actual")).alias("residual_ai"))
         .join(baseline, on=forecast.columns[:2], how="left")
-        .with_columns(
-            (pl.col("baseline") - pl.col("actual")).alias("residual_baseline")
-        )
         .join(forecast_best_plan, on=[*forecast.columns[:2], "fh"], how="left")
         .with_columns(
-            (pl.col("best_plan") - pl.col("actual")).alias("residual_best_plan")
+            [
+                (pl.col("ai") - pl.col("actual")).alias("residual_ai"),
+                (pl.col("baseline") - pl.col("actual")).alias("residual_baseline"),
+                (pl.col("best_plan") - pl.col("actual")).alias("residual_best_plan"),
+                # For user chosen plan, default to best plan first
+                # Will update user chosen plan when user click on execute plan or upload csv
+                pl.col("best_plan").alias("plan"),
+                (pl.col("best_plan") - pl.col("actual")).alias("residual_plan"),
+            ]
         )
         # Reorder columns
         .select(
@@ -153,8 +152,7 @@ def compute_rolling_forecast(
                 pl.all().exclude(
                     [
                         *selected_cols,
-                        "use_ai",
-                        "use_benchmark",
+                        "use",
                     ]
                 ),
                 *selected_cols,
@@ -173,6 +171,7 @@ def compute_rolling_forecast(
             # Concat latest forecasts artifacts with cached rolling forecasts
             rolling_forecasts = (
                 pl.concat([cached_forecasts, latest_forecasts])
+                .join(actual, on=cached_forecasts.columns[:2], how="left")
                 # Coalesce actual to get the first non-null value
                 .pipe(
                     lambda df: df.with_columns(
@@ -182,7 +181,7 @@ def compute_rolling_forecast(
                 # Calculate residuals
                 .with_columns(
                     [
-                        (pl.col("forecast") - pl.col("actual")).alias("residual_ai"),
+                        (pl.col("ai") - pl.col("actual")).alias("residual_ai"),
                         (pl.col("baseline") - pl.col("actual")).alias(
                             "residual_baseline"
                         ),
@@ -190,7 +189,8 @@ def compute_rolling_forecast(
                             "residual_best_plan"
                         ),
                     ]
-                ).select([pl.all().exclude(selected_cols), *selected_cols])
+                )
+                .select([pl.all().exclude(selected_cols), *selected_cols])
                 # Sort by time_col, entity_col, updated_at
                 .pipe(lambda df: df.sort(df.columns[:3]))
             )
@@ -256,6 +256,7 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ]
 )
 def compute_rolling_uplift(
@@ -339,6 +340,7 @@ def compute_rolling_uplift(
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ]
 )
 def create_best_plan(
@@ -370,29 +372,22 @@ def create_best_plan(
             )
             # Join with uplift
             .join(uplift.lazy(), on=entity_col)
-            # Set default `use_ai` and `use_benchmark`
+            # Set default `use` and `best_plan`
             .with_columns(
                 pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
-                .then(True)
-                .otherwise(False)
-                .alias("use_ai"),
-                pl.when(pl.col(f"{objective}__uplift_pct") < 0)
-                .then(True)
-                .otherwise(False)
-                .alias("use_benchmark"),
+                .then("ai")
+                .otherwise("baseline")
+                .alias("use"),
+                pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
+                .then(pl.col("forecast"))
+                .otherwise(pl.col("baseline"))
+                .alias("best_plan"),
             )
             # Add fh column
             .groupby(entity_col, maintain_order=True)
             .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
             .pipe(lambda df: df.explode(df.columns[1:]))
-            .rename({entity_col: "entity"})
-            .with_columns(
-                pl.when(pl.col("use_ai"))
-                .then(pl.col("forecast"))
-                .otherwise(pl.col("baseline"))
-                .alias("best_plan")
-            )
-            .select(["entity", "time", "fh", "best_plan", "use_ai", "use_benchmark"])
+            .select([entity_col, "time", "fh", "best_plan", "use"])
             .collect()
         )
 
@@ -445,6 +440,7 @@ def _update_objective(
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ],
 )
 def run_forecast(
@@ -630,7 +626,7 @@ def run_forecast(
         outputs = None
         status = "FAILED"
         msg = repr(exc)
-        logger.error(msg)
+        logger.exception(exc)
     finally:
         pl.toggle_string_cache(False)
         _update_objective(
@@ -675,6 +671,7 @@ FREQ_TO_DURATION = {
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ],
     schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
@@ -692,7 +689,7 @@ def flow():
         # 2. Get user and source
         user = get_user(objective.user_id)
         panel_source = get_source(sources["panel"])["source"]
-        source_fields = json.loads(panel_source.fields)
+        source_fields = json.loads(panel_source.data_fields)
         freq = source_fields["freq"]
 
         # 3. Check freq from source for schedule

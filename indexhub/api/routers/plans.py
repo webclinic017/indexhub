@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from functools import partial
 from typing import Any, List, Mapping
 
@@ -10,13 +11,47 @@ from indexhub.api.db import engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
-from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
 
+def update_rolling_forecast(
+    plan: pl.LazyFrame,
+    rolling_forecast: pl.LazyFrame,
+):
+    entity_col = rolling_forecast.columns[0]
+    dtypes = rolling_forecast.select([entity_col, "time", "fh", "plan"]).dtypes
+
+    plan = (
+        plan.rename({"entity": entity_col, "plan": "revised_plan"}).select(
+            [entity_col, "time", "fh", "revised_plan"]
+        )
+        # Coerce dtypes
+        .pipe(
+            lambda df: df.with_columns(
+                pl.col(col).cast(dtypes[i]).keep_name()
+                for i, col in enumerate(df.columns)
+            )
+        )
+    )
+
+    # Update rolling forecast
+    updated_rolling_forecast = (
+        rolling_forecast.join(plan, on=[entity_col, "time", "fh"], how="left")
+        .with_columns(
+            [
+                # Replace existing plan in rolling forecast
+                pl.col("revised_plan").alias("plan"),
+                # Replace existing residual_plan in rolling forecast
+                (pl.col("revised_plan") - pl.col("actual")).alias("residual_plan"),
+            ]
+        )
+        .drop("revised_plan")
+    )
+    return updated_rolling_forecast
+
+
 def _execute_forecast_plan(
-    fields: Mapping[str, str],
     outputs: Mapping[str, str],
     user: User,
     objective_id: str,
@@ -28,6 +63,7 @@ def _execute_forecast_plan(
             pl.DataFrame(updated_plans)
             .lazy()
             .with_columns(pl.col("entity").cast(pl.Categorical))
+            .rename({"use": "updated_use"})
         )
 
     # Get credentials
@@ -41,98 +77,77 @@ def _execute_forecast_plan(
         **storage_creds,
     )
 
-    # Read forecast and baseline artifacts
-    forecast = read(object_path=outputs["forecasts"]["best_models"])
-    y_baseline = read(object_path=outputs["y_baseline"])
-
-    entity_col, time_col, target_col = forecast.columns
-    idx_cols = entity_col, time_col
-
-    # Read rolling uplift and take the latest stats
-    metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
-    rolling_uplift = (
-        read(object_path=f"artifacts/{objective_id}/rolling_uplift.parquet")
+    # Read best plan
+    revised_plan = (
+        read(object_path=outputs["best_plan"])
         .lazy()
-        .sort(entity_col, "updated_at")
-        .groupby(entity_col)
-        .tail(1)
-        .select(
-            entity_col,
-            (pl.col(f"{metric}__uplift_pct__rolling_mean").fill_nan(None) * 100).alias(
-                "score__uplift_pct__rolling_mean"
-            ),
-        )
-    )
-
-    # Create forecast plans
-    forecast_plans = (
-        forecast.lazy()
-        .rename({target_col: "forecast"})
-        # Join with baseline
-        .join(
-            y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
-        )
-        # Join with rolling uplift
-        .join(rolling_uplift, on=entity_col)
-        # Set default `use_ai` and `use_benchmark`
-        .with_columns(
-            pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
-            .then(True)
-            .otherwise(False)
-            .alias("use_ai"),
-            pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
-            .then(True)
-            .otherwise(False)
-            .alias("use_benchmark"),
-        )
-        # Add fh column
-        .groupby(entity_col, maintain_order=True)
-        .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
-        .pipe(lambda df: df.explode(df.columns[1:]))
-        .rename({entity_col: "entity"})
-        .with_columns(
-            pl.when(pl.col("use_ai"))
-            .then(pl.col("forecast"))
-            .otherwise(pl.col("baseline"))
-            .alias("forecast_plan")
-        )
+        .pipe(lambda df: df.rename({df.columns[0]: "entity"}))
     )
 
     if updated_plans is not None:
-        forecast_plans = (
-            forecast_plans
+        revised_plan = (
+            revised_plan
             # Join with updated plan
             .join(updated_plans, on=["entity", "fh"], how="left").with_columns(
-                # If "use" is null, use default
-                pl.when(pl.col("use").is_null())
-                .then(pl.col("forecast_plan"))
-                # Otherwise, override default
-                .otherwise(
-                    pl.when(pl.col("use") == "override")
-                    .then(pl.col("override"))
+                [
+                    # If "use" is null, use default
+                    pl.when(pl.col("updated_use").is_null()).then(pl.col("best_plan"))
+                    # Otherwise, override default
                     .otherwise(
-                        pl.when(pl.col("use") == "ai")
-                        .then(pl.col("forecast"))
-                        .otherwise(pl.col("baseline"))
-                    )
-                )
-                .alias("forecast_plan"),
+                        pl.when(pl.col("updated_use") == "override")
+                        .then(pl.col("override"))
+                        .otherwise(
+                            pl.when(pl.col("updated_use") == "ai")
+                            .then(pl.col("ai"))
+                            .otherwise(pl.col("baseline"))
+                        )
+                    ).alias("plan"),
+                    pl.when(pl.col("updated_use").is_null())
+                    .then(pl.col("use"))
+                    .otherwise(pl.col("updated_use"))
+                    .alias("use"),
+                ]
             )
         )
 
-    forecast_plans = forecast_plans.select(["entity", time_col, "forecast_plan"])
+    revised_plan = revised_plan.select(["entity", "time", "fh", "plan", "use"])
 
     # Export to parquet
-    path = f"artifacts/{objective_id}/forecast_plan.parquet"
+    timestamp = outputs["best_plan"].split("/")[2]
+    path = f"artifacts/{objective_id}/{timestamp}/plan.parquet"
     write = STORAGE_TAG_TO_WRITER[user.storage_tag]
     write(
-        data=forecast_plans.collect(streaming=True),
+        data=revised_plan.collect(streaming=True),
         bucket_name=user.storage_bucket_name,
         object_path=path,
         **storage_creds,
     )
 
-    return path
+    # Export to csv
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    csv_path = f"exports/{objective_id}/plan_{timestamp}.csv"
+    write(
+        data=revised_plan.collect(streaming=True),
+        bucket_name=user.storage_bucket_name,
+        object_path=csv_path,
+        file_ext=".csv",
+        **storage_creds,
+    )
+
+    # Update rolling forecast
+    path = f"artifacts/{objective_id}/rolling_forecasts.parquet"
+    rolling_forecast = read(object_path=path).lazy()
+    updated_rolling_forecast = update_rolling_forecast(
+        plan=revised_plan, rolling_forecast=rolling_forecast
+    )
+    write(
+        data=updated_rolling_forecast.collect(streaming=True),
+        bucket_name=user.storage_bucket_name,
+        object_path=path,
+        **storage_creds,
+    )
+
+    return csv_path
 
 
 TAGS_TO_GETTER = {"reduce_errors": _execute_forecast_plan}
@@ -150,7 +165,6 @@ def execute_plan(objective_id: str, params: ExecutePlanParams):
         user = session.get(User, objective.user_id)
         pl.toggle_string_cache(True)
         path = getter(
-            json.loads(objective.fields),
             json.loads(objective.outputs),
             user,
             objective_id,

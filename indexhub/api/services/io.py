@@ -69,7 +69,7 @@ def read_data_from_s3(
                 raise err
         s3_client.close()
         parser = FILE_EXT_TO_PARSER[file_ext]
-        data = parser(obj, columns)
+        data = parser(obj=obj, columns=columns)
         CACHE[key] = data
     return data
 
@@ -78,8 +78,10 @@ def write_data_to_s3(
     data: pl.DataFrame,
     bucket_name: str,
     object_path: str,
+    file_ext: str = ".parquet",
     AWS_ACCESS_KEY_ID: Optional[str] = None,
     AWS_SECRET_KEY_ID: Optional[str] = None,
+    datetime_format: str = "%Y-%m-%d",
 ):
     s3_client = boto3.client(
         "s3",
@@ -87,7 +89,10 @@ def write_data_to_s3(
         aws_secret_access_key=AWS_SECRET_KEY_ID,
     )
     f = io.BytesIO()
-    data.write_parquet(f)
+    if file_ext == ".parquet":
+        data.write_parquet(f)
+    elif file_ext == ".csv":
+        data.write_csv(f, datetime_format=datetime_format)
     f.seek(0)
     body = f.read()
     try:

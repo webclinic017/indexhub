@@ -177,7 +177,7 @@ def _get_forecast_table(
         )
     )
 
-    # Set default `use_ai`, `use_benchmark`, and `use_override`
+    # Set default `use_ai`, `use_baseline`, and `use_override`
     plans = stats.select(
         entity_col,
         pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
@@ -187,7 +187,7 @@ def _get_forecast_table(
         pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
         .then(True)
         .otherwise(False)
-        .alias("use_benchmark"),
+        .alias("use_baseline"),
         pl.lit(False).alias("use_override"),
     )
 
@@ -248,7 +248,7 @@ def _get_forecast_table(
                 "forecast_10",
                 "forecast_90",
                 "use_ai",
-                "use_benchmark",
+                "use_baseline",
                 "use_override",
                 "override",
             ]

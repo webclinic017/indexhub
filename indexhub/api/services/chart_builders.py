@@ -514,7 +514,7 @@ def create_segmentation_chart(
         visualmap_opts=opts.VisualMapOpts(
             is_piecewise=True,
             pieces=[
-                {"min": float("-inf"), "max": 0, "color": "red", "label": "Benchmark"},
+                {"min": float("-inf"), "max": 0, "color": "red", "label": "Baseline"},
                 {"min": 0, "max": float("inf"), "color": "green", "label": "AI"},
             ],
             pos_top="top",

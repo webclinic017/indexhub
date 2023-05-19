@@ -254,6 +254,7 @@ def _update_source(
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ]
 )
 def run_preprocess(
@@ -384,6 +385,7 @@ def run_embeddings(
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ]
 )
 def run_preprocess_and_embs(
@@ -418,7 +420,7 @@ def run_preprocess_and_embs(
     except (Exception, pl.PolarsPanicError) as exc:
         output_path = None
         status, msg = "FAILED", repr(exc)
-        logger.error(msg)
+        logger.exception(msg)
     finally:
         _update_source(
             source_id=source_id,
@@ -445,6 +447,7 @@ def _get_all_sources() -> List[Source]:
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
     ],
     schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
 )

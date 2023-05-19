@@ -81,7 +81,7 @@ const ForecastObjective = () => {
     onClose: onCloseManualOverrideModal
   } = useDisclosure()
 
-  const insertExcecutePlanCustomEntries = (fh: number, ai: number, benchmark: number, override: number, use: string) => {
+  const insertExcecutePlanCustomEntries = (fh: number, ai: number, baseline: number, override: number, use: string) => {
     if (AIRecommendationTable) {
       let internalExecutePlanCustomEntries = executePlanCustomEntries
       if (!internalExecutePlanCustomEntries) {
@@ -96,7 +96,7 @@ const ForecastObjective = () => {
           entity: AIRecommendationTable["results"][expandedEntityIndex]["entity"],
           fh: fh,
           ai: ai,
-          benchmark: benchmark,
+          baseline: baseline,
           override: override,
           use: use
         }
@@ -104,7 +104,7 @@ const ForecastObjective = () => {
       setExecutePlanCustomEntries(structuredClone(internalExecutePlanCustomEntries))
 
       AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_ai"] = false
-      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_benchmark"] = false
+      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_baseline"] = false
       AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_override"] = false
 
       AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1][`use_${use}`] = true
@@ -245,7 +245,7 @@ const ForecastObjective = () => {
         row["Baseline"],
         row["Override"],
         row["use_ai"],
-        row["use_benchmark"],
+        row["use_baseline"],
         row["use_override"]
       ],
       {
@@ -261,10 +261,10 @@ const ForecastObjective = () => {
                 </Stack>
               </Tooltip>
 
-              <Tooltip label="Use Benchmark">
+              <Tooltip label="Use Baseline">
                 <Stack width={7} p={1} borderRadius={8} cursor="pointer" backgroundColor={info.getValue()[5] ? "table.icon_highlight" : ""}>
                   <FontAwesomeIcon icon={faFileChartColumn as any} size="lg" onClick={() => {
-                    insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "benchmark")
+                    insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "baseline")
                   }} />
                 </Stack>
               </Tooltip>
@@ -275,7 +275,7 @@ const ForecastObjective = () => {
                     if (info.getValue()[3]) {
                       insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "override")
                     }
-                    // Consider adding some sort of notification to indicate 
+                    // Consider adding some sort of notification to indicate
                   }} />
                 </Stack>
               </Tooltip>
