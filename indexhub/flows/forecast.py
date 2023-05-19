@@ -62,45 +62,105 @@ def compute_rolling_forecast(
     # Get the updated at based on objective_id (sqlmodel)
     dt = updated_at.replace(microsecond=0)
 
+    # List of columns for rolling forecast panel
+    selected_cols = [
+        "forecast",
+        "best_plan",
+        "baseline",
+        "actual",
+        "residual_ai",
+        "residual_baseline",
+        "residual_best_plan",
+        "best_model",
+    ]
+
     # Read forecast artifacts from s3 and postproc
     best_models = output_json["best_models"]
-    forecast = read(object_path=output_json["forecasts"]["best_models"]).pipe(
-        # Rename target_col to "forecast"
-        lambda df: df.rename({df.columns[-1]: "forecast"}).with_columns(
-            [
-                # Assign updated_at column
-                pl.lit(dt).alias("updated_at"),
-                # Assign best_model column
-                pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
-                # Assign fh column
-                pl.col("time").rank("ordinal").over(df.columns[0]).alias("fh"),
-            ]
+    forecast = (
+        read(object_path=output_json["forecasts"]["best_models"])
+        .pipe(
+            # Rename target_col to "forecast"
+            lambda df: df.rename({df.columns[-1]: "forecast"}).with_columns(
+                [
+                    # Assign updated_at column
+                    pl.lit(dt).alias("updated_at"),
+                    # Assign best_model column
+                    pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
+                    # Assign fh column
+                    pl.col("time")
+                    .rank("ordinal")
+                    .over(df.columns[0])
+                    .cast(pl.Int32)
+                    .alias("fh"),
+                ]
+            )
         )
+        .select(pl.all().shrink_dtype())
     )
+    entity_col = forecast.columns[0]
 
     # Read actual from y panel in s3 and postproc
-    actual = read(object_path=output_json["y"]).pipe(
-        lambda df: df.rename(
-            # Rename target_col to "actual"
-            {df.columns[-1]: "actual"}
+    actual = (
+        read(object_path=output_json["y"])
+        .pipe(
+            lambda df: df.rename(
+                # Rename target_col to "actual"
+                {df.columns[-1]: "actual"}
+            )
         )
+        .select(pl.all().shrink_dtype())
+    )
+
+    # Read baseline from y_baseline panel in s3 and postproc
+    baseline = (
+        read(object_path=output_json["y_baseline"])
+        .pipe(
+            lambda df: df.rename(
+                # Rename target_col to "actual"
+                {df.columns[-1]: "baseline"}
+            )
+        )
+        .select(pl.all().shrink_dtype())
+    )
+
+    # Read forecast_ai from ensemble[automl] panel in s3 and postproc
+    forecast_best_plan = (
+        read(object_path=output_json["best_plan"])
+        .pipe(
+            lambda df: df.rename(
+                # Rename entity_col
+                {df.columns[0]: entity_col}
+            )
+        )
+        .select(pl.all().shrink_dtype())
     )
 
     # Combine forecast and actual artifacts
     latest_forecasts = (
-        forecast.join(actual, on=forecast.columns[:2], how="left").with_columns(
-            [(pl.col("forecast") - pl.col("actual")).alias("residual").cast(pl.Float32)]
+        forecast.join(actual, on=forecast.columns[:2], how="left")
+        .with_columns((pl.col("forecast") - pl.col("actual")).alias("residual_ai"))
+        .join(baseline, on=forecast.columns[:2], how="left")
+        .with_columns(
+            (pl.col("baseline") - pl.col("actual")).alias("residual_baseline")
+        )
+        .join(forecast_best_plan, on=[*forecast.columns[:2], "fh"], how="left")
+        .with_columns(
+            (pl.col("best_plan") - pl.col("actual")).alias("residual_best_plan")
         )
         # Reorder columns
         .select(
             [
-                pl.all().exclude(["forecast", "actual", "residual", "best_model"]),
-                "forecast",
-                "actual",
-                "residual",
-                "best_model",
+                pl.all().exclude(
+                    [
+                        *selected_cols,
+                        "use_ai",
+                        "use_benchmark",
+                    ]
+                ),
+                *selected_cols,
             ]
         )
+        .select(pl.all().shrink_dtype())
     )
 
     try:
@@ -112,17 +172,25 @@ def compute_rolling_forecast(
         if dt > last_dt:
             # Concat latest forecasts artifacts with cached rolling forecasts
             rolling_forecasts = (
-                pl.concat([cached_forecasts, latest_forecasts]).select(
-                    [
-                        pl.all().exclude(
-                            ["forecast", "actual", "residual", "best_model"]
-                        ),
-                        "forecast",
-                        "actual",
-                        "residual",
-                        "best_model",
-                    ]
+                pl.concat([cached_forecasts, latest_forecasts])
+                # Coalesce actual to get the first non-null value
+                .pipe(
+                    lambda df: df.with_columns(
+                        pl.coalesce(df["actual"], df["actual_right"]).alias("actual")
+                    )
                 )
+                # Calculate residuals
+                .with_columns(
+                    [
+                        (pl.col("forecast") - pl.col("actual")).alias("residual_ai"),
+                        (pl.col("baseline") - pl.col("actual")).alias(
+                            "residual_baseline"
+                        ),
+                        (pl.col("best_plan") - pl.col("actual")).alias(
+                            "residual_best_plan"
+                        ),
+                    ]
+                ).select([pl.all().exclude(selected_cols), *selected_cols])
                 # Sort by time_col, entity_col, updated_at
                 .pipe(lambda df: df.sort(df.columns[:3]))
             )
@@ -700,7 +768,7 @@ def flow():
 
 
 @stub.local_entrypoint
-def test(user_id: str = "indexhub-demo"):
+def test(user_id: str = "indexhub-demo-dev"):
     # Objective
     objective_id = 1
     fields = {
@@ -728,7 +796,7 @@ def test(user_id: str = "indexhub-demo"):
 
     # User
     storage_tag = "s3"
-    storage_bucket_name = "indexhub-demo"
+    storage_bucket_name = "indexhub-demo-dev"
 
     # Get staging path for each source
     sources = fields["sources"]

@@ -13,6 +13,7 @@ from indexhub.api.routers.stats import AGG_METHODS
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+from indexhub.flows.preprocess import _reindex_panel
 
 
 def _create_single_forecast_chart(
@@ -695,68 +696,116 @@ def _create_rolling_forecasts_chart(
         file_ext="parquet",
         **storage_creds,
     )
-    baseline_model = fields["baseline_model"]
     # Read artifacts
     rolling_forecasts = read(
         object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet"
     )
-    baseline = read(object_path=outputs["forecasts"][baseline_model])
 
-    entity_col, time_col, target_col = baseline.columns
+    entity_col = rolling_forecasts.columns[0]
     entities = rolling_forecasts.get_column(entity_col).unique().to_list()
+
+    _type_to_colors = {
+        "ai": ["#14399a", "#1b57f1", "#194fdc"],
+        "best_plan": ["#177548", "#2A9162", "#44aa7e"],
+        "baseline": ["#7F3808", "#994C17", "#b56321"],
+        # TODO: Add plan after implemented in flow
+        # "plan": ["#0a0a0a", "#666666", "#9e9e9e"],
+    }
+    _type_to_name = {
+        "ai": "AI",
+        "best_plan": "Best Plan",
+        "baseline": "Baseline",
+        # TODO: Add plan after implemented in flow
+        # "plan": "Plan",
+    }
+
+    # Reindex panel to get all time periods for each "updated_at"
+    rolling_forecasts = rolling_forecasts.select(
+        pl.col("updated_at"), pl.col("time"), pl.all().exclude(["updated_at", "time"])
+    ).pipe(lambda x: _reindex_panel(X=x.lazy(), freq="1mo"))
 
     output_json = {}
     for entity in entities:
-        filtered_forecasts = rolling_forecasts.filter(pl.col(entity_col) == entity)
-        filtered_baseline = baseline.filter(pl.col(entity_col) == entity)
-        y_baseline = filtered_baseline.get_column(target_col).to_list()
+        updated_dates = rolling_forecasts.get_column("updated_at").unique().to_list()
 
-        # Get list of updated_date values
-        updated_dates = filtered_forecasts.get_column("updated_at").unique().to_list()
-
-        # Set colors and create cycler
-        colors = ["#0a0a0a", "#194fdc", "#44aa7e", "#b56321"]
-        colors_cycle = itertools.cycle(colors)
-        # Create a Line chart
         line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
-        for updated_date in updated_dates:
-            entity_data = filtered_forecasts.filter(
-                pl.col("updated_at") == updated_date
+        for type, colors in _type_to_colors.items():
+            # Create each lines based on the line_type
+            colors_cycle = itertools.cycle(colors)
+
+            rolling_latest = rolling_forecasts.filter(
+                pl.col("updated_at") == updated_dates[-1]
             )
-            x_values = [f"fh-{fh}" for fh in entity_data.get_column("fh").to_list()]
-            y_values = entity_data.get_column("forecast").to_list()
-            dt_str = updated_date.strftime("%Y-%m-%d")
+            rolling_second = (
+                rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-2])
+                if len(updated_dates) >= 2
+                else None
+            )
+            rolling_third = (
+                rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-3])
+                if len(updated_dates) >= 3
+                else None
+            )
+            x_values = (
+                rolling_latest.with_columns(pl.col("time").cast(pl.Date))
+                .get_column("time")
+                .to_list()
+            )
+            y_d1 = rolling_latest.get_column(f"residual_{type}").to_list()
+            selected_series = {
+                f"{_type_to_name[type]} ({date.strftime('%Y-%m-%d')})": False
+                for type in ["ai"]  # TODO: Add "plan" after it is implemented
+                for date in updated_dates
+            }
 
             line_chart.add_xaxis(x_values)
             line_chart.add_yaxis(
-                dt_str,
-                y_values,
+                f"{_type_to_name[type]} ({updated_dates[-1].strftime('%Y-%m-%d')})",
+                y_d1,
                 label_opts=opts.LabelOpts(is_show=False),
                 color=next(colors_cycle),
                 linestyle_opts=opts.LineStyleOpts(width=3),
                 symbol_size=7,
             )
-
-            line_chart.set_global_opts(
-                xaxis_opts=opts.AxisOpts(
-                    splitline_opts=opts.SplitLineOpts(is_show=False)
-                ),
-                yaxis_opts=opts.AxisOpts(
-                    name="Forecast",
-                    is_show=True,
-                    splitline_opts=opts.SplitLineOpts(is_show=False),
-                    offset=20,
-                    axislabel_opts=opts.LabelOpts(horizontal_align="left"),
-                ),
-            )
-        line_chart.add_yaxis(
-            "Baseline",
-            y_baseline,
-            label_opts=opts.LabelOpts(is_show=False),
-            color=next(colors_cycle),
-            linestyle_opts=opts.LineStyleOpts(width=3),
-            symbol_size=7,
+            if rolling_second is not None:
+                y_d2 = rolling_second.get_column(f"residual_{type}").to_list()
+                line_chart.add_yaxis(
+                    f"{_type_to_name[type]} ({updated_dates[-2].strftime('%Y-%m-%d')})",
+                    y_d2,
+                    label_opts=opts.LabelOpts(is_show=False),
+                    color=next(colors_cycle),
+                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
+                    symbol_size=1,
+                )
+            if rolling_third is not None:
+                y_d3 = rolling_third.get_column(f"residual_{type}").to_list()
+                line_chart.add_yaxis(
+                    f"{_type_to_name[type]} ({updated_dates[-3].strftime('%Y-%m-%d')})",
+                    y_d3,
+                    label_opts=opts.LabelOpts(is_show=False),
+                    color=next(colors_cycle),
+                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dotted"),
+                    symbol_size=1,
+                )
+        line_chart.set_global_opts(
+            legend_opts=opts.LegendOpts(
+                is_show=True,
+                orient="vertical",
+                align="right",
+                border_width=0,
+                pos_right="0%",
+                selected_map=selected_series,
+                textstyle_opts=opts.TextStyleOpts(font_size=10),
+            ),
+            xaxis_opts=opts.AxisOpts(splitline_opts=opts.SplitLineOpts(is_show=False)),
+            yaxis_opts=opts.AxisOpts(
+                name="Residuals",
+                is_show=True,
+                splitline_opts=opts.SplitLineOpts(is_show=False),
+                offset=20,
+                is_scale=True,
+            ),
         )
-        output_json[entity] = line_chart
+        output_json[entity] = line_chart.dump_options()
 
     return output_json
