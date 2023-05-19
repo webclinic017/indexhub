@@ -6,20 +6,18 @@ from typing import Any, List, Mapping
 import numpy as np
 import pandas as pd
 import polars as pl
-from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.chart_builders import _create_sparkline
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
-
-router = APIRouter()
 
 
 class TableTag(str, Enum):

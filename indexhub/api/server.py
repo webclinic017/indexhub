@@ -1,11 +1,10 @@
 """Defines the IndexHub FastAPI app.
 """
 
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import create_db_and_tables
-from .dependencies import verify_oauth_token
 from .routers import (
     charts,
     copilot,
@@ -25,13 +24,11 @@ router = APIRouter()
 
 # Health check
 @router.get("/", status_code=200)
-def health_check():
-    return True
+def root():
+    return {"message": "✅"}
 
 
-dependencies = [Depends(verify_oauth_token)]
-app = FastAPI(dependencies=dependencies)
-
+app = FastAPI()
 app.include_router(router)
 app.include_router(users.router)
 app.include_router(objectives.router)

@@ -8,7 +8,7 @@ from functools import partial
 import modal.aio
 import polars as pl
 import websockets
-from fastapi import APIRouter, HTTPException, WebSocket
+from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -20,11 +20,10 @@ from indexhub.api.models.copilot import (
     Persona,
 )
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
-
-router = APIRouter()
 
 
 def _logger(name, level=logging.INFO):

@@ -4,7 +4,7 @@ from typing import List, Optional
 import boto3
 import botocore
 import polars as pl
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 
 from indexhub.api.services.parsers import (
     parse_csv,
@@ -20,8 +20,6 @@ FILE_EXT_TO_PARSER = {
     "parquet": parse_parquet,
     "json": parse_json,
 }
-
-router = APIRouter()
 
 
 def read_data_from_s3(

@@ -1,10 +1,7 @@
 from typing import Optional
 
-from fastapi import APIRouter
+from indexhub.api.routers import router
 from indexhub.api.services.io import read_data_from_s3
-
-
-router = APIRouter()
 
 
 @router.get("/readers/s3")

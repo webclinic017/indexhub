@@ -3,18 +3,16 @@ from functools import partial
 from typing import Any, List, Mapping
 
 import polars as pl
-from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
-
-router = APIRouter()
 
 
 def _execute_forecast_plan(

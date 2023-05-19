@@ -2,12 +2,13 @@ import json
 from enum import Enum
 from typing import List, Mapping
 
-from fastapi import APIRouter, Request
+from fastapi import Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.services.chart_builders import (
@@ -17,8 +18,6 @@ from indexhub.api.services.chart_builders import (
     _create_segmentation_chart,
     _create_single_forecast_chart,
 )
-
-router = APIRouter()
 
 
 OBJECTIVE_TAG_TO_BUILDERS = {

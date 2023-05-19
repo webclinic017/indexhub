@@ -2,17 +2,15 @@ import json
 from datetime import datetime
 
 import modal
-from fastapi import APIRouter, HTTPException, WebSocket
+from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.schemas import CONNECTION_SCHEMA, DATASET_SCHEMA
-
-
-router = APIRouter()
 
 
 class CreateSourceParams(BaseModel):

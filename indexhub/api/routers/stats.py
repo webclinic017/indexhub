@@ -3,19 +3,16 @@ from functools import partial
 from typing import Any, List, Mapping
 
 import polars as pl
-from fastapi import APIRouter
 from sqlmodel import Session
 
 from indexhub.api.db import engine
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.objectives import FREQ_TO_SP, get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
-
-
-router = APIRouter()
 
 FREQ_NAME_TO_LABEL = {
     "Hourly": "hours",

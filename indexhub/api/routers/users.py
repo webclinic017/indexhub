@@ -1,18 +1,18 @@
-import boto3
 import json
 from datetime import datetime
-from typing import Mapping, Optional, Union, List
+from typing import List, Mapping, Optional, Union
 
+import boto3
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, HTTPException, Response, status
-from indexhub.api.db import engine
-from indexhub.api.models.user import User
-from indexhub.api.schemas import STORAGE_SCHEMAS
-from indexhub.api.services.secrets_manager import create_aws_secret
+from fastapi import HTTPException, Response, status
 from pydantic import BaseModel
 from sqlmodel import Field, Session, select
 
-router = APIRouter()
+from indexhub.api.db import engine
+from indexhub.api.models.user import User
+from indexhub.api.routers import router
+from indexhub.api.schemas import STORAGE_SCHEMAS
+from indexhub.api.services.secrets_manager import create_aws_secret
 
 
 class CreateUser(BaseModel):
@@ -169,22 +169,20 @@ class UserContextParams(BaseModel):
     persona: Mapping[str, Union[str, List[str]]]
     company: Mapping[str, Union[str, List[str]]]
 
+
 # FOR DEMO PURPOSE ONLY
 @router.post("/users/context")
 def store_user_context(params: UserContextParams):
 
     # Set up the S3 client
-    s3 = boto3.client('s3')
+    s3 = boto3.client("s3")
 
     # Define the S3 bucket and JSON file names
-    bucket_name = 'indexhub-demo'
-    json_file_name = f'users-context/{params.user_id}.json'
+    bucket_name = "indexhub-demo"
+    json_file_name = f"users-context/{params.user_id}.json"
 
     # Define the JSON data to be stored
-    json_data = {
-        "persona": params.persona,
-        "company": params.company
-    }
+    json_data = {"persona": params.persona, "company": params.company}
     # Serialize the JSON data
     serialized_data = json.dumps(json_data)
 

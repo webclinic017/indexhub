@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 
 import modal
-from fastapi import APIRouter, HTTPException, WebSocket
+from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
@@ -10,6 +10,7 @@ from indexhub.api.db import engine
 from indexhub.api.models.objective import Objective
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
+from indexhub.api.routers import router
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import (
     OBJECTIVE_SCHEMAS,
@@ -18,15 +19,13 @@ from indexhub.api.schemas import (
     SUPPORTED_FREQ,
 )
 
+
 FREQ_TO_SP = {
     "Hourly": 24,
     "Daily": 30,
     "Weekly": 52,
     "Monthly": 12,
 }
-
-
-router = APIRouter()
 
 
 @router.get("/objectives/schema/{user_id}")

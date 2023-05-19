@@ -1,8 +1,8 @@
 import json
 
-from fastapi import APIRouter, WebSocket
+from fastapi import WebSocket
 
-router = APIRouter()
+from indexhub.api.routers import router
 
 
 @router.websocket("/test/sources/ws")
