@@ -12,21 +12,21 @@ from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.services.chart_builders import (
-    _create_3d_cluster_chart,
-    _create_multi_forecast_chart,
-    _create_rolling_forecasts_chart,
-    _create_segmentation_chart,
-    _create_single_forecast_chart,
+    create_3d_cluster_chart,
+    create_multi_forecast_chart,
+    create_rolling_forecasts_chart,
+    create_segmentation_chart,
+    create_single_forecast_chart,
 )
 
 
 OBJECTIVE_TAG_TO_BUILDERS = {
     "reduce_errors": {
-        "single_forecast": _create_single_forecast_chart,
-        "multi_forecast": _create_multi_forecast_chart,
-        "segment": _create_segmentation_chart,
-        "cluster_3d": _create_3d_cluster_chart,
-        "rolling_forecast": _create_rolling_forecasts_chart,
+        "single_forecast": create_single_forecast_chart,
+        "multi_forecast": create_multi_forecast_chart,
+        "segment": create_segmentation_chart,
+        "cluster_3d": create_3d_cluster_chart,
+        "rolling_forecast": create_rolling_forecasts_chart,
     }
 }
 
@@ -82,7 +82,7 @@ async def get_chart(objective_id: str, chart_tag: ChartTag, request: Request):
         chart_json = build(
             fields=json.loads(objective.fields),
             outputs=json.loads(objective.outputs),
-            source_fields=json.loads(source.fields),
+            source_fields=json.loads(source.data_fields),
             user=user,
             objective_id=objective_id,
             **params,

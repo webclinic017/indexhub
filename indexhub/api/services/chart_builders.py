@@ -1,6 +1,6 @@
 import itertools
 from functools import partial, reduce
-from typing import Any, List, Literal, Mapping
+from typing import Any, Literal, Mapping
 
 import lance
 import polars as pl
@@ -16,16 +16,15 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.flows.preprocess import _reindex_panel
 
 
-def _create_single_forecast_chart(
-    fields: Mapping[str, str],
+def create_single_forecast_chart(
     outputs: Mapping[str, str],
     source_fields: Mapping[str, str],
     user: User,
-    objective_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     quantile_lower: int = 10,
     quantile_upper: int = 90,
+    **kwargs,
 ):
     pl.toggle_string_cache(True)
 
@@ -216,11 +215,9 @@ def _create_single_forecast_chart(
     return chart_json
 
 
-def _create_multi_forecast_chart(
-    fields: Mapping[str, str],
+def create_multi_forecast_chart(
     outputs: Mapping[str, str],
     user: User,
-    objective_id: str,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
     agg_method: Literal["sum", "mean"] = "sum",
@@ -228,6 +225,7 @@ def _create_multi_forecast_chart(
     num_cols: int = 3,
     chart_height: str = "300px",
     gap: str = "5%",
+    **kwargs,
 ):
     # Get credentials
     storage_creds = get_aws_secret(
@@ -403,10 +401,9 @@ SEGMENTATION_FACTOR_TO_EXPR = {
 }
 
 
-def _create_segmentation_chart(
+def create_segmentation_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
-    source_fields: Mapping[str, str],
     user: User,
     objective_id: str,
     segmentation_factor: Literal[
@@ -419,10 +416,7 @@ def _create_segmentation_chart(
     chart_height: str = "500px",
     chart_width: str = "800px",
     symbol_size: int = 12,
-    # Added following params to silence undefined params error, might have to think of a better solution here
-    filter_by: Mapping[str, Any] = None,
-    agg_by: str = None,
-    agg_method: Literal["sum", "mean"] = "sum",
+    **kwargs,
 ):
     pl.toggle_string_cache(True)
 
@@ -534,53 +528,7 @@ def _create_segmentation_chart(
     return chart_json
 
 
-def _create_sparkline(y_data: List[int]):
-    # Define sparkline color based on first and last values
-    if y_data[0] <= y_data[-1]:
-        color = "#44aa7e"  # green
-    else:
-        color = "#9e2b2b"  # red
-
-    # Generate sparkline
-    sparkline = Line()
-    sparkline.add_xaxis(list(range(len(y_data))))
-    sparkline.add_yaxis(
-        "",
-        y_data,
-        is_symbol_show=False,
-        linestyle_opts=opts.LineStyleOpts(width=3),
-        color=color,
-    )
-
-    # Update markpoint to show only first and last data label
-    markpoint_data = [
-        {"coord": [0, y_data[0]], "value": y_data[0]},
-        {"coord": [len(y_data) - 1, y_data[-1]], "value": y_data[-1]},
-    ]
-    sparkline.set_series_opts(
-        markpoint_opts=opts.MarkPointOpts(
-            data=markpoint_data,
-            symbol="circle",
-            symbol_size=7,
-            label_opts=opts.LabelOpts(position="outside", font_size=12),
-        ),
-    )
-    # Remove legends, axis, tooltip
-    sparkline.set_global_opts(
-        legend_opts=opts.LegendOpts(is_show=False),
-        xaxis_opts=opts.AxisOpts(is_show=False),
-        yaxis_opts=opts.AxisOpts(is_show=False),
-        tooltip_opts=opts.TooltipOpts(is_show=False),
-    )
-
-    # Export chart options to JSON
-    sparkline_json = sparkline.dump_options()
-    return sparkline_json
-
-
-def _create_3d_cluster_chart(
-    fields: Mapping[str, str], outputs: Mapping[str, str], user: User, objective_id: str
-):
+def create_3d_cluster_chart(outputs: Mapping[str, str], user: User, **kwargs):
     # Get bucket and path
     bucket_name = user.storage_bucket_name
     path = outputs["embeddings"]["cluster"]
@@ -673,13 +621,7 @@ def _create_3d_cluster_chart(
     return cluster_3d.dump_options()
 
 
-def _create_rolling_forecasts_chart(
-    fields: Mapping[str, str],
-    outputs: Mapping[str, str],
-    source_fields: Mapping[str, str],
-    user: User,
-    objective_id: str,
-):
+def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
     """
     Creates rolling forecasts chart using the baseline and rolling forecasts artifacts.
     The line chart includes baseline and forecasts based on the `updated_at` column.
