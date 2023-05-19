@@ -15,9 +15,56 @@ from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
-from indexhub.api.services.chart_builders import _create_sparkline
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+
+
+def _create_sparkline(y_data: List[int]):
+
+    from pyecharts import options as opts
+    from pyecharts.charts import Line
+
+    # Define sparkline color based on first and last values
+    if y_data[0] <= y_data[-1]:
+        color = "#44aa7e"  # green
+    else:
+        color = "#9e2b2b"  # red
+
+    # Generate sparkline
+    sparkline = Line()
+    sparkline.add_xaxis(list(range(len(y_data))))
+    sparkline.add_yaxis(
+        "",
+        y_data,
+        is_symbol_show=False,
+        linestyle_opts=opts.LineStyleOpts(width=3),
+        color=color,
+    )
+
+    # Update markpoint to show only first and last data label
+    markpoint_data = [
+        {"coord": [0, y_data[0]], "value": y_data[0]},
+        {"coord": [len(y_data) - 1, y_data[-1]], "value": y_data[-1]},
+    ]
+    sparkline.set_series_opts(
+        markpoint_opts=opts.MarkPointOpts(
+            data=markpoint_data,
+            symbol="circle",
+            symbol_size=7,
+            label_opts=opts.LabelOpts(position="outside", font_size=12),
+        ),
+    )
+    # Remove legends, axis, tooltip
+    sparkline.set_global_opts(
+        legend_opts=opts.LegendOpts(is_show=False),
+        xaxis_opts=opts.AxisOpts(is_show=False),
+        yaxis_opts=opts.AxisOpts(is_show=False),
+        tooltip_opts=opts.TooltipOpts(is_show=False),
+    )
+
+    # Export chart options to JSON
+    sparkline_json = sparkline.dump_options()
+    return sparkline_json
 
 
 class TableTag(str, Enum):
