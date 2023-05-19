@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 from pydantic import BaseModel
 import polars as pl
 
@@ -42,3 +42,22 @@ class ForecastAnalystAgent(BaseModel):
     date_from: Optional[datetime]
     date_to: Optional[datetime]
     n_iter: Optional[int]
+
+
+ADDITIONAL_TYPES = Literal["metric", "chart"]
+ROLES = Literal["user", "assistant"]
+ACTIONS = Literal["chat", "report_flow", "sentiment_analysis"]
+
+
+class Request(BaseModel):
+    role: ROLES
+    action: ACTIONS
+    additional_type: Optional[ADDITIONAL_TYPES]
+    channel: int
+    props: Mapping[str, Any]
+    content: str
+
+
+class ChatMessage(BaseModel):
+    message_history: List[Dict[str, str]]
+    request: Request
