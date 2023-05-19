@@ -13,17 +13,17 @@ from indexhub.api.models import Objective, Source, User
 
 
 def load_database(dbname: str, host: str, port: int, user: str, password: str):
-    def _create_db_and_tables():
-        from indexhub.api.db import create_db_and_tables
+    def _create_db_tables():
+        from indexhub.api.db import create_db_tables
 
-        create_db_and_tables()
+        create_db_tables()
 
     os.environ["PSQL_DBNAME"] = dbname
     os.environ["PSQL_HOST"] = host
     os.environ["PSQL_PORT"] = port
     os.environ["PSQL_USERNAME"] = user
     os.environ["PSQL_PASSWORD"] = password
-    _create_db_and_tables()
+    _create_db_tables()
 
 
 # Shared template database

@@ -4,7 +4,7 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import create_db_and_tables
+from .db import create_db_tables
 from .routers import (
     charts,
     copilot,
@@ -61,4 +61,4 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
+    create_db_tables()

@@ -1,7 +1,8 @@
 import os
 
-from indexhub.api import models  # noqa
 from sqlmodel import SQLModel, create_engine
+
+from indexhub.api import models  # noqa
 
 
 PSQL_USERNAME = os.environ["PSQL_USERNAME"]
@@ -18,9 +19,9 @@ PSQL_URI = (
 engine = create_engine(PSQL_URI, echo=True)
 
 
-def create_db_and_tables():
+def create_db_tables():
     SQLModel.metadata.create_all(engine)
 
 
 if __name__ == "__main__":
-    create_db_and_tables()
+    create_db_tables()

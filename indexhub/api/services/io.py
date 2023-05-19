@@ -6,6 +6,7 @@ import botocore
 import polars as pl
 from fastapi import HTTPException
 
+from indexhub.api.cache import CACHE
 from indexhub.api.services.parsers import (
     parse_csv,
     parse_excel,
@@ -22,9 +23,6 @@ FILE_EXT_TO_PARSER = {
 }
 
 
-CACHED_DATA = {}
-
-
 def read_data_from_s3(
     bucket_name: str,
     object_path: str,
@@ -33,9 +31,11 @@ def read_data_from_s3(
     AWS_ACCESS_KEY_ID: Optional[str] = None,
     AWS_SECRET_KEY_ID: Optional[str] = None,
 ):
-    pk = f"{bucket_name}/{object_path}.{file_ext}:{columns}"
-    data = CACHED_DATA.get(pk)
-    if data is None:
+    key = f"{bucket_name}/{object_path}.{file_ext}"
+    if columns is not None:
+        key = f"{key}:{columns}"
+    data = CACHE.get(key)
+    if data is not None:
         s3_client = boto3.client(
             "s3",
             aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -70,7 +70,7 @@ def read_data_from_s3(
         s3_client.close()
         parser = FILE_EXT_TO_PARSER[file_ext]
         data = parser(obj, columns)
-        CACHED_DATA[pk] = data
+        CACHE[key] = data
     return data
 
 
