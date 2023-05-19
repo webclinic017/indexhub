@@ -54,7 +54,7 @@ def create_objective(params: CreateObjectiveParams):
         objective_sources = json.loads(objective.sources)
         objective_fields = json.loads(objective.fields)
         source = get_source(objective_sources["panel"])["source"]
-        source_fields = json.loads(source.fields)
+        source_fields = json.loads(source.data_fields)
         if objective.tag == "reduce_errors":
             flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             holiday_regions = objective_fields["holiday_regions"]

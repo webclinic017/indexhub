@@ -18,6 +18,41 @@ from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
+MODEL_NAME_TO_SHORT = {
+    "knn": "KNN",
+    "linear": "Linear",
+    "lasso": "Lasso",
+    "ridge": "Ridge",
+    "elastic_net": "Elastic Net",
+    "ensemble[automl]": "Ensemble[AutoML]",
+    # lightgbm
+    "lightgbm__regression_l1": "LGB L1",
+    "lightgbm__regression": "LGB L2",
+    "lightgbm__huber": "LGB Huber",
+    "lightgbm__gamma": "LGB Gamma",
+    "lightgbm__poisson": "LGB Poisson",
+    "lightgbm__tweedie": "LGB Tweedie",
+    # lightgbm weighted
+    "lightgbm__weighted__regression_l1": "LGBW L1",
+    "lightgbm__weighted__regression": "LGBW L2",
+    "lightgbm__weighted__huber": "LGBW Huber",
+    "lightgbm__weighted__gamma": "LGBW Gamma",
+    "lightgbm__weighted__poisson": "LGBW Poisson",
+    "lightgbm__weighted__tweedie": "LGBW Tweedie",
+    # zero inflated
+    "zero_inflated__lightgbm__regression_l1": "Zero LGB L1",
+    "zero_inflated__lightgbm__regression": "Zero LGB L2",
+    "zero_inflated__lightgbm__huber": "Zero LGB Huber",
+    "zero_inflated__lightgbm__gamma": "Zero LGB Gamma",
+    "zero_inflated__lightgbm__poisson": "Zero LGB Poisson",
+    "zero_inflated__lightgbm__tweedie": "Zero LGB Tweedie",
+    "zero_inflated__knn": "Zero KNN",
+    "zero_inflated__linear": "Zero Linear",
+    "zero_inflated__lasso": "Zero Lasso",
+    "zero_inflated__ridge": "Zero Ridge",
+    "zero_inflated__elastic_net": "Zero Elastic Net",
+}
+
 
 def _create_sparkline(y_data: List[int]):
 
@@ -98,6 +133,7 @@ def _get_forecast_table(
     y_baseline = read(object_path=outputs["y_baseline"])
     y = read(object_path=outputs["y"])
 
+    best_models = outputs["best_models"]
     agg_method = source_fields["agg_method"]
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
@@ -282,6 +318,11 @@ def _get_forecast_table(
                 pl.col("entity"),
                 pl.col("tables"),
                 pl.struct(pl.all().exclude(["entity", "tables"])).alias("stats"),
+                # Add best model by entity
+                pl.col("entity")
+                .map_dict(best_models)
+                .map_dict(MODEL_NAME_TO_SHORT)
+                .alias("best_model"),
             ]
         )
         # Append sparklines to table
@@ -343,7 +384,7 @@ def get_objective_table(
         table = getter(
             json.loads(objective.fields),
             json.loads(objective.outputs),
-            json.loads(source.fields),
+            json.loads(source.data_fields),
             user,
             objective_id,
             params.filter_by,

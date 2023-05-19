@@ -35,7 +35,7 @@ def read_data_from_s3(
     if columns is not None:
         key = f"{key}:{columns}"
     data = CACHE.get(key)
-    if data is not None:
+    if data is None:
         s3_client = boto3.client(
             "s3",
             aws_access_key_id=AWS_ACCESS_KEY_ID,

@@ -225,7 +225,7 @@ def get_stats(
         stats = getter(
             json.loads(objective.outputs),
             json.loads(objective.fields),
-            json.loads(source.fields),
+            json.loads(source.data_fields),
             user,
             objective_id,
         )  # TODO: Cache using an in memory key-value store
