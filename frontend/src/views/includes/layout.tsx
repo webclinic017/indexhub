@@ -26,7 +26,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import { colors } from "../../theme/theme";
 import Breadcrumbs from "../../components/breadcrumbs";
 import { useNavigate } from "react-router-dom";
-import { Sidebar } from "./sidebar/sidebar";
+import { Sidebar } from "./sidebar";
 import { faChartLine, faDatabase, faPlusCircle } from "@fortawesome/pro-light-svg-icons";
 import NewSource from "../sources/new_source";
 
