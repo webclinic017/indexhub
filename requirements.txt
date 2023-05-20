@@ -1,6 +1,7 @@
 altair
 boto3==1.24.59
 botocore
+expiringdict
 fastapi
 holidays
 httpx

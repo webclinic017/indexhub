@@ -23,7 +23,6 @@ dev = [
     "autoflake",
     "black",
     "coverage[toml]",
-    "expiringdict",
     "fastapi-cache2",
     "flake8",
     "pre-commit",
