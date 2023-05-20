@@ -253,7 +253,7 @@ export default function DataAndIntegrations() {
               <VStack height="100%" alignItems="flex-start" justify="space-between">
                 <VStack alignItems="flex-start">
                   <Flex p="1rem" border="1px solid #eeeef1" borderRadius="8">
-                    <FontAwesomeIcon color="#797986" icon={faDatabase as any} />
+                    <FontAwesomeIcon icon={faDatabase as any} />
                   </Flex>
                   <Text>
                     New data source
@@ -273,7 +273,7 @@ export default function DataAndIntegrations() {
               <VStack height="100%" alignItems="flex-start" justify="space-between">
                 <VStack alignItems="flex-start">
                   <Flex p="1rem" border="1px solid #eeeef1" borderRadius="8">
-                    <FontAwesomeIcon color="#797986" icon={faArrowsToCircle as any}></FontAwesomeIcon>
+                    <FontAwesomeIcon icon={faArrowsToCircle as any}></FontAwesomeIcon>
                   </Flex>
                   <Text>
                     New integration

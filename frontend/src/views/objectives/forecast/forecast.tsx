@@ -637,7 +637,7 @@ const ForecastObjective = () => {
               </HStack>
 
               <Tooltip label="Execute Plan" placement='left'>
-                <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="black" onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} isLoading={isExportingTable} onClick={() => {
+                <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="colors.primary.brand_colors.black" onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "colors.supplementary.brand_colors.gray" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "colors.primary.brand_colors.black" }} isLoading={isExportingTable} onClick={() => {
                   exportRecommendationTable()
                 }}>
                   <HStack>

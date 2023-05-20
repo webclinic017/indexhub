@@ -48,7 +48,6 @@ export const PopoverIcon = (props: { isOpen: boolean }) => {
 };
 
 export default function Layout() {
-  const { user, logout, loginWithRedirect } = useAuth0();
   const current_path = useLocation().pathname;
   const { isOpen, onClose, onOpen } = useDisclosure({ defaultIsOpen: false });
   const navigate = useNavigate();
@@ -58,12 +57,6 @@ export default function Layout() {
     onOpen: onOpenNewSourceModal,
     onClose: onCloseNewSourceModal
   } = useDisclosure()
-
-  const getIconColor = (icon_path: string) => {
-    if (current_path.split("/")[1] == icon_path) {
-      return colors.primary.brand_colors.blue_5;
-    } else return colors.primary.brand_colors.not_black_black;
-  };
 
   const add_source_reports_items = [
     {
@@ -131,7 +124,7 @@ export default function Layout() {
                         <ChakraLink
                           _hover={{
                             textDecoration: "none",
-                            backgroundColor: "#f8fafc",
+                            backgroundColor: "colors.primary.brand_colors.gray",
                           }}
                           variant="menu"
                           key={id}

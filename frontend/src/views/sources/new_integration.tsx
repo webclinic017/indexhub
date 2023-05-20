@@ -62,10 +62,10 @@ const NewIntegration = (props: {
                                                 <Text>
                                                     {integration["name"]}
                                                 </Text>
-                                                <Text fontSize="xs" color="text.grey" mt="unset !important">
+                                                <Text fontSize="xs" color="text.gray" mt="unset !important">
                                                     {integration["description"]}
                                                 </Text>
-                                                <Text fontSize="xs" color="text.grey" mt="unset !important">
+                                                <Text fontSize="xs" color="text.gray" mt="unset !important">
                                                     Last Updated: {new Date(integration["updated_at"]).toLocaleString()}
                                                 </Text>
                                             </VStack>

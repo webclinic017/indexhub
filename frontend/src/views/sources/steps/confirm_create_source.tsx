@@ -29,7 +29,7 @@ const ConfirmCreateSource = (props: {
       borderStyle="solid"
       borderRadius="lg"
     >
-      <Box bgColor={"forms.bg_grey"} borderTopRadius="lg">
+      <Box bgColor={"forms.bg_gray"} borderTopRadius="lg">
         <Text py="1rem" pl="1rem" color="muted" fontSize="sm">
           An overview of your new source setup
         </Text>

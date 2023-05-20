@@ -852,7 +852,7 @@ export default function Forecast_Recommendations() {
                         item ? (
                           <Box
                             key={idx}
-                            bg="lists.bg_grey"
+                            bg="lists.bg_gray"
                             pl="1rem"
                             boxShadow="sm"
                             position="relative"
@@ -872,7 +872,7 @@ export default function Forecast_Recommendations() {
                                   <HStack
                                     width="full"
                                     justify="flex-start"
-                                    backgroundColor="lists.bg_light_grey"
+                                    backgroundColor="lists.bg_light_gray"
                                     p="0.5rem 0 0.5rem 1rem"
                                     borderTopRightRadius="lg"
                                   >

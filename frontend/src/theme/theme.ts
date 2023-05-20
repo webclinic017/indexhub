@@ -10,8 +10,9 @@ export const colors = {
       blue_3: "#14399a",
       blue_4: "#0e1d43",
       blue_5: "#4f4fff",
-      off_grey: "#e2e2e2",
-      not_black_black: "#0a0a0a",
+      gray: "#f4f4f6",
+      gray_2: "#797986",
+      black: "#0a0a0a",
       white: "#ffffff",
     },
   },
@@ -37,7 +38,6 @@ export const colors = {
       main_brown: "#b56321",
       brown_2: "#994c17",
       brown_3: "#7f3808",
-      filter_grey: "#b7b7b7",
     },
   },
 };
@@ -46,23 +46,23 @@ export const colors = {
 const default_theme = extendTheme({
   colors: {
     text: {
-      black: "#1a202c",
-      grey: "#797986"
+      black: colors.primary.brand_colors.black,
+      gray: colors.primary.brand_colors.gray_2
     },
     navbar: {
-      background: colors.primary.brand_colors.white,
-      icon: colors.primary.brand_colors.not_black_black,
+      background: colors.primary.brand_colors.gray,
+      icon: colors.primary.brand_colors.black,
       icon_highlight: colors.primary.brand_colors.blue_5,
       status_online: colors.supplementary.indicators.main_green,
       status_busy: colors.supplementary.indicators.main_red,
     },
     header: {
-      background: "#f7fafc",
-      text: colors.primary.brand_colors.not_black_black,
+      background: colors.primary.brand_colors.white,
+      text: colors.primary.brand_colors.black,
     },
     body: {
-      background: "#f7fafc",
-      header: colors.primary.brand_colors.not_black_black,
+      background: colors.primary.brand_colors.white,
+      header: colors.primary.brand_colors.black,
     },
     indicator: {
       main_blue: colors.primary.brand_colors.main_blue,
@@ -87,7 +87,7 @@ const default_theme = extendTheme({
     },
     forms: {
       border: "#ecf0f3",
-      bg_grey: "#f7fafc",
+      bg_gray: colors.primary.brand_colors.gray,
     },
     toasts: {
       success_bg: colors.supplementary.indicators.main_green,
@@ -96,11 +96,11 @@ const default_theme = extendTheme({
       subtitle: "#4a5568",
     },
     lists: {
-      bg_grey: "#f7fafc",
-      bg_light_grey: "#e4f0f9",
+      bg_gray: colors.primary.brand_colors.gray,
+      bg_light_gray: "#e4f0f9",
     },
     buttons: {
-      filter_grey: colors.supplementary.sister_colors.filter_grey,
+      gray: colors.primary.brand_colors.gray,
       main_green: colors.supplementary.indicators.main_green,
     },
   },
