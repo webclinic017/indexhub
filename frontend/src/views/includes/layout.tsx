@@ -61,13 +61,13 @@ export default function Layout() {
   const add_source_reports_items = [
     {
       title: "Add Source",
-      description: "Add and configure a new Source to generate reports from",
+      description: "Connect to a data source",
       icon: faDatabase as any,
       onClick: () => onOpenNewSourceModal(),
     },
     {
       title: "Add Objective",
-      description: "Add and configure a new Objective from your available Sources",
+      description: "Create new forecasting objective",
       icon: faChartLine as any,
       onClick: () => navigate("/objectives/new_objective"),
     },
