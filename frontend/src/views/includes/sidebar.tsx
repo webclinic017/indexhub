@@ -71,9 +71,9 @@ export const Sidebar = () => {
     const user_details = useSelector((state: AppState) => state.reducer?.user);
 
     return (
-        <Stack p="1.5" minH="100vh" justify="space-between" spacing="1">
+        <Stack p="2" minH="100vh" justify="space-between" spacing="1">
             <Stack shouldWrapChildren justify="start">
-                <HStack m="5" mx="3"><Logo width="48" height="100%"/></HStack>
+                <HStack mx="3" my="6"><Logo width="48" height="100%"/></HStack>
                 <Stack>
                     <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUpDown} onClick={() => navigate("/trends")} />
                     <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseye} onClick={() => navigate("/objectives")} />

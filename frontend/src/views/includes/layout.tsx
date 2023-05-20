@@ -153,7 +153,7 @@ export default function Layout() {
             </Popover>
           </Container>
         </GridItem>
-        <GridItem bg="navbar.background" area={"nav"}><Sidebar/></GridItem>
+        <GridItem bg="navbar.background" area="nav"><Sidebar/></GridItem>
         <GridItem px="3" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet/>
         </GridItem>
