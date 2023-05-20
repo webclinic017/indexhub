@@ -76,8 +76,7 @@ export default function Layout() {
   return (
     <>
       <Grid
-        templateAreas={`"nav header"
-                        "nav main"`}
+        templateAreas={`"nav header" "nav main"`}
         gridTemplateRows={"70px 1fr"}
         gridTemplateColumns={"200px 1fr"}
         h="100vh"
@@ -90,13 +89,12 @@ export default function Layout() {
           display="flex"
           flexDirection="column"
         >
-          {/* Upper container */}
           <Container
             display="flex"
             alignItems="center"
             justifyContent="space-between"
             margin="0 0 0 auto"
-            py="1rem"
+            py="4"
             maxW="unset"
           >
             <Breadcrumbs current_path={current_path} />
@@ -155,17 +153,9 @@ export default function Layout() {
             </Popover>
           </Container>
         </GridItem>
-        <GridItem
-          pl="2"
-          bg="navbar.background"
-          area={"nav"}
-          paddingLeft="unset"
-          fontWeight="bold"
-        >
-          <Sidebar />
-        </GridItem>
+        <GridItem bg="navbar.background" area={"nav"}><Sidebar/></GridItem>
         <GridItem px="3" bg="body.background" area={"main"} overflowY="scroll">
-          <Outlet />
+          <Outlet/>
         </GridItem>
       </Grid>
       <Modal size="6xl" isOpen={isOpenNewSourceModal} onClose={onCloseNewSourceModal}>

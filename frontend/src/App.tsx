@@ -21,7 +21,7 @@ import NewObjective from "./views/objectives/new_objective";
 import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
-import Dashboard from "./views/dashboard";
+import Trends from "./views/trends";
 
 function App() {
   return (
@@ -32,7 +32,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="trends" element={<Trends />} />
               <Route path="docs" element={<Docs />} />
               <Route path="data" element={<Data />}>
                 <Route index element={<DataAndIntegrations />} />

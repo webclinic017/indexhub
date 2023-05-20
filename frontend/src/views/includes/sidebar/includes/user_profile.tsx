@@ -10,8 +10,8 @@ interface UserProfileProps {
 export const UserProfile = (props: UserProfileProps) => {
     const { name, image, email } = props
     return (
-        <HStack spacing="3" ps="2">
-            <Avatar name={name} src={image} boxSize="10" />
+        <HStack spacing="3" p="1">
+            <Avatar name={name} src={image} boxSize="9" />
             <Box overflow="hidden">
                 <Text overflow="hidden" textOverflow="ellipsis" fontWeight="bold" fontSize="sm" textAlign="left">
                     {name}
