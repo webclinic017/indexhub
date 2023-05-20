@@ -15,7 +15,7 @@ export default function Data() {
     new_report_state = new_report;
   }
   return (
-    <VStack p="6">
+    <VStack px="6">
       <Outlet context={{ new_report: new_report_state }}></Outlet>
     </VStack>
   );
