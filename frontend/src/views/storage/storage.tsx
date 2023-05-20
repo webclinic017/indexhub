@@ -15,7 +15,7 @@ import NewStorage from "./new_storage";
 import { ReactComponent as S3Logo } from "../../assets/images/svg/s3.svg";
 import { ReactComponent as AzureLogo } from "../../assets/images/svg/azure.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCalendarDays } from "@fortawesome/free-regular-svg-icons";
+import { faCalendarDays } from "@fortawesome/pro-light-svg-icons";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

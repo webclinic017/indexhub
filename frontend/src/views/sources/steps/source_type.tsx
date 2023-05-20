@@ -13,7 +13,7 @@ import { capitalizeFirstLetter } from "../../../utilities/helpers";
 import { ReactComponent as S3Logo } from "../../../assets/images/svg/s3.svg";
 import { ReactComponent as AzureLogo } from "../../../assets/images/svg/azure.svg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
+import { faCircleDot } from "@fortawesome/pro-light-svg-icons";
 import { colors } from "../../../theme/theme";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

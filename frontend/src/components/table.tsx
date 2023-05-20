@@ -12,7 +12,7 @@ import {
   Badge,
 } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSortDown, faSortUp } from "@fortawesome/free-solid-svg-icons";
+import { faSortDown, faSortUp } from "@fortawesome/pro-light-svg-icons";
 import {
   useReactTable,
   flexRender,

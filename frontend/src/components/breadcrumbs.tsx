@@ -1,7 +1,7 @@
 import React from "react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faChevronRight } from "@fortawesome/pro-light-svg-icons";
 import { Link } from "react-router-dom";
 import { capitalizeFirstLetter } from "../utilities/helpers";
 
@@ -11,7 +11,7 @@ const Breadcrumbs = (props: { current_path: string }) => {
   if (props.current_path != "/") {
     return (
       <Breadcrumb
-        spacing="8px"
+        spacing="2"
         separator={<FontAwesomeIcon size="xs" icon={faChevronRight} />}
       >
         {paths.map((item, idx) => {
@@ -33,7 +33,7 @@ const Breadcrumbs = (props: { current_path: string }) => {
   } else {
     return (
       <Breadcrumb
-        spacing="8px"
+        spacing="2"
         separator={<FontAwesomeIcon size="xs" icon={faChevronRight} />}
       >
         <BreadcrumbItem isCurrentPage>

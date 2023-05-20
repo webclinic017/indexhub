@@ -15,12 +15,12 @@ import {
   Tabs,
   TabList,
   Tab,
-  TabIndicator,
   TabPanels,
   TabPanel,
   Grid,
   useToast,
-  Spinner
+  Spinner,
+  Heading
 } from "@chakra-ui/react";
 import { useSelector } from "react-redux";
 import useWebSocket, { ReadyState } from "react-use-websocket";
@@ -29,7 +29,7 @@ import { Card } from "@chakra-ui/card";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ReactComponent as S3Logo } from "../../assets/images/svg/s3.svg";
 import { ReactComponent as AzureLogo } from "../../assets/images/svg/azure.svg";
-import { faCircleDot } from "@fortawesome/free-regular-svg-icons";
+import { faCircleDot } from "@fortawesome/pro-light-svg-icons";
 import { colors } from "../../theme/theme";
 import { faArrowsToCircle, faDatabase } from "@fortawesome/pro-light-svg-icons";
 import NewSource from "./new_source";
@@ -172,114 +172,35 @@ export default function DataAndIntegrations() {
 
   return (
     <>
-      {/* STORAGE CONTENT */}
-      {/* <Flex width="100%" justifyContent="center">
-        <Card boxShadow="md" borderRadius="lg" width="50%" p="6" backgroundColor="white">
-          <CardBody>
-            <HStack>
-              <Text fontSize="small" fontWeight="bold" pr="2">
-                Your Storage:
-              </Text>
-              <FontAwesomeIcon
-                size="2xs"
-                icon={faCircleDot}
-                beatFade
-                style={{
-                  color: user_details.storage_bucket_name
-                    ? colors.supplementary.indicators.main_green
-                    : colors.supplementary.indicators.main_red,
-                }}
-              />
-              <Text
-                textAlign="center"
-                fontSize="2xs"
-                color={
-                  user_details.storage_bucket_name
-                    ? colors.supplementary.indicators.main_green
-                    : colors.supplementary.indicators.main_red
-                }
-              >
-                {user_details.storage_bucket_name
-                  ? "CONFIGURED"
-                  : "NOT CONFIGURED"}
-              </Text>
-            </HStack>
-            {user_details.storage_bucket_name ? (
-              <HStack justifyContent="center">
-                <Box p="6">{logos[user_details.storage_tag]}</Box>
-
-                <VStack alignItems="flex-start">
-                  <Heading
-                    size="md"
-                    fontWeight="extrabold"
-                    letterSpacing="tight"
-                    marginEnd="6"
-                  >
-                    {capitalizeFirstLetter(user_details.storage_tag)} Storage
-                  </Heading>
-                  <Text mt="1" fontWeight="medium">
-                    Bucket name: {user_details.storage_bucket_name}
-                  </Text>
-                  <Stack spacing="1" mt="2">
-                    <HStack fontSize="sm">
-                      <FontAwesomeIcon icon={faCalendarDays} />
-                      <Text>
-                        {new Date(
-                          user_details.storage_created_at
-                        ).toDateString()}
-                      </Text>
-                    </HStack>
-                  </Stack>
-                </VStack>
-              </HStack>
-            ) : (
-              <Flex p="5" justify="center">
-                <Button onClick={() => navigate("/new_storage")}>
-                  Configure Storage
-                </Button>
-              </Flex>
-            )}
-          </CardBody>
-        </Card>
-      </Flex> */}
-
-      <VStack width="100%" padding="10px">
+      <VStack width="100%" spacing="8">
         <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
           Data Sources
         </Text>
         <HStack width="100%" justify="space-between">
-          <Card p="1rem" width="49%" height="13rem" cursor="pointer" onClick={() => { onOpenNewSourceModal() }}>
+          <Card p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewSourceModal() }}>
             <HStack height="100%">
               <VStack height="100%" alignItems="flex-start" justify="space-between">
-                <VStack alignItems="flex-start">
-                  <Flex p="1rem" border="1px solid #eeeef1" borderRadius="8">
+                <VStack mb="6" alignItems="flex-start">
+                  <Flex p="1rem" mb="2" border="1px solid #eeeef1" borderRadius="8">
                     <FontAwesomeIcon icon={faDatabase as any} />
                   </Flex>
-                  <Text>
-                    New data source
-                  </Text>
-                  <Text color="text.grey" mt="unset !important">
-                    Connect to your data from multiple platforms
-                  </Text>
+                  <Heading fontSize="md">New data source</Heading>
+                  <Text color="text.gray">Connect to your data from multiple sources</Text>
                 </VStack>
-                <Button>
-                  Create new
-                </Button>
+                <Button>Create new</Button>
               </VStack>
             </HStack>
           </Card>
-          <Card p="1rem" width="49%" height="13rem" cursor="pointer" onClick={() => { onOpenNewIntegrationModal() }}>
+          <Card p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewIntegrationModal() }}>
             <HStack height="100%">
               <VStack height="100%" alignItems="flex-start" justify="space-between">
-                <VStack alignItems="flex-start">
+                <VStack mb="6" alignItems="flex-start">
                   <Flex p="1rem" border="1px solid #eeeef1" borderRadius="8">
                     <FontAwesomeIcon icon={faArrowsToCircle as any}></FontAwesomeIcon>
                   </Flex>
-                  <Text>
-                    New integration
-                  </Text>
-                  <Text color="text.grey" mt="unset !important">
-                    Integrate external data into your forecast
+                  <Heading fontSize="md">New integration</Heading>
+                  <Text color="text.gray">
+                    Integrate external datasets to improve your forecasts
                   </Text>
                 </VStack>
                 <Button>
@@ -289,18 +210,11 @@ export default function DataAndIntegrations() {
             </HStack>
           </Card>
         </HStack>
-        <hr style={{ width: "100%", margin: "2rem 0" }}></hr>
-        <Tabs width="100%" mt="1.5rem" position="relative" variant="unstyled" isLazy lazyBehavior="keepMounted">
-          <TabList width="100%" justifyContent="center">
-            <Tab fontWeight="bold">Data Sources</Tab>
-            <Tab fontWeight="bold">Integrations</Tab>
+        <Tabs width="100%" mt="6" variant="line">
+          <TabList width="100%" justifyContent="left">
+            <Tab><Text>Data Sources</Text></Tab>
+            <Tab><Text>Integrations</Text></Tab>
           </TabList>
-          <TabIndicator
-            mt="-1.5px"
-            height="2px"
-            bg="blue.500"
-            borderRadius="1px"
-          />
           <TabPanels>
             <TabPanel px="unset">
               {sources ? (
@@ -336,7 +250,7 @@ export default function DataAndIntegrations() {
                               <Text>
                                 {source.name}
                               </Text>
-                              <Text fontSize="xs" color="text.grey" mt="unset !important">
+                              <Text fontSize="xs" color="text.gray" mt="unset !important">
                                 Last updated: {new Date(source.updated_at).toLocaleString()}
                               </Text>
                             </VStack>
@@ -377,10 +291,10 @@ export default function DataAndIntegrations() {
                               <Text>
                                 {integration["name"]}
                               </Text>
-                              <Text fontSize="xs" color="text.grey" mt="unset !important">
+                              <Text fontSize="xs" color="text.gray" mt="unset !important">
                                 {integration["description"]}
                               </Text>
-                              <Text fontSize="xs" color="text.grey" mt="unset !important">
+                              <Text fontSize="xs" color="text.gray" mt="unset !important">
                                 Last Updated: {new Date(integration["updated_at"]).toLocaleString()}
                               </Text>
                             </VStack>

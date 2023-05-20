@@ -82,7 +82,8 @@ export default function Layout() {
         h="100vh"
       >
         <GridItem
-          pl="2"
+          m="2"
+          mt="4"
           bg="header.background"
           area={"header"}
           color="header.text"
@@ -94,7 +95,6 @@ export default function Layout() {
             alignItems="center"
             justifyContent="space-between"
             margin="0 0 0 auto"
-            py="4"
             maxW="unset"
           >
             <Breadcrumbs current_path={current_path} />

@@ -10,7 +10,7 @@ import {
   Tr,
 } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck } from "@fortawesome/pro-light-svg-icons";
 
 type ListProps = {
   data: string[];

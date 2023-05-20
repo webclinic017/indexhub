@@ -19,7 +19,7 @@ import {
   SimpleGrid,
 } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faTrash } from "@fortawesome/pro-light-svg-icons";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../components/table";
 import { Link, useNavigate } from "react-router-dom";
@@ -215,7 +215,7 @@ export default function Reports() {
   ];
 
   return (
-    <VStack padding="10px">
+    <VStack>
       <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
         Reports
       </Text>

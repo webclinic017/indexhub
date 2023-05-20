@@ -5,8 +5,8 @@ import {
   faCheckCircle,
   faXmarkCircle,
   IconDefinition,
-} from "@fortawesome/free-regular-svg-icons";
-import { faCircleExclamation } from "@fortawesome/free-solid-svg-icons";
+  faCircleExclamation,
+} from "@fortawesome/pro-light-svg-icons";
 
 const toast_colors: Record<string, string> = {
   success: "toasts.success_bg",

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, BoxProps, Heading, HStack, Stack, Text } from '@chakra-ui/react'
-import { faArrowTrendDown, faArrowTrendUp } from '@fortawesome/free-solid-svg-icons'
+import { faArrowTrendDown, faArrowTrendUp } from '@fortawesome/pro-light-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { colors } from '../theme/theme'
 

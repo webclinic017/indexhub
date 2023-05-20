@@ -15,7 +15,7 @@ import { DataTable } from "../../../components/table";
 import { getForecastObjectiveStats } from "../../../utilities/backend_calls/stats";
 import { colors } from "../../../theme/theme";
 import { getSegmentationChart, getTrendChart } from "../../../utilities/backend_calls/charts";
-import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/pro-light-svg-icons";
 import { faCircleInfo, faFileChartColumn, faFileExport, faMicrochipAi, faPenToSquare, faWrench } from "@fortawesome/pro-light-svg-icons";
 import Toast from "../../../components/toast";
 import AiAnalysisModal from "./_includes/ai_analysis_modal";

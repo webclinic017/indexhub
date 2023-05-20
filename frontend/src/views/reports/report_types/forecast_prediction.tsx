@@ -38,7 +38,7 @@ import { Report } from "../reports";
 import { useParams } from "react-router-dom";
 import { Select } from "chakra-react-select";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowDown, faArrowUp } from "@fortawesome/free-solid-svg-icons";
+import { faArrowDown, faArrowUp } from "@fortawesome/pro-light-svg-icons";
 import { colors } from "../../../theme/theme";
 import {
   capitalizeFirstLetter,
@@ -440,7 +440,7 @@ export default function Forecast_Recommendations() {
 
   if (selectedReport.id != "") {
     return (
-      <VStack padding="10px">
+      <VStack>
         <VStack width="100%">
           <Text fontSize="3xl" width="100%" fontWeight="bold">
             Forecast Recommendation

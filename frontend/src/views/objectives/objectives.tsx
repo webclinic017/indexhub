@@ -4,7 +4,7 @@ import { Outlet } from "react-router-dom";
 
 export default function Objectives() {
   return (
-    <VStack padding="10px">
+    <VStack>
       <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
         Objectives
       </Text>
