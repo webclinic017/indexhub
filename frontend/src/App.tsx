@@ -11,7 +11,6 @@ import Data from "./views/sources/data";
 import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
-import Docs from "./views/docs";
 import Forecast_Recommendations from "./views/reports/report_types/forecast_prediction";
 import NewSource from "./views/sources/new_source";
 import DataAndIntegrations from "./views/sources/data_integrations";
@@ -33,7 +32,6 @@ function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="trends" element={<Trends />} />
-              <Route path="docs" element={<Docs />} />
               <Route path="data" element={<Data />}>
                 <Route index element={<DataAndIntegrations />} />
                 {/* <Route path="new_source" element={<NewSource />} /> */}
