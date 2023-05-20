@@ -78,7 +78,7 @@ export default function Layout() {
       <Grid
         templateAreas={`"nav header" "nav main"`}
         gridTemplateRows={"70px 1fr"}
-        gridTemplateColumns={"200px 1fr"}
+        gridTemplateColumns={"11rem 1fr"}
         h="100vh"
       >
         <GridItem

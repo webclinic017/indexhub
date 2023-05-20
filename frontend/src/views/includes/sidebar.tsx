@@ -18,7 +18,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { AppState } from "../..";
 import { useAuth0 } from "@auth0/auth0-react";
-import { faBullseye, faDatabase, faChartLineUpDown } from "@fortawesome/pro-light-svg-icons";
+import { faBullseyeArrow, faDatabase, faChartLineUp } from "@fortawesome/pro-light-svg-icons";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 
 
@@ -33,7 +33,7 @@ export const NavButton = (props: NavButtonProps) => {
         <Button variant="ghost" justifyContent="start" {...buttonProps}>
             <HStack spacing="2">
                 <Box width="6"><FontAwesomeIcon size="lg" cursor="pointer" icon={icon}/></Box>
-                <Text fontSize="sm">{label}</Text>
+                <Text fontWeight="normal" fontSize="sm">{label}</Text>
             </HStack>
         </Button>
     )
@@ -67,12 +67,12 @@ export const Sidebar = () => {
     const user_details = useSelector((state: AppState) => state.reducer?.user);
 
     return (
-        <Stack p="2" minH="100vh" justify="space-between" spacing="1">
+        <Stack p="2" minH="100vh" justify="space-between">
             <Stack shouldWrapChildren justify="start">
                 <HStack mx="3" my="6"><Logo width="48" height="100%"/></HStack>
                 <Stack>
-                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUpDown} onClick={() => navigate("/trends")} />
-                    <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseye} onClick={() => navigate("/objectives")} />
+                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
+                    <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
                     <NavButton isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
                 </Stack>
             </Stack>
