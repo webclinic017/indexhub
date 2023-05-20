@@ -43,20 +43,16 @@ export const NavButton = (props: NavButtonProps) => {
 interface UserProfileProps {
     name: string
     image: string
-    email: string
 }
 
 export const UserProfile = (props: UserProfileProps) => {
-    const { name, image, email } = props
+    const { name, image } = props
     return (
         <HStack spacing="3" p="1">
             <Avatar name={name} src={image} boxSize="9" />
             <Box overflow="hidden">
                 <Text overflow="hidden" textOverflow="ellipsis" fontWeight="bold" fontSize="sm" textAlign="left">
                     {name}
-                </Text>
-                <Text className="ellipsis" color="muted" fontSize="sm" textAlign="left">
-                    {email}
                 </Text>
             </Box>
         </HStack>
@@ -81,20 +77,17 @@ export const Sidebar = () => {
                 </Stack>
             </Stack>
             <Stack>
-                <Divider />
+                <Divider/>
                 <Menu matchWidth>
                     <MenuButton cursor="pointer" borderRadius="5">
-                        <UserProfile
-                            name={user_details.nickname}
-                            image=""
-                            email={user_details.email}
-                        />
+                        <UserProfile name={user_details.nickname} image=""/>
                     </MenuButton>
                     <MenuList>
-                        <MenuItem onClick={() => logout({ returnTo: window.location.origin })}>Logout</MenuItem>
+                        <MenuItem><Text>{user_details.email}</Text></MenuItem>
+                        <Divider/>
+                        <MenuItem mt="4" onClick={() => logout({ returnTo: window.location.origin })}>Logout</MenuItem>
                     </MenuList>
                 </Menu>
-
             </Stack>
         </Stack>
     )
