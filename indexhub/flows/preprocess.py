@@ -248,6 +248,36 @@ def _update_source(
         session.commit()
         session.refresh(source)
         return source
+    
+
+def run_embeddings(
+    panel_data: pl.DataFrame,
+    source_id: int,
+    data_fields: Mapping[str, Any],
+    storage_bucket_name: str,
+):
+    try:
+        ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
+        embeddings_paths = {}
+        # Unpack panel data cols based on source type
+        entity_col = panel_data.columns[0]
+        target_col = data_fields.get("target_col", data_fields.get("price_col"))
+
+        logger.info(f"Generating embeddings for panel with source: {source_id}")
+        # Generate embeddings for panel
+        ts_emb_flow.call(
+            panel_data,
+            entity_col=entity_col,
+            target_col=target_col,
+            s3_bucket=storage_bucket_name,
+            s3_key=f"embeddings/{source_id}/ts/",
+        )
+        # Export embeddings to s3
+        embeddings_paths["ts"] = f"embeddings/{source_id}/ts/embeddings_ts.lance/"
+        logger.info(f"Completed embeddings for panel with source: {source_id}")
+    except Exception as exc:
+        raise Exception(f"Error in `run_embeddings`: {repr(exc)}") from exc
+
 
 
 @stub.function(
@@ -267,8 +297,9 @@ def run_preprocess(
     storage_tag: str,
     storage_bucket_name: str,
 ):
-    """Load, clean, and write panel dataset."""
+    """Load panel dataset then clean, write, and compute time-series embeddings."""
     try:
+        status, msg = "SUCCESS", "OK"
         # Get credentials
         source_creds = get_aws_secret(
             tag=source_tag, secret_type="sources", user_id=user_id
@@ -320,11 +351,12 @@ def run_preprocess(
             object_path=output_path,
             **storage_creds,
         )
+
     except ClientError as exc:
+        status = "FAILED"
         panel_data = None
         output_path = None
         error_code = exc.response["Error"]["Code"]
-
         if error_code == "InvalidSignatureException":
             msg = "Authentication secret errors"
         elif error_code == "AccessDeniedException":
@@ -332,96 +364,30 @@ def run_preprocess(
         else:
             msg = repr(exc)
 
-        raise Exception(f"Error in `run_preprocess`: {msg}") from exc
     except HTTPException as exc:
         # Source file / table not found errors
+        status = "FAILED"
         panel_data = None
         output_path = None
-        raise Exception(f"Error in `run_preprocess`: {exc}") from exc
-    except ValueError as exc:
-        # Data cleaning errors
-        panel_data = None
-        output_path = None
-        raise Exception(f"Error in `run_preprocess`: {exc}") from exc
+        msg = repr(exc)
+
     except Exception as exc:
+        status = "FAILED"
         panel_data = None
         output_path = None
-        raise Exception(f"Error in `run_preprocess`: {repr(exc)}") from exc
+        msg = repr(exc)
 
-    return panel_data, output_path
-
-
-@stub.function
-def run_embeddings(
-    panel_data: pl.DataFrame,
-    source_id: int,
-    data_fields: Mapping[str, Any],
-    storage_bucket_name: str,
-):
-    try:
-        ts_emb_flow = modal.Function.lookup("functime-embeddings", "ts_emb_flow")
-        embeddings_paths = {}
-        # Unpack panel data cols based on source type
-        entity_col = panel_data.columns[0]
-        target_col = data_fields.get("target_col", data_fields.get("price_col"))
-
-        logger.info(f"Generating embeddings for panel with source: {source_id}")
-        # Generate embeddings for panel
-        ts_emb_flow.call(
-            panel_data,
-            entity_col=entity_col,
-            target_col=target_col,
-            s3_bucket=storage_bucket_name,
-            s3_key=f"embeddings/{source_id}/ts/",
-        )
-        # Export embeddings to s3
-        embeddings_paths["ts"] = f"embeddings/{source_id}/ts/embeddings_ts.lance/"
-        logger.info(f"Completed embeddings for panel with source: {source_id}")
-    except Exception as exc:
-        raise Exception(f"Error in `run_embeddings`: {repr(exc)}") from exc
-
-
-@stub.function(
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
-def run_preprocess_and_embs(
-    user_id: int,
-    source_id: int,
-    source_tag: str,
-    conn_fields: Mapping[str, Any],
-    source_type: str,
-    data_fields: Mapping[str, Any],
-    storage_tag: str,
-    storage_bucket_name: str,
-):
-    try:
-        status, msg = "SUCCESS", "OK"
-        panel_data, output_path = run_preprocess(
-            user_id=user_id,
-            source_id=source_id,
-            source_tag=source_tag,
-            conn_fields=conn_fields,
-            source_type=source_type,
-            data_fields=data_fields,
-            storage_tag=storage_tag,
-            storage_bucket_name=storage_bucket_name,
-        )
-
+    else:
+        # Build embeddings
         run_embeddings(
             panel_data=panel_data,
             source_id=source_id,
             data_fields=data_fields,
             storage_bucket_name=storage_bucket_name,
         )
-    except (Exception, pl.PolarsPanicError) as exc:
-        output_path = None
-        status, msg = "FAILED", repr(exc)
-        logger.exception(msg)
+
     finally:
+        # Update state in database
         _update_source(
             source_id=source_id,
             updated_at=datetime.utcnow(),
@@ -430,14 +396,7 @@ def run_preprocess_and_embs(
             msg=msg,
         )
 
-
-def _get_all_sources() -> List[Source]:
-    with Session(engine) as session:
-        query = select(Source)
-        sources = session.exec(query).all()
-        if not sources:
-            raise HTTPException(status_code=404, detail="Source not found")
-        return sources
+    return panel_data
 
 
 @stub.function(
@@ -452,18 +411,18 @@ def _get_all_sources() -> List[Source]:
     schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
 )
 def flow():
-    logger.info("Flow started")
     # 1. Get all sources
-    sources = _get_all_sources()
+    with Session(engine) as session:
+        query = select(Source)
+        sources = session.exec(query).all()
+        if not sources:
+            raise HTTPException(status_code=404, detail="Source not found")
 
-    futures = {}
     for source in sources:
         logger.info(f"Checking source: {source.id}")
         data_fields = json.loads(source.data_fields)
-
         # 2. Get user
         user = get_user(source.user_id)
-
         # 3. Check freq from source for schedule
         duration = FREQ_TO_DURATION[data_fields["freq"]]
         updated_at = source.updated_at.replace(microsecond=0)
@@ -473,12 +432,12 @@ def flow():
         else:
             run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
         logger.info(f"Next run at: {run_dt}")
-
         # 4. Run preprocess flow
         current_datetime = datetime.now().replace(microsecond=0)
+        futures = []
         if (current_datetime >= run_dt) or source.status == "FAILED":
             # Spawn preprocess and embs flow for source
-            futures[source.id] = run_preprocess_and_embs.spawn(
+            futures.append(run_preprocess.spawn(
                 user_id=source.user_id,
                 source_id=source.id,
                 source_tag=source.tag,
@@ -487,14 +446,9 @@ def flow():
                 data_fields=data_fields,
                 storage_tag=user.storage_tag,
                 storage_bucket_name=user.storage_bucket_name,
-            )
-    # 5. Get future for each source
-    for source_id, future in futures.items():
-        logger.info(f"Running preprocess flow for source: {source_id}")
-        future.get()
-        logger.info(f"Preprocess flow completed for source: {source_id}")
-
-    logger.info("Flow completed")
+            ))
+        results = [future.get() for future in futures]
+        return results
 
 
 @stub.local_entrypoint
@@ -522,7 +476,6 @@ def test():
     # User
     storage_tag = "s3"
     storage_bucket_name = "indexhub-demo"
-
     run_preprocess(
         user_id=user_id,
         source_id=source_id,
