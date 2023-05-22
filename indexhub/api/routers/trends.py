@@ -7,7 +7,7 @@ import polars as pl
 from sqlmodel import Session
 
 from indexhub.api.db import engine
-from indexhub.api.demos import DEMOS_TO_PATHS
+from indexhub.api.demos import DEMO_SCHEMAS, DEMO_BUCKET
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
@@ -178,47 +178,55 @@ def _create_trend_chart(chart_data: pl.DataFrame):
     return chart
 
 
-@router.get("/trends/public/emb/{dataset_id}")
-def get_trend_emb(
-    dataset_id: int,
-):
+@router.get("/trends/public/vectors/{dataset_id}")
+def get_public_embs(dataset_id: int, dim_size: int = 3):
+    read = partial(
+        SOURCE_TAG_TO_READER["s3"],
+        bucket_name=DEMO_BUCKET,
+        file_ext="lance",
+    )
+    entity_col = DEMO_SCHEMAS[dataset_id]["entity_col"]
+    path = DEMO_SCHEMAS[dataset_id]["vectors"]
+    data = read(object_path=path, columns=[entity_col, f"emb(n={dim_size})", "cluster_id"])
+    # Return spec for scatter gl
+    # TODO: Replace labels with cluster IDs and add entities field
+    spec = {
+        "labels": list(range(len(data))),
+        "labelNames": data.get_column(entity_col).to_list(),
+        "projection": data.get_column(f"emb(n={dim_size})").to_list(),
+    }
+    return spec
+
+
+@router.get("/trends/private/vectors/{objective_id}")
+def get_private_embs(objective_id: int, dim_size: int = 3):
     pass
 
 
-@router.get("/trends/private/emb/{objective_id}")
-def get_trend_emb(
-    objective_id: int,
-):
-    pass
-
-
-@router.get("/trends/public/{dataset_id}/{entity}")
+@router.get("/trends/public/charts/{dataset_id}/{entity}")
 def get_public_trend_chart(dataset_id: int, entity: str):
     read = partial(
         SOURCE_TAG_TO_READER["s3"],
-        bucket_name="indexhub-public-trends",
+        bucket_name=DEMO_BUCKET,
         file_ext="parquet",
     )
-
     # Read artifacts
-    paths = DEMOS_TO_PATHS[dataset_id]
+    paths = DEMO_SCHEMAS[dataset_id]
     chart_data = _create_trend_data(
         paths=paths,
         entity=entity,
         read=read,
     )
-
     # Create chart
-    chart = _create_trend_chart(chart_data)
+    chart = _create_trend_chart(chart_data).to_json()
     return chart
 
 
-@router.get("/trends/private/{objective_id}/{entity}")
+@router.get("/trends/private/charts/{objective_id}/{entity}")
 def get_private_trend_chart(objective_id: int, entity: str):
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         user = session.get(User, objective.user_id)
-
         # Get credentials
         storage_creds = get_aws_secret(
             tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -229,7 +237,6 @@ def get_private_trend_chart(objective_id: int, entity: str):
             file_ext="parquet",
             **storage_creds,
         )
-
         # Read artifacts
         outputs = json.loads(objective.outputs)
         paths = {
@@ -243,8 +250,6 @@ def get_private_trend_chart(objective_id: int, entity: str):
             entity=entity,
             read=read,
         )
-
         # Create chart
-        chart = _create_trend_chart(chart_data)
-
+        chart = _create_trend_chart(chart_data).to_json()
     return chart

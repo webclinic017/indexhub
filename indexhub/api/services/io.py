@@ -12,6 +12,7 @@ from indexhub.api.services.parsers import (
     parse_excel,
     parse_json,
     parse_parquet,
+    parse_lance
 )
 
 
@@ -19,6 +20,7 @@ FILE_EXT_TO_PARSER = {
     "excel": parse_excel,
     "csv": parse_csv,
     "parquet": parse_parquet,
+    "lance": parse_lance,
     "json": parse_json,
 }
 
@@ -42,9 +44,21 @@ def read_data_from_s3(
             aws_secret_access_key=AWS_SECRET_KEY_ID,
         )
         try:
-            obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
-                "Body"
-            ].read()
+            if file_ext != "lance":
+                obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
+                    "Body"
+                ].read()
+            else:
+                # NOTE: lance only suports URIs w/o kwargs for creds
+                import lance
+                # Get presigned URI
+                uri = s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": bucket_name, "Key": object_path},
+                    ExpiresIn=180  # Expires in 3 minutes
+                )
+                # Lance dataset
+                obj = lance.dataset(uri)
         except botocore.exceptions.ClientError as err:
             error_code = err.response["Error"]["Code"]
             if error_code == "NoSuchBucket":

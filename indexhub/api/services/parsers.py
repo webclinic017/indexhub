@@ -9,7 +9,7 @@ from xlsx2csv import InvalidXlsxFileException
 
 
 def parse_excel(
-    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_excel(
@@ -31,7 +31,7 @@ def parse_excel(
 
 
 def parse_csv(
-    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_csv(io.BytesIO(obj), n_rows=n_rows)
@@ -42,7 +42,7 @@ def parse_csv(
 
 
 def parse_parquet(
-    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_parquet(io.BytesIO(obj), n_rows=n_rows, columns=columns)
@@ -50,10 +50,18 @@ def parse_parquet(
         raise HTTPException(status_code=400, detail="Invalid parquet file") from err
     else:
         return raw_panel
+    
+
+def parse_lance(
+    obj, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+) -> pl.DataFrame:
+    table = obj.to_table(limit=n_rows, columns=columns)
+    data = pl.from_arrow(table)
+    return data
 
 
 def parse_json(
-    obj: str, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
 ) -> dict:
     try:
         content = obj.decode("utf-8")
