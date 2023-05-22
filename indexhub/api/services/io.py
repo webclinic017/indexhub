@@ -1,6 +1,7 @@
 import io
 from typing import List, Optional
 
+import os
 import boto3
 import botocore
 import polars as pl
@@ -55,6 +56,7 @@ def read_data_from_s3(
                 uri = s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": bucket_name, "Key": object_path},
+                    RegionName=os.environ["AWS_DEFAULT_REGION"],
                     ExpiresIn=180  # Expires in 3 minutes
                 )
                 # Lance dataset
