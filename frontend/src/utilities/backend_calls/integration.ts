@@ -1,7 +1,7 @@
 export const getAllIntegrations = async (
     access_token_indexhub_api: string
 ) => {
-    const get_all_integrations_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/integrations/all`;
+    const get_all_integrations_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/integrations`;
 
     const get_all_integrations_response = await fetch(get_all_integrations_url, {
         method: "GET",

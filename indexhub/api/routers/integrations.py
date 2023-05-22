@@ -10,7 +10,7 @@ from indexhub.api.models.user import User
 from indexhub.api.routers import router
 
 
-@router.get("/integrations/all")
+@router.get("/integrations")
 def list_integrations():
     with Session(engine) as session:
         query = select(Integration)
