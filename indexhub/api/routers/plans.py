@@ -81,7 +81,7 @@ def _execute_forecast_plan(
     revised_plan = (
         read(object_path=outputs["best_plan"])
         .lazy()
-        .pipe(lambda df: df.rename({df.columns[0]: "entity"}))
+        .pipe(lambda df: df.rename({df.columns[0]: "entity", "best_plan": "plan"}))
     )
 
     if updated_plans is not None:
@@ -91,7 +91,7 @@ def _execute_forecast_plan(
             .join(updated_plans, on=["entity", "fh"], how="left").with_columns(
                 [
                     # If "use" is null, use default
-                    pl.when(pl.col("updated_use").is_null()).then(pl.col("best_plan"))
+                    pl.when(pl.col("updated_use").is_null()).then(pl.col("plan"))
                     # Otherwise, override default
                     .otherwise(
                         pl.when(pl.col("updated_use") == "override")
