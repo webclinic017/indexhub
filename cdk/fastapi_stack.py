@@ -115,6 +115,8 @@ class FastAPIStack(Stack):
                     resources=[
                         "arn:aws:s3:::indexhub-feature-store",
                         "arn:aws:s3:::indexhub-feature-store/*",
+                        "arn:aws:s3:::indexhub-public-trends",
+                        "arn:aws:s3:::indexhub-public-trends/*",
                     ],
                 ),
                 iam.PolicyStatement(
