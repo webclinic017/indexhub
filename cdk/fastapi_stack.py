@@ -1,5 +1,6 @@
 import os
 
+import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_ecs as ecs
 import aws_cdk.aws_ecs_patterns as ecs_patterns
@@ -141,7 +142,9 @@ class FastAPIStack(Stack):
         # ECS Task
         image_options = ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
             image=ecs.ContainerImage.from_asset(
-                directory=".", file="indexhub/Dockerfile"
+                directory=".",
+                file="indexhub/Dockerfile",
+                follow_symlinks=cdk.SymlinkFollowMode.ALWAYS,
             ),
             container_port=8000,
             environment={
