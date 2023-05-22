@@ -33,7 +33,7 @@ def list_objective_schemas(user_id: str):
     with Session(engine) as session:
         query = select(Source).where(Source.user_id == user_id)
         sources = session.exec(query).all()
-        schemas = OBJECTIVE_SCHEMAS(sources=sources)
+        schemas = OBJECTIVE_SCHEMAS(sources=sources or [])
     return schemas
 
 
