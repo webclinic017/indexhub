@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import os
 import boto3
+import modal
 import botocore
 import polars as pl
 from fastapi import HTTPException
@@ -24,6 +25,23 @@ FILE_EXT_TO_PARSER = {
     "lance": parse_lance,
     "json": parse_json,
 }
+
+
+image = modal.Image.debian_slim().pip_install("pylance")
+stub = modal.Stub(name="indexhub-io")
+
+
+@stub.Function(
+    name="read-lance-dataset",
+    memory=5120,
+    cpu=4.0,
+    secrets=[
+        modal.Secret.from_name("aws-credentials"),
+    ]
+)
+def read_lance_dataset(uri: str):
+    import lance
+    return lance.dataset(uri)
 
 
 def read_data_from_s3(
@@ -50,17 +68,15 @@ def read_data_from_s3(
                     "Body"
                 ].read()
             else:
-                # NOTE: lance only suports URIs w/o kwargs for creds
-                import lance
                 # Get presigned URI
                 uri = s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": bucket_name, "Key": object_path},
                     RegionName=os.environ["AWS_DEFAULT_REGION"],
-                    ExpiresIn=180  # Expires in 3 minutes
+                    ExpiresIn=600  # Expires in 10 minutes
                 )
-                # Lance dataset
-                obj = lance.dataset(uri)
+                read = modal.Function.lookup("indexhub-io", "read-lance-dataset")
+                obj = read(uri)
         except botocore.exceptions.ClientError as err:
             error_code = err.response["Error"]["Code"]
             if error_code == "NoSuchBucket":
