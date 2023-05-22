@@ -207,36 +207,7 @@ const ObjectivesDashboard = () => {
             </Card>
           </Grid>
         </>
-      ) : (
-        <Box width="100%" as="section" bg="bg-surface">
-          <Container maxWidth="unset" py={{ base: "16", md: "24" }}>
-            <Stack spacing={{ base: "8", md: "10" }}>
-              <Stack spacing={{ base: "4", md: "5" }} align="center">
-                <Heading>Ready to Grow?</Heading>
-                <Text color="muted" maxW="2xl" textAlign="center" fontSize="xl">
-                  With these comprehensive objectives you will be able to analyse
-                  the past with statistical context and look into the future of
-                  what you care most!
-                </Text>
-              </Stack>
-              <Stack
-                spacing="3"
-                direction={{ base: "column", sm: "row" }}
-                justify="center"
-              >
-                <Button
-                  as={Link}
-                  colorScheme="facebook"
-                  size="lg"
-                  to="/objectives/new_objective"
-                >
-                  Create Objective
-                </Button>
-              </Stack>
-            </Stack>
-          </Container>
-        </Box>
-      )}
+      ) : <></>}
     </VStack>
   );
 };
