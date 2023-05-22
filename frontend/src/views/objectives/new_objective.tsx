@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Container, Stack, useToast } from "@chakra-ui/react";
+import { Container, Stack, Text, VStack, useToast } from "@chakra-ui/react";
 import { useEffect } from "react";
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
 import { useSelector } from "react-redux";
@@ -158,20 +158,25 @@ const NewObjective = () => {
   }, [access_token_indexhub_api, user_details]);
 
   return (
-    <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
-      <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
-        {steps.map((step, id) => (
-          <Step
-            key={id}
-            title={step.title}
-            description={step.description}
-            isActive={currentStep === id}
-            isCompleted={currentStep > id}
-          />
-        ))}
-      </Stack>
-      {stepScreens[currentStep]}
-    </Container>
+    <VStack width="100%">
+      <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
+        New Objective
+      </Text>
+      <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
+        <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
+          {steps.map((step, id) => (
+            <Step
+              key={id}
+              title={step.title}
+              description={step.description}
+              isActive={currentStep === id}
+              isCompleted={currentStep > id}
+            />
+          ))}
+        </Stack>
+        {stepScreens[currentStep]}
+      </Container>
+    </VStack>
   );
 };
 
