@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -23,15 +23,18 @@ const getOptions = (options: string[]) => {
 };
 
 const SourcePath = (props: {
-  source_type: string;
+  source_tag: string;
   conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   goToPrevStep: () => void;
   submitSourcePath: (configs: Record<string, string>) => Promise<void>;
 }) => {
-  const configs: Record<string, string> = {};
+  // const configs: Record<string, string> = {};
+  const [configs, setConfigs] = useState<Record<string, string>>({})
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schema_variables: Record<string, any> =
-    props.conn_schema[props.source_type]["conn_fields"];
+    props.conn_schema[props.source_tag]["conn_fields"];
+
+
   return (
     <Box
       as="form"
@@ -48,7 +51,10 @@ const SourcePath = (props: {
         <FormControl isRequired>
           <FormLabel>Source name</FormLabel>
           <Input
-            onChange={(e) => (configs["source_name"] = e.currentTarget.value)}
+            onChange={(e) => {
+              configs["source_name"] = e.currentTarget.value
+              setConfigs(structuredClone(configs))
+            }}
             placeholder="Name for your new source"
           />
         </FormControl>
@@ -61,13 +67,18 @@ const SourcePath = (props: {
               <FormLabel>{schema_variables[variable]["title"]}</FormLabel>
               {!has_values && (
                 <Input
-                  onChange={(e) => (configs[variable] = e.currentTarget.value)}
+                  onChange={(e) => {
+                    configs[variable] = e.currentTarget.value
+                    setConfigs(structuredClone(configs))
+                  }}
                 />
               )}
               {has_values && (
                 <Select
-                  onChange={(value) =>
-                    (configs[variable] = value ? value.value : "")
+                  onChange={(value) => {
+                    configs[variable] = value ? value.value : ""
+                    setConfigs(structuredClone(configs))
+                  }
                   }
                   useBasicStyles
                   options={getOptions(schema_variables[variable]["values"])}

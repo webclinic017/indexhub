@@ -154,7 +154,7 @@ export default function Layout() {
           </Container>
         </GridItem>
         <GridItem bg="navbar.background" area="nav"><Sidebar /></GridItem>
-        <GridItem px="3" bg="body.background" area={"main"} overflowY="scroll">
+        <GridItem px="6" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet />
         </GridItem>
       </Grid>
@@ -163,7 +163,7 @@ export default function Layout() {
         <ModalContent>
           <ModalCloseButton />
           <ModalBody>
-            <NewSource />
+            <NewSource onCloseNewSourceModal={onCloseNewSourceModal} />
           </ModalBody>
         </ModalContent>
       </Modal>

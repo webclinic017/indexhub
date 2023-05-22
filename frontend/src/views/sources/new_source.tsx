@@ -51,20 +51,18 @@ const steps = [
   },
 ];
 
-export default function NewSource() {
+export default function NewSource(props: {
+  onCloseNewSourceModal: () => void
+}) {
   const [conn_schema, setConnectionsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [datasets_schema, setDatasetsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  const [source_type, setSourceType] = useState("");
-  const [source_configs, setSourceConfigs] = useState<Record<string, string>>(
+  const [source_tag, setSourceTag] = useState("");
+  const [source_configs, setSourceConfigs] = useState<Record<string, any>>(
     {}
   );
   const [source_columns, setSourceColumns] = useState([""]);
   const [column_options, setColumnOptions] = useState([""]);
-  const [time_col, setTimeCol] = useState("");
-  const [freq, setFreq] = useState("d");
-  const [entity_cols, setEntityCols] = useState<string[]>([]);
-  const [feature_cols, setFeatureCols] = useState<string[]>([]);
   const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
     maxStep: steps.length,
   });
@@ -102,28 +100,10 @@ export default function NewSource() {
     setColumnOptions(source_columns);
   }, [source_columns]);
 
-  useEffect(() => {
-    let selected_columns: string[] = entity_cols.concat([]);
-    selected_columns.push(time_col);
-    selected_columns = selected_columns.filter((val) => {
-      return val != "";
-    });
 
-    const optionsToRemove = new Set(selected_columns);
-
-    const new_options = source_columns.filter((col) => {
-      return !optionsToRemove.has(col);
-    });
-
-    setColumnOptions(new_options);
-    setFeatureCols(new_options);
-  }, [time_col, entity_cols]);
-
-  const submitSourceType = (source_type: string) => {
-    console.log(source_type)
-    console.log(conn_schema)
-    setSourceType(source_type);
-    if (conn_schema[source_type]["is_authenticated"]) {
+  const submitSourceType = (source_tag: string) => {
+    setSourceTag(source_tag);
+    if (conn_schema[source_tag]["is_authenticated"]) {
       goToNextStep();
     } else {
       onOpen();
@@ -133,7 +113,7 @@ export default function NewSource() {
   const submitSourceCreds = async (source_creds: Record<string, string>) => {
     const response = await createCredentials(
       source_creds,
-      source_type,
+      source_tag,
       user_details.id,
       access_token_indexhub_api
     );
@@ -142,7 +122,7 @@ export default function NewSource() {
       Toast(
         toast,
         "Credentials Stored",
-        `Credentials for your ${source_type} source have been securely stored`,
+        `Credentials for your ${source_tag} source have been securely stored`,
         "success"
       );
       goToNextStep();
@@ -153,13 +133,13 @@ export default function NewSource() {
 
   const submitSourcePath = async (configs: Record<string, string>) => {
     if (
-      Object.keys(conn_schema[source_type]["conn_fields"]).every((variable) =>
+      Object.keys(conn_schema[source_tag]["conn_fields"]).every((variable) =>
         Object.keys(configs).includes(variable)
       ) &&
       Object.keys(configs).includes("source_name")
     ) {
       let source_columns: Record<string, any> = []; // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (source_type == "s3") {
+      if (source_tag == "s3") {
         source_columns = await getS3SourceColumns(
           configs["bucket_name"],
           configs["object_path"],
@@ -184,8 +164,30 @@ export default function NewSource() {
     }
   };
 
-  const submitSourceConfig = () => {
-    if (time_col && freq && entity_cols && feature_cols) {
+  const submitSourceConfig = (datasetConfigs: Record<any, any>, datasetType: string) => {
+
+    let required_fields_filled = false
+    let concatenated_selected_columns: string[] = []
+
+    if (datasetType == "panel") {
+      required_fields_filled = (datasetConfigs["datetime_fmt"] && datasetConfigs["entity_cols"] && datasetConfigs["freq"] && datasetConfigs["target_col"] && datasetConfigs["time_col"])
+      concatenated_selected_columns = concatenated_selected_columns.concat(datasetConfigs["entity_cols"], datasetConfigs["feature_cols"], [datasetConfigs["target_col"], datasetConfigs["time_col"]])
+    } else if (datasetType == "transaction") {
+      required_fields_filled = (datasetConfigs["datetime_fmt"] && datasetConfigs["freq"] && datasetConfigs["time_col"] && datasetConfigs["invoice_col"] && datasetConfigs["price_col"] && datasetConfigs["quantity_col"] && datasetConfigs["product_col"])
+      concatenated_selected_columns = concatenated_selected_columns.concat(datasetConfigs["entity_cols"], datasetConfigs["feature_cols"], [datasetConfigs["target_col"], datasetConfigs["time_col"]], datasetConfigs["invoice_col"], datasetConfigs["price_col"], datasetConfigs["quantity_col"], datasetConfigs["product_col"])
+    }
+
+    const no_duplicate_columns = concatenated_selected_columns.length == new Set(concatenated_selected_columns).size
+
+    const new_source_configs = {
+      ...source_configs,
+      ...datasetConfigs,
+      dataset_type: datasetType
+    }
+
+    setSourceConfigs(new_source_configs)
+
+    if (required_fields_filled && no_duplicate_columns) {
       goToNextStep();
     } else {
       Toast(
@@ -200,14 +202,8 @@ export default function NewSource() {
   const createSource = async () => {
     const create_source_response = await createSourceApi(
       user_details.id,
-      source_configs["source_name"],
-      freq,
-      time_col,
-      entity_cols,
-      feature_cols,
-      source_type,
+      source_tag,
       source_configs,
-      "datetime_ftm_str",
       access_token_indexhub_api
     );
     if (Object.keys(create_source_response).includes("source_id")) {
@@ -217,7 +213,7 @@ export default function NewSource() {
         "We will let you know when it's ready to create reports",
         "info"
       );
-      navigate("/sources");
+      props.onCloseNewSourceModal();
     } else {
       Toast(toast, "Error", create_source_response["detail"], "error");
     }
@@ -232,15 +228,11 @@ export default function NewSource() {
     ),
     1: (
       <SourcePath
-        source_type={source_type}
+        source_tag={source_tag}
         conn_schema={conn_schema}
         goToPrevStep={goToPrevStep}
         submitSourcePath={submitSourcePath}
       />
-      // <SourceType
-      //   conn_schema={conn_schema}
-      //   submitSourceType={submitSourceType}
-      // />
     ),
     2: (
       <ConfigureSource
@@ -248,29 +240,18 @@ export default function NewSource() {
         datasets_schema={datasets_schema}
         submitSourceConfig={submitSourceConfig}
         goToPrevStep={goToPrevStep}
-        setTimeCol={setTimeCol}
-        setFreq={setFreq}
-        setEntityCols={setEntityCols}
       />
     ),
     3: (
       <ConfirmCreateSource
+        source_configs={source_configs}
+        source_tag={source_tag}
         createSource={createSource}
         goToPrevStep={goToPrevStep}
-        source_name={source_configs["source_name"]}
-        s3_data_bucket={source_configs["bucket_name"]}
-        raw_source_path={source_configs["object_path"]}
-        freq={freq}
-        time_col={time_col}
-        feature_cols={feature_cols}
-        entity_cols={entity_cols}
       />
     ),
   };
 
-  useEffect(() => {
-    console.log(datasets_schema)
-  }, [datasets_schema])
 
   return (
     <>
@@ -298,10 +279,10 @@ export default function NewSource() {
             </ModalHeader>
             <ModalCloseButton />
             <ModalBody>
-              {source_type && (
+              {source_tag && (
                 <SourceCredentials
                   required_credentials_schema={
-                    conn_schema[source_type]["credentials"]
+                    conn_schema[source_tag]["credentials"]
                   }
                   submitSourceCreds={submitSourceCreds}
                 />

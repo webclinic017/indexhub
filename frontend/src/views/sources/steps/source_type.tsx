@@ -24,7 +24,7 @@ const logos: Record<string, any> = {
 
 const SourceType = (props: {
   conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  submitSourceType: (source_type: string) => void;
+  submitSourceType: (source_tag: string) => void;
 }) => {
   return (
     <Box
@@ -40,7 +40,7 @@ const SourceType = (props: {
         py={{ base: "5", md: "6" }}
       >
         <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-          {Object.keys(props.conn_schema).map((source_type, idx) => {
+          {Object.keys(props.conn_schema).map((source_tag, idx) => {
             return (
               <Card
                 cursor="pointer"
@@ -48,7 +48,7 @@ const SourceType = (props: {
                 borderRadius="lg"
                 key={idx}
                 onClick={() => {
-                  props.submitSourceType(source_type);
+                  props.submitSourceType(source_tag);
                 }}
               >
                 <CardBody>
@@ -60,7 +60,7 @@ const SourceType = (props: {
                         beatFade
                         style={{
                           color:
-                            props.conn_schema[source_type][
+                            props.conn_schema[source_tag][
                               "is_authenticated"
                             ] == true
                               ? colors.supplementary.indicators.main_green
@@ -71,24 +71,24 @@ const SourceType = (props: {
                         textAlign="center"
                         fontSize="2xs"
                         color={
-                          props.conn_schema[source_type][
+                          props.conn_schema[source_tag][
                             "is_authenticated"
                           ] == true
                             ? colors.supplementary.indicators.main_green
                             : colors.supplementary.indicators.main_red
                         }
                       >
-                        {props.conn_schema[source_type][
+                        {props.conn_schema[source_tag][
                           "is_authenticated"
                         ] == true
                           ? "HAS CREDENTIALS"
                           : "NEEDS CREDENTIALS"}
                       </Text>
                     </HStack>
-                    <Box p="6">{logos[source_type]}</Box>
+                    <Box p="6">{logos[source_tag]}</Box>
                     <Box p="4">
                       <Text textAlign="center" fontWeight="bold">
-                        {capitalizeFirstLetter(source_type)}
+                        {capitalizeFirstLetter(source_tag)}
                       </Text>
                     </Box>
                   </VStack>

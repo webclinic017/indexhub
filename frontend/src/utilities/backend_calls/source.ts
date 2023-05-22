@@ -1,13 +1,7 @@
 export const createSource = async (
   user_id: string,
-  source_name: string,
-  freq: string,
-  time_col: string,
-  entity_cols: string[],
-  feature_cols: string[],
-  source_type: string,
-  source_configs: Record<string, string>,
-  datetime_fmt: string,
+  source_tag: string,
+  source_configs: Record<string, any>,
   access_token_indexhub_api: string
 ) => {
   const create_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources`;
@@ -19,16 +13,28 @@ export const createSource = async (
     },
     body: JSON.stringify({
       user_id: user_id,
-      tag: source_type,
-      name: source_name,
-      variables: JSON.stringify(source_configs),
-      freq: freq,
-      datetime_fmt: datetime_fmt,
-      columns: JSON.stringify({
-        entity_cols: entity_cols,
-        time_col: time_col,
-        feature_cols: feature_cols,
+      tag: source_tag,
+      name: source_configs["source_name"],
+      dataset_type: source_configs["dataset_type"],
+      conn_fields: JSON.stringify({
+        object_path: source_configs["object_path"],
+        bucket_name: source_configs["bucket_name"],
+        file_ext: source_configs["file_ext"]
       }),
+      data_fields: JSON.stringify({
+        entity_cols: source_configs["entity_cols"],
+        time_col: source_configs["time_col"],
+        target_col: source_configs["target_col"],
+        feature_cols: source_configs["feature_cols"],
+        agg_method: source_configs["agg_method"],
+        impute_method: source_configs["impute_method"],
+        freq: source_configs["freq"],
+        datetime_fmt: source_configs["datetime_fmt"],
+        invoice_col: source_configs["invoice_col"],
+        price_col: source_configs["price_col"],
+        quantity_col: source_configs["quantity_col"],
+        product_col: source_configs["product_col"],
+      })
     }),
   });
 

@@ -130,8 +130,8 @@ export default function DataAndIntegrations() {
       const sources: Record<"sources", Source[]> = JSON.parse(lastMessage.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sources["sources"].map((source: Record<string, any>) => {
-        source["fields"] = JSON.parse(source["fields"]);
-        source["variables"] = JSON.parse(source["variables"]);
+        source["data_fields"] = JSON.parse(source["data_fields"]);
+        source["conn_fieldls"] = JSON.parse(source["conn_fields"]);
       });
       setSources(sources["sources"]);
 
@@ -324,7 +324,7 @@ export default function DataAndIntegrations() {
         <ModalContent>
           <ModalCloseButton />
           <ModalBody>
-            <NewSource />
+            <NewSource onCloseNewSourceModal={onCloseNewSourceModal} />
           </ModalBody>
         </ModalContent>
       </Modal>

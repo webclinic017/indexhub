@@ -11,13 +11,8 @@ import {
 } from "@chakra-ui/react";
 
 const ConfirmCreateSource = (props: {
-  raw_source_path: string;
-  s3_data_bucket: string;
-  source_name: string;
-  freq: string;
-  time_col: string;
-  feature_cols: string[];
-  entity_cols: string[];
+  source_configs: Record<string, any>;
+  source_tag: string
   createSource: () => void;
   goToPrevStep: () => void;
 }) => {
@@ -46,7 +41,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Source name:
               </Text>
-              <Text width="70%">{props.source_name}</Text>
+              <Text width="70%">{props.source_configs["source_name"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -57,7 +52,7 @@ const ConfirmCreateSource = (props: {
                 Source path:
               </Text>
               <Text width="70%">
-                s3://{props.s3_data_bucket}/{props.raw_source_path}
+                {props.source_tag}://{props.source_configs["bucket_name"]}/{props.source_configs["object_path"]}
               </Text>
             </Stack>
             <Stack
@@ -68,7 +63,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Frequency:
               </Text>
-              <Text width="70%">{props.freq}</Text>
+              <Text width="70%">{props.source_configs["freq"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -78,7 +73,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Time col:
               </Text>
-              <Text width="70%">{props.time_col}</Text>
+              <Text width="70%">{props.source_configs["time_col"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -88,7 +83,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Target column(s)
               </Text>
-              <Text width="70%">{props.feature_cols.join(", ")}</Text>
+              <Text width="70%">{props.source_configs["target_col"]}</Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -98,7 +93,7 @@ const ConfirmCreateSource = (props: {
               <Text width="30%" fontWeight="bold">
                 Entity column(s)
               </Text>
-              <Text width="70%">{props.entity_cols.join(", ")}</Text>
+              <Text width="70%">{props.source_configs["entity_cols"].join(", ")}</Text>
             </Stack>
           </Stack>
         </Stack>

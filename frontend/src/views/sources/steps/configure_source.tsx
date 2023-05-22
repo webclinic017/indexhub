@@ -1,14 +1,20 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
+  Card,
+  CardBody,
   Divider,
   Flex,
   FormControl,
   FormLabel,
+  HStack,
   Stack,
+  Text,
+  VStack,
 } from "@chakra-ui/react";
 import { Select, MultiValue } from "chakra-react-select";
+import { capitalizeFirstLetter } from "../../../utilities/helpers";
 
 const setColumnValue = (
   values: MultiValue<Record<any, string>>, // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -55,14 +61,14 @@ const getValuesArray = (values: MultiValue<Record<any, string>>) => {
 const ConfigureSource = (props: {
   column_options: string[];
   datasets_schema: Record<any, any>;
-  submitSourceConfig: () => void;
+  submitSourceConfig: (datasetConfigs: Record<any, any>, datasetType: string) => void
   goToPrevStep: () => void;
-  setTimeCol: React.Dispatch<React.SetStateAction<string>>;
-  setFreq: React.Dispatch<React.SetStateAction<string>>;
-  setEntityCols: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
   const options = getOptions(props.column_options);
-  const dataset_configs: Record<any, any> = {}
+  const [datasetConfigs, setDatasetConfigs] = useState<Record<any, any>>({})
+  const [datasetType, setDatasetType] = useState<string | null>(null)
+
+
   return (
     <Box
       as="form"
@@ -71,63 +77,107 @@ const ConfigureSource = (props: {
       borderStyle="solid"
       borderRadius="lg"
     >
-      <Stack
-        spacing="5"
-        px={{ base: "4", md: "6" }}
-        py={{ base: "5", md: "6" }}
-      >
-        {Object.keys(props.datasets_schema["transaction"]["data_fields"]).map(
-          (config_field: string, idx: number) => {
-            const has_values = props.datasets_schema["transaction"]["data_fields"][config_field][
-              "values"
-            ]
-              ? true
-              : false;
+      <HStack width="100%">
+        {Object.keys(props.datasets_schema).map((source_type, idx) => {
+          return (
+            <Card
+              width="50%"
+              cursor="pointer"
+              boxShadow="md"
+              borderRadius="lg"
+              key={idx}
+              backgroundColor={datasetType == source_type ? "table.header_background" : ""}
+              onClick={() => {
+                setDatasetType(source_type)
+              }}
+            >
+              <CardBody>
+                <VStack>
+                  {/* <Box p="6">{logos[source_type]}</Box> */}
+                  <Box p="4">
+                    <Text textAlign="center" fontWeight="bold">
+                      {capitalizeFirstLetter(source_type).replaceAll("_", " ")}
+                    </Text>
+                  </Box>
+                  <Box p="1" width="100%" borderBottomRadius="lg">
+                    <Text textAlign="center" fontSize="small">
+                      {props.datasets_schema[source_type]["description"]}
+                    </Text>
+                  </Box>
+                </VStack>
+              </CardBody>
+            </Card>
+          )
+        })}
+      </HStack>
+      {datasetType ? (
+        <Stack
+          spacing="5"
+          px={{ base: "4", md: "6" }}
+          py={{ base: "5", md: "6" }}
+          height="20rem"
+          overflowX="scroll"
+        >
+          {Object.keys(props.datasets_schema[datasetType]["data_fields"]).map(
+            (config_field: string, idx: number) => {
+              const has_values = props.datasets_schema[datasetType]["data_fields"][config_field][
+                "values"
+              ]
+                ? true
+                : false;
 
-            const is_multiple = props.datasets_schema["transaction"]["data_fields"][config_field][
-              "is_multiple"
-            ]
-              ? true
-              : false;
+              const is_multiple = props.datasets_schema[datasetType]["data_fields"][config_field][
+                "is_multiple"
+              ]
+                ? true
+                : false;
 
-            // const is_required = props.datasets_schema["transaction"]["data_fields"][config_field][
-            //   "is_required"
-            // ]
-            //   ? true
-            //   : false;
+              const is_required = props.datasets_schema[datasetType]["data_fields"][config_field][
+                "is_required"
+              ]
+                ? true
+                : false;
 
-            return (
-              <FormControl isRequired key={idx}>
-                <FormLabel>
-                  {props.datasets_schema["transaction"]["data_fields"][config_field]["title"]}
-                </FormLabel>
-                <Select
-                  isMulti={is_multiple ? true : false}
-                  onChange={(value) => {
-                    dataset_configs[config_field] = value
-                      ? is_multiple
-                        ? getValuesArray(value)
-                        : value.value
-                      : "";
-                  }}
-                  useBasicStyles
-                  options={has_values ?
-                    getOptionsArray(
-                      props.datasets_schema["transaction"]["data_fields"][config_field]["values"]
-                    ) : options
-                  }
-                />
-              </FormControl>
-            );
-          }
-        )}
-      </Stack>
+              return (
+                <FormControl isRequired={is_required} key={idx}>
+                  <FormLabel>
+                    {props.datasets_schema[datasetType]["data_fields"][config_field]["title"]}
+                  </FormLabel>
+                  <Select
+                    isMulti={is_multiple ? true : false}
+                    onChange={(value) => {
+                      datasetConfigs[config_field] = value
+                        ? is_multiple
+                          ? getValuesArray(value)
+                          : value.value
+                        : "";
+                      setDatasetConfigs(structuredClone(datasetConfigs))
+                    }}
+                    useBasicStyles
+                    options={has_values ?
+                      getOptionsArray(
+                        props.datasets_schema[datasetType]["data_fields"][config_field]["values"]
+                      ) : options
+                    }
+                  />
+                </FormControl>
+              );
+            }
+          )}
+        </Stack>
+      ) : (
+        <Stack alignItems="center" justify="center" height="20rem">
+          <Text> Choose a source type</Text>
+        </Stack>
+      )}
+
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>
         <Button
           ml="2rem"
-          onClick={() => props.submitSourceConfig()}
+          onClick={() => datasetType ? props.submitSourceConfig(datasetConfigs, datasetType) : {}}
           colorScheme="facebook"
+          isDisabled={!datasetType}
         >
           Next
         </Button>
