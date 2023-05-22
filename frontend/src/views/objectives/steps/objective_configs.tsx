@@ -124,7 +124,7 @@ const ObjectiveConfigs = (props: {
                   depends_on = schema_config_fields[config_field]["depends_on"];
                 }
                 const is_multiple = schema_config_fields[config_field][
-                  "multiple_choice"
+                  "is_multiple"
                 ]
                   ? true
                   : false;

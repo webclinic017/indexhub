@@ -15,6 +15,7 @@ import ObjectiveSource from "./steps/objective_source";
 import Toast from "../../components/toast";
 import ObjectiveConfigs from "./steps/objective_configs";
 import ConfirmCreateObjective from "./steps/confirm_create_objective";
+import { useNavigate } from "react-router-dom";
 
 const steps = [
   {
@@ -44,6 +45,7 @@ const NewObjective = () => {
   });
   const toast = useToast();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
+  const navigate = useNavigate();
 
   const submitObjectiveType = (objective_type: string) => {
     objective_configs["objective_type"] = objective_type;
@@ -104,7 +106,7 @@ const NewObjective = () => {
         `Your new objective (${objective_configs["objective_name"]}) was successfuly created`,
         "success"
       );
-      // navigate("/sources");
+      navigate("/objectives");
     } else {
       Toast(toast, "Error", create_objective_response["detail"], "error");
     }
