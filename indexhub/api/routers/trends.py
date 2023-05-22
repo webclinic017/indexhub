@@ -15,27 +15,35 @@ from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
 
-def _create_trend_data(
-    # Paths for y, forecasts, backtests, and quantiles
-    paths: Mapping[str, str],
-    entity: str,
+def _load_trend_data(
     read: Callable,
-    quantile_lower: int = 10,
-    quantile_upper: int = 90,
-    display_length: int = 24,
-) -> pl.DataFrame:
-    pl.toggle_string_cache(True)
-
-    # Read artifacts
+    paths: Mapping[str, str],
+):
+    actual = read(object_path=paths["y"])
+    entity_col, time_col, target_col = actual.columns
     forecasts = read(object_path=paths["forecasts"])
-    entity_col, time_col, target_col = forecasts.columns
-    actual = read(object_path=paths["y"]).rename({target_col: "actual"})
     backtests = (
         read(object_path=paths["backtests"])
         .groupby([entity_col, time_col])
         .agg(pl.col(target_col).mean())
     )
     quantiles = read(object_path=paths["quantiles"])
+    return actual, forecasts, quantiles, backtests
+
+
+def _create_trend_data(
+    actual: pl.DataFrame,
+    forecasts: pl.DataFrame,
+    quantiles: pl.DataFrame,
+    backtests: pl.DataFrame,
+    entity_id: str,
+    quantile_lower: int = 10,
+    quantile_upper: int = 90,
+    display_length: int = 24,
+) -> pl.DataFrame:
+    pl.toggle_string_cache(True)
+    actual = actual.rename({target_col: "actual"})
+    entity_col, time_col, target_col = forecasts.columns
     quantiles_lower = (
         quantiles.filter(pl.col("quantile") == quantile_lower)
         .drop("quantile")
@@ -56,7 +64,7 @@ def _create_trend_data(
         )
         .join(quantiles_lower, on=[entity_col, time_col], how="outer")
         .join(quantiles_upper, on=[entity_col, time_col], how="outer")
-        .filter(pl.col(entity_col) == entity)
+        .filter(pl.col(entity_col) == entity_id)
         .drop(entity_col)
         .sort(time_col)
         # Round all floats to 2 decimal places
@@ -203,8 +211,8 @@ def get_private_embs(objective_id: int, dim_size: int = 3):
     pass
 
 
-@router.get("/trends/public/charts/{dataset_id}/{entity}")
-def get_public_trend_chart(dataset_id: int, entity: str):
+@router.get("/trends/public/charts/{dataset_id}/{entity_id}")
+def get_public_trend_chart(dataset_id: int, entity_id: str):
     read = partial(
         SOURCE_TAG_TO_READER["s3"],
         bucket_name=DEMO_BUCKET,
@@ -212,18 +220,18 @@ def get_public_trend_chart(dataset_id: int, entity: str):
     )
     # Read artifacts
     paths = DEMO_SCHEMAS[dataset_id]
+    trend_data = _load_trend_data(read, paths)
     chart_data = _create_trend_data(
-        paths=paths,
-        entity=entity,
-        read=read,
+        *trend_data,
+        entity_id=entity_id,
     )
     # Create chart
     chart = _create_trend_chart(chart_data).to_json()
     return chart
 
 
-@router.get("/trends/private/charts/{objective_id}/{entity}")
-def get_private_trend_chart(objective_id: int, entity: str):
+@router.get("/trends/private/charts/{objective_id}/{entity_id}")
+def get_private_trend_chart(objective_id: int, entity_id: str):
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         user = session.get(User, objective.user_id)
@@ -245,10 +253,10 @@ def get_private_trend_chart(objective_id: int, entity: str):
             "backtests": outputs["backtests"]["best_models"],
             "quantiles": outputs["quantiles"]["best_models"],
         }
+        trend_data = _load_trend_data(read, paths)
         chart_data = _create_trend_data(
-            paths=paths,
-            entity=entity,
-            read=read,
+            *trend_data,
+            entity_id=entity_id,
         )
         # Create chart
         chart = _create_trend_chart(chart_data).to_json()
