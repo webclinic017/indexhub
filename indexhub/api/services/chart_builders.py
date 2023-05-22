@@ -19,6 +19,7 @@ from indexhub.flows.preprocess import _reindex_panel
 def create_single_forecast_chart(
     outputs: Mapping[str, str],
     source_fields: Mapping[str, str],
+    objective_id: str,
     user: User,
     filter_by: Mapping[str, Any] = None,
     agg_by: str = None,
@@ -27,7 +28,7 @@ def create_single_forecast_chart(
     **kwargs,
 ):
     pl.toggle_string_cache(True)
-
+    series_name_to_legend_show = {}
     # Get credentials
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -53,10 +54,51 @@ def create_single_forecast_chart(
     quantiles_upper = quantiles.filter(pl.col("quantile") == quantile_upper).drop(
         "quantile"
     )
+    best_plan = read(object_path=outputs["best_plan"])
+    plan = read(
+        object_path=outputs["best_plan"].replace("best_plan.parquet", "plan.parquet")
+    )
 
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
     agg_method = source_fields["agg_method"]
+    rolling = read(
+        object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
+        columns=[
+            entity_col,
+            time_col,
+            "fh",
+            "updated_at",
+            "ai",
+            "best_plan",
+            "plan",
+            "baseline",
+            "actual",
+        ],
+    ).rename({entity_col: "entity"})
+
+    # Get historical_dates from rolling forecasts parquet
+    historical_dates = [
+        date.strftime("%Y-%m-%d")
+        for date in rolling.get_column("updated_at").unique().to_list()
+    ]
+
+    # Postproc
+    rolling_forecasts = (
+        rolling.sort(["entity", "updated_at"])
+        .with_columns(pl.col("updated_at").cast(pl.Date))
+        .groupby(["entity", "updated_at"], maintain_order=True)
+        .agg(pl.all().exclude(["entity", "updated_at"]))
+        .tail(3)
+        .head(2)
+        .explode(pl.all().exclude(["entity", "updated_at"]))
+        .drop("actual")
+        .pivot(
+            values=["ai", "best_plan", "plan", "baseline"],
+            columns="updated_at",
+            index=["entity", "time"],
+        )
+    )
 
     # Postproc - join data together
     indexhub = pl.concat(
@@ -99,6 +141,20 @@ def create_single_forecast_chart(
     # Rename entity col
     joined = joined.rename({entity_col: "entity"})
 
+    joined = (
+        joined.join(
+            best_plan.rename({entity_col: "entity"}), on=["entity", "time"], how="outer"
+        )
+        .sort(["entity", "time"])
+        .select(pl.all().exclude(["^fh.*$", "^use.*$"]))
+    )
+
+    if plan is not None:
+        joined = joined.join(plan, on=["entity", "time"], how="outer").select(
+            pl.all().exclude(["^fh.*$", "^use.*$"])
+        )
+    joined = joined.join(rolling_forecasts, on=["entity", "time"], how="outer")
+
     # Filter by specific columns
     if filter_by:
         expr = [pl.col(col).is_in(values) for col, values in filter_by.items()]
@@ -120,46 +176,120 @@ def create_single_forecast_chart(
         .agg(agg_exprs)
         .sort(pl.col(time_col))
         .with_columns([pl.col(pl.Float32).round(2), pl.col(pl.Float64).round(2)])
+        .rename({"indexhub": "ai"})
     )
-
     # Set color scheme based on guidelines
-    colors = ["#0a0a0a", "#194fdc", "#44aa7e", "#b56321"]
+    colors = {
+        # From unit8
+        "base": [
+            "#0a0a0a",
+            "#11a9ba",
+            "#003DFD",
+            "#b512b8",
+        ],
+        "historical": ["#003DFD", "#0a0a0a", "#11a9ba"],
+    }
+    colors_base = itertools.cycle(colors["base"])
+    colors_historical = itertools.cycle(colors["historical"])
 
-    # Generate the chart options
+    # Postproc
+    # Hack: Append last value from actual to plan to connect the line
+    last_dt = chart_data.filter(pl.col("plan").is_null()).get_column(time_col).max()
+    additional_value = round(
+        chart_data.filter(pl.col(time_col) == last_dt).get_column("actual")[0], 2
+    )
+    series_plan = chart_data.get_column("plan").to_list()
+    series_plan[-4] = additional_value
+    chart_data = chart_data.with_columns(pl.Series(name="plan", values=series_plan))
+
+    line_types = ["actual", "ai", "baseline", "inventory", "plan"]
+
+    # Generate the chart
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
     line_chart.add_xaxis(chart_data[time_col].to_list())
 
-    line_chart.add_yaxis(
-        "Actual", chart_data["actual"].to_list(), color=colors[0], symbol=None
-    )
-    line_chart.add_yaxis(
-        "Indexhub", chart_data["indexhub"].to_list(), color=colors[1], symbol=None
-    )
-    line_chart.add_yaxis(
-        "Baseline",
-        chart_data["baseline"].to_list(),
-        color=colors[3],
-        symbol=None,
-    )
+    # Quantile range charts
     line_chart.add_yaxis(
         "",
         chart_data[f"indexhub_{quantile_upper}"].to_list(),
-        color="lightblue",
+        color="white",
         symbol=None,
         is_symbol_show=False,
-        areastyle_opts=opts.AreaStyleOpts(opacity=0.2, color="grey"),
+        areastyle_opts=opts.AreaStyleOpts(opacity=0.25, color="#5B90AA"),
     )
     line_chart.add_yaxis(
         "",
         chart_data[f"indexhub_{quantile_lower}"].to_list(),
-        color="lightblue",
+        color="white",
         symbol=None,
         is_symbol_show=False,
         areastyle_opts=opts.AreaStyleOpts(opacity=1, color="white"),
     )
-    if inventory_path:
+
+    if len(historical_dates) >= 2:
+        secondary_cols = [
+            f"ai_{historical_dates[1]}",
+            f"plan_{historical_dates[1]}",
+            f"baseline_{historical_dates[1]}",
+        ]
+
+        # Add lines for secondary historical forecasts
+        for col in [
+            colname for colname in chart_data.columns if colname in secondary_cols
+        ]:
+            series_name = f"{col.split('_')[0].title().replace('Ai','AI')} ({historical_dates[1]})"
+            # Set the series to False for legend
+            series_name_to_legend_show[series_name] = False
+
+            # Y data
+            y_data = chart_data[col].to_list()
+            line_chart.add_yaxis(
+                series_name,
+                y_data,
+                color=next(colors_historical),
+                symbol="diamond",
+                linestyle_opts=opts.LineStyleOpts(width=0),
+                itemstyle_opts=opts.ItemStyleOpts(opacity=0.7),
+                symbol_size=8,
+            )
+    if len(historical_dates) >= 3:
+        tertiary_cols = [
+            f"ai_{historical_dates[0]}",
+            f"plan_{historical_dates[0]}",
+            f"baseline_{historical_dates[0]}",
+        ]
+        # Add lines for tertiary historical forecasts
+        for col in [
+            colname for colname in chart_data.columns if colname in tertiary_cols
+        ]:
+            series_name = f"{col.split('_')[0].title().replace('Ai','AI')} ({historical_dates[0]})"
+            # Set the series to False for legend
+            series_name_to_legend_show[series_name] = False
+            line_chart.add_yaxis(
+                series_name,
+                chart_data[col].to_list(),
+                color=next(colors_historical),
+                symbol="square",
+                linestyle_opts=opts.LineStyleOpts(width=0),
+                itemstyle_opts=opts.ItemStyleOpts(opacity=0.7),
+                symbol_size=8,
+            )
+
+    # Add lines for latest forecasts and panels
+    for col in [colname for colname in chart_data.columns if colname in line_types]:
+        if col == "plan":
+            line_type = "dashed"
+        else:
+            line_type = "solid"
         line_chart.add_yaxis(
-            "Inventory", chart_data["inventory"].to_list(), color=colors[2], symbol=None
+            f"{col.title().replace('Ai','AI')}",
+            chart_data[col].to_list(),
+            color=next(colors_base),
+            symbol=None,
+            linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
+            is_symbol_show=False,
+            tooltip_opts=opts.TooltipOpts(is_show=True),
+            markpoint_opts=opts.MarkPointOpts,
         )
 
     # Get the range of the x-axis
@@ -169,13 +299,20 @@ def create_single_forecast_chart(
         initial_range = 0
 
     line_chart.set_series_opts(
-        label_opts=opts.LabelOpts(is_show=False)
+        label_opts=opts.LabelOpts(is_show=False),
     ).set_global_opts(
-        legend_opts=opts.LegendOpts(
-            orient="horizontal",
-            align="right",
-            pos_right=100,
-        ),
+        legend_opts={
+            "data": list(series_name_to_legend_show.keys()),
+            "orient": "vertical",
+            "align": "right",
+            "right": "0%",
+            "textStyle": {"fontSize": 10},
+            "border_width": 0,
+            "pos_right": 0,
+            "selected": series_name_to_legend_show,
+            "item_width": 50,
+        },
+        tooltip_opts=opts.TooltipOpts(is_show=True, formatter="{c}"),
         xaxis_opts=opts.AxisOpts(
             type_=time_col,
             splitline_opts=opts.SplitLineOpts(is_show=False),
@@ -184,6 +321,7 @@ def create_single_forecast_chart(
         yaxis_opts=opts.AxisOpts(
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axislabel_opts=opts.LabelOpts(is_show=False),
+            axispointer_opts=opts.AxisPointerOpts(is_show=True),
         ),
         toolbox_opts=opts.ToolboxOpts(
             is_show=True,
@@ -210,9 +348,21 @@ def create_single_forecast_chart(
         ],
     )
 
+    # Add endlabels for main lines
+    if len(historical_dates) == 1:
+        range_series = range(2, 6)
+    elif len(historical_dates) == 2:
+        range_series = range(5, 9)
+    else:
+        range_series = range(8, 13)
+    for i in range_series:
+        line_chart.options["series"][i]["endLabel"] = {
+            "show": True,
+            "formatter": "{a}",
+            "color": "inherit",
+        }
     # Export chart options to JSON
-    chart_json = line_chart.dump_options()
-    return chart_json
+    return line_chart.dump_options()
 
 
 def create_multi_forecast_chart(
@@ -333,7 +483,7 @@ def create_multi_forecast_chart(
 
         line_chart.set_global_opts(
             # title_opts=opts.TitleOpts(title=f"{entity.title()}"),
-            legend_opts=opts.LegendOpts(pos_right="20%"),
+            legend_opts=opts.LegendOpts(pos_right="20%", border_width=0),
             xaxis_opts=opts.AxisOpts(
                 type_="time", splitline_opts=opts.SplitLineOpts(is_show=False)
             ),
@@ -499,7 +649,7 @@ def create_segmentation_chart(
         )
 
     scatter.set_global_opts(
-        legend_opts=opts.LegendOpts(is_show=False),
+        legend_opts=opts.LegendOpts(is_show=False, border_width=0),
         xaxis_opts=opts.AxisOpts(
             name=f"Segmentation Factor ({segmentation_factor.title()})",
             name_location="middle",
@@ -608,7 +758,7 @@ def create_3d_cluster_chart(outputs: Mapping[str, str], user: User, **kwargs):
                 position="top",
             ),
         ).set_global_opts(
-            legend_opts=opts.LegendOpts(is_show=False),
+            legend_opts=opts.LegendOpts(is_show=False, border_width=0),
             visualmap_opts=[
                 # Set the size of the dots to fixed size
                 opts.VisualMapOpts(
@@ -628,6 +778,7 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
 
     Returns a dictionary of {entity: chart_json} for each of the entities in the rolling forecasts.
     """
+    pl.toggle_string_cache(True)
     # Get credentials
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -647,18 +798,16 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
     entities = rolling_forecasts.get_column(entity_col).unique().to_list()
 
     _type_to_colors = {
-        "ai": ["#14399a", "#1b57f1", "#194fdc"],
-        "best_plan": ["#177548", "#2A9162", "#44aa7e"],
-        "baseline": ["#7F3808", "#994C17", "#b56321"],
-        # TODO: Add plan after implemented in flow
-        # "plan": ["#0a0a0a", "#666666", "#9e9e9e"],
+        "ai": ["#003DFD"],
+        "best_plan": ["#b512b8"],
+        "baseline": ["#11a9ba"],
+        "plan": ["#0a0a0a"],
     }
     _type_to_name = {
         "ai": "AI",
         "best_plan": "Best Plan",
         "baseline": "Baseline",
-        # TODO: Add plan after implemented in flow
-        # "plan": "Plan",
+        "plan": "Plan",
     }
 
     # Reindex panel to get all time periods for each "updated_at"
@@ -675,28 +824,28 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
             # Create each lines based on the line_type
             colors_cycle = itertools.cycle(colors)
 
-            rolling_latest = rolling_forecasts.filter(
+            data_d1 = rolling_forecasts.filter(
                 pl.col("updated_at") == updated_dates[-1]
             )
-            rolling_second = (
+            data_d2 = (
                 rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-2])
                 if len(updated_dates) >= 2
                 else None
             )
-            rolling_third = (
+            data_d3 = (
                 rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-3])
                 if len(updated_dates) >= 3
                 else None
             )
             x_values = (
-                rolling_latest.with_columns(pl.col("time").cast(pl.Date))
+                data_d1.with_columns(pl.col("time").cast(pl.Date))
                 .get_column("time")
                 .to_list()
             )
-            y_d1 = rolling_latest.get_column(f"residual_{type}").to_list()
+            y_d1 = data_d1.get_column(f"residual_{type}").to_list()
             selected_series = {
                 f"{_type_to_name[type]} ({date.strftime('%Y-%m-%d')})": False
-                for type in ["ai"]  # TODO: Add "plan" after it is implemented
+                for type in ["ai", "plan"]
                 for date in updated_dates
             }
 
@@ -709,26 +858,30 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
                 linestyle_opts=opts.LineStyleOpts(width=3),
                 symbol_size=7,
             )
-            if rolling_second is not None:
-                y_d2 = rolling_second.get_column(f"residual_{type}").to_list()
+            if data_d2 is not None:
+                y_d2 = data_d2.get_column(f"residual_{type}").to_list()
                 line_chart.add_yaxis(
                     f"{_type_to_name[type]} ({updated_dates[-2].strftime('%Y-%m-%d')})",
                     y_d2,
                     label_opts=opts.LabelOpts(is_show=False),
                     color=next(colors_cycle),
                     linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
+                    is_symbol_show=True,
                     symbol_size=1,
                 )
-            if rolling_third is not None:
-                y_d3 = rolling_third.get_column(f"residual_{type}").to_list()
+            if data_d3 is not None:
+                y_d3 = data_d3.get_column(f"residual_{type}").to_list()
+
                 line_chart.add_yaxis(
                     f"{_type_to_name[type]} ({updated_dates[-3].strftime('%Y-%m-%d')})",
                     y_d3,
                     label_opts=opts.LabelOpts(is_show=False),
                     color=next(colors_cycle),
-                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dotted"),
+                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
+                    is_symbol_show=True,
                     symbol_size=1,
                 )
+
         line_chart.set_global_opts(
             legend_opts=opts.LegendOpts(
                 is_show=True,
@@ -746,6 +899,7 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
                 splitline_opts=opts.SplitLineOpts(is_show=False),
                 offset=20,
                 is_scale=True,
+                axispointer_opts=opts.AxisPointerOpts(is_show=True),
             ),
         )
         output_json[entity] = line_chart.dump_options()
