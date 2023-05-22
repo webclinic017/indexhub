@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     name: Deploy FastAPI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     timeout-minutes: 20
     steps:
     - name: Checkout 🛎️
