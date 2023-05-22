@@ -15,7 +15,7 @@ from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
 
-def _load_trend_data(
+def _load_trend_datasets(
     read: Callable,
     paths: Mapping[str, str],
 ):
@@ -220,9 +220,9 @@ def get_public_trend_chart(dataset_id: int, entity_id: str):
     )
     # Read artifacts
     paths = DEMO_SCHEMAS[dataset_id]
-    trend_data = _load_trend_data(read, paths)
+    trend_datasets = _load_trend_datasets(read, paths)
     chart_data = _create_trend_data(
-        *trend_data,
+        *trend_datasets,
         entity_id=entity_id,
     )
     # Create chart
@@ -253,9 +253,9 @@ def get_private_trend_chart(objective_id: int, entity_id: str):
             "backtests": outputs["backtests"]["best_models"],
             "quantiles": outputs["quantiles"]["best_models"],
         }
-        trend_data = _load_trend_data(read, paths)
+        trend_datasets = _load_trend_datasets(read, paths)
         chart_data = _create_trend_data(
-            *trend_data,
+            *trend_datasets,
             entity_id=entity_id,
         )
         # Create chart
