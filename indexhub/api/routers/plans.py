@@ -117,7 +117,7 @@ def _execute_forecast_plan(
     path = f"artifacts/{objective_id}/{timestamp}/plan.parquet"
     write = STORAGE_TAG_TO_WRITER[user.storage_tag]
     write(
-        data=revised_plan.collect(streaming=True),
+        data=revised_plan.collect(),
         bucket_name=user.storage_bucket_name,
         object_path=path,
         **storage_creds,
@@ -127,10 +127,10 @@ def _execute_forecast_plan(
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     csv_path = f"exports/{objective_id}/plan_{timestamp}.csv"
     write(
-        data=revised_plan.collect(streaming=True),
+        data=revised_plan.collect(),
         bucket_name=user.storage_bucket_name,
         object_path=csv_path,
-        file_ext=".csv",
+        file_ext="csv",
         **storage_creds,
     )
 
@@ -141,7 +141,7 @@ def _execute_forecast_plan(
         plan=revised_plan, rolling_forecast=rolling_forecast
     )
     write(
-        data=updated_rolling_forecast.collect(streaming=True),
+        data=updated_rolling_forecast.collect(),
         bucket_name=user.storage_bucket_name,
         object_path=path,
         **storage_creds,

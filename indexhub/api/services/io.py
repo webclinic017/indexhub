@@ -110,7 +110,7 @@ def write_data_to_s3(
     data: pl.DataFrame,
     bucket_name: str,
     object_path: str,
-    file_ext: str = ".parquet",
+    file_ext: str = "parquet",
     AWS_ACCESS_KEY_ID: Optional[str] = None,
     AWS_SECRET_KEY_ID: Optional[str] = None,
     datetime_format: str = "%Y-%m-%d",
@@ -121,9 +121,9 @@ def write_data_to_s3(
         aws_secret_access_key=AWS_SECRET_KEY_ID,
     )
     f = io.BytesIO()
-    if file_ext == ".parquet":
+    if file_ext == "parquet":
         data.write_parquet(f)
-    elif file_ext == ".csv":
+    elif file_ext == "csv":
         data.write_csv(f, datetime_format=datetime_format)
     f.seek(0)
     body = f.read()
