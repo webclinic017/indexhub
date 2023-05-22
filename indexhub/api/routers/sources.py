@@ -17,12 +17,12 @@ class CreateSourceParams(BaseModel):
     user_id: str
     tag: str
     name: str
-    type: str
+    dataset_type: str
     conn_fields: str
     data_fields: str
 
 
-@router.get("/sources/conn_schema/{user_id}")
+@router.get("/sources/conn-schema/{user_id}")
 def list_conn_schemas(user_id: str):
     with Session(engine) as session:
         query = select(User).where(User.id == user_id)
@@ -30,7 +30,7 @@ def list_conn_schemas(user_id: str):
         return CONNECTION_SCHEMA(user=user)
 
 
-@router.get("/sources/dataset_schema")
+@router.get("/sources/dataset-schema")
 def list_dataset_schemas():
     return DATASET_SCHEMA
 
@@ -43,16 +43,6 @@ def create_source(params: CreateSourceParams):
         source.status = "RUNNING"
         conn_fields = json.loads(source.conn_fields)
         data_fields = json.loads(source.data_fields)
-        flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess_and_embs")
-        flow.call(
-            user_id=source.user_id,
-            source_id=source.id,
-            source_tag=source.tag,
-            conn_fields=conn_fields,
-            data_fields=data_fields,
-            storage_tag=user.storage_tag,
-            storage_bucket_name=user.storage_bucket_name,
-        )
 
         ts = datetime.utcnow()
         source.created_at = ts
@@ -60,6 +50,21 @@ def create_source(params: CreateSourceParams):
         session.add(source)
         session.commit()
         session.refresh(source)
+
+        # Run flow after the insert statement committed
+        # Otherwise will hit error in the flow when updating the record
+        flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess")
+        flow.call(
+            user_id=source.user_id,
+            source_id=source.id,
+            source_tag=source.tag,
+            conn_fields=conn_fields,
+            source_type=source.dataset_type,
+            data_fields=data_fields,
+            storage_tag=user.storage_tag,
+            storage_bucket_name=user.storage_bucket_name,
+        )
+
         return {"user_id": params.user_id, "source_id": source.id}
 
 

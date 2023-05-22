@@ -50,7 +50,7 @@ const Storage = () => {
                   </Text>
                   <Stack spacing="1" mt="2">
                     <HStack fontSize="sm">
-                      <FontAwesomeIcon icon={faCalendarDays} />
+                      <FontAwesomeIcon icon={faCalendarDays as any} />
                       <Text>
                         {new Date(
                           user_details.storage_created_at

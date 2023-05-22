@@ -231,7 +231,7 @@ export default function DataAndIntegrations() {
                               <HStack>
                                 <FontAwesomeIcon
                                   size="2xs"
-                                  icon={faCircleDot}
+                                  icon={faCircleDot as any}
                                   beatFade
                                   style={{
                                     color: status_colors[source.status]

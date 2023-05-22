@@ -728,7 +728,7 @@ def flow():
                 "target_col", source_fields.get("quantity_col")
             )
             entity_cols = source_fields["entity_cols"]
-            if panel_source.type == "transaction":
+            if panel_source.dataset_type == "transaction":
                 # Set product as entity if transaction type
                 entity_cols = [source_fields["product_col"], *entity_cols]
 

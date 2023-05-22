@@ -20,3 +20,4 @@ pyecharts
 xlsx2csv
 websockets
 lance
+expiringdict

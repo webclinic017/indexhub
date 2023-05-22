@@ -12,7 +12,7 @@ const Breadcrumbs = (props: { current_path: string }) => {
     return (
       <Breadcrumb
         spacing="2"
-        separator={<FontAwesomeIcon size="xs" icon={faChevronRight} />}
+        separator={<FontAwesomeIcon size="xs" icon={faChevronRight as any} />}
       >
         {paths.map((item, idx) => {
           if (idx > 0) {
@@ -34,7 +34,7 @@ const Breadcrumbs = (props: { current_path: string }) => {
     return (
       <Breadcrumb
         spacing="2"
-        separator={<FontAwesomeIcon size="xs" icon={faChevronRight} />}
+        separator={<FontAwesomeIcon size="xs" icon={faChevronRight as any} />}
       >
         <BreadcrumbItem isCurrentPage>
           <BreadcrumbLink as={Link} to="/">

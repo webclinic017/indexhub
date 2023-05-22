@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from indexhub.api.db import engine
 from indexhub.api.models.source import Source
-from indexhub.api.schemas import SUPPORTED_FREQ
+from indexhub.api.schemas import SUPPORTED_DATETIME_FMT, SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
@@ -220,7 +220,7 @@ def _resample_panel(
 
 def _make_output_path(source_id: int, updated_at: datetime) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
-    path = f"staging/{source_id}/{timestamp}.parquet"
+    path = f"raw/staging/{source_id}/{timestamp}.parquet"
     return path
 
 
@@ -248,7 +248,7 @@ def _update_source(
         session.commit()
         session.refresh(source)
         return source
-    
+
 
 def run_embeddings(
     panel_data: pl.DataFrame,
@@ -277,7 +277,6 @@ def run_embeddings(
         logger.info(f"Completed embeddings for panel with source: {source_id}")
     except Exception as exc:
         raise Exception(f"Error in `run_embeddings`: {repr(exc)}") from exc
-
 
 
 @stub.function(
@@ -323,7 +322,7 @@ def run_preprocess(
                 _clean_panel,
                 entity_cols=entity_cols,
                 time_col=data_fields["time_col"],
-                datetime_fmt=data_fields["datetime_fmt"],
+                datetime_fmt=SUPPORTED_DATETIME_FMT[data_fields["datetime_fmt"]],
             )
             # Merge multi levels
             .pipe(
@@ -396,8 +395,6 @@ def run_preprocess(
             msg=msg,
         )
 
-    return panel_data
-
 
 @stub.function(
     memory=5120,
@@ -418,6 +415,7 @@ def flow():
         if not sources:
             raise HTTPException(status_code=404, detail="Source not found")
 
+    futures = []
     for source in sources:
         logger.info(f"Checking source: {source.id}")
         data_fields = json.loads(source.data_fields)
@@ -431,51 +429,53 @@ def flow():
             run_dt = datetime(new_dt.year, new_dt.month, 1)
         else:
             run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
-        logger.info(f"Next run at: {run_dt}")
+        logger.info(f"Next run for {source.id} at: {run_dt}")
         # 4. Run preprocess flow
         current_datetime = datetime.now().replace(microsecond=0)
-        futures = []
         if (current_datetime >= run_dt) or source.status == "FAILED":
             # Spawn preprocess and embs flow for source
-            futures.append(run_preprocess.spawn(
-                user_id=source.user_id,
-                source_id=source.id,
-                source_tag=source.tag,
-                conn_fields=json.loads(source.conn_fields),
-                source_type=source.type,
-                data_fields=data_fields,
-                storage_tag=user.storage_tag,
-                storage_bucket_name=user.storage_bucket_name,
-            ))
-        results = [future.get() for future in futures]
-        return results
+            futures.append(
+                run_preprocess.spawn(
+                    user_id=source.user_id,
+                    source_id=source.id,
+                    source_tag=source.tag,
+                    conn_fields=json.loads(source.conn_fields),
+                    source_type=source.dataset_type,
+                    data_fields=data_fields,
+                    storage_tag=user.storage_tag,
+                    storage_bucket_name=user.storage_bucket_name,
+                )
+            )
+
+    for future in futures:
+        future.get()
 
 
 @stub.local_entrypoint
 def test():
-    user_id = "indexhub-demo"
+    user_id = "auth0|64332760aa7cdd2e63b40f57"
 
     # Source
     source_id = 1
     source_tag = "s3"
     conn_fields = {
-        "bucket_name": "indexhub-demo",
-        "object_path": "tourism/tourism_20221212.parquet",
+        "bucket_name": "indexhub-demo-dev",
+        "object_path": "raw/tourism/tourism_20221212.parquet",
         "file_ext": "parquet",
     }
     source_type = "panel"
     data_fields = {
-        "entity_cols": ["country", "territory", "state"],
+        "entity_cols": ["state"],
         "time_col": "time",
         "target_col": "trips_in_000s",
         "feature_cols": [],
-        "freq": "1mo",
-        "datetime_fmt": "%Y-%m-%d",
+        "freq": "Monthly",
+        "datetime_fmt": "Year-Month-Day",
     }
 
     # User
     storage_tag = "s3"
-    storage_bucket_name = "indexhub-demo"
+    storage_bucket_name = "indexhub-demo-dev"
     run_preprocess(
         user_id=user_id,
         source_id=source_id,

@@ -21,7 +21,8 @@ import ConfirmCreateSource from "./steps/confirm_create_source";
 import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
 import {
   createSource as createSourceApi,
-  getSourcesSchema,
+  getConnectionsSchema,
+  getDatasetsSchema,
   getS3SourceColumns,
 } from "../../utilities/backend_calls/source";
 import { useSelector } from "react-redux";
@@ -51,7 +52,9 @@ const steps = [
 ];
 
 export default function NewSource() {
-  const [sources_schema, setSourcesSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [conn_schema, setConnectionsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [datasets_schema, setDatasetsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+
   const [source_type, setSourceType] = useState("");
   const [source_configs, setSourceConfigs] = useState<Record<string, string>>(
     {}
@@ -74,15 +77,24 @@ export default function NewSource() {
   const user_details = useSelector((state: AppState) => state.reducer?.user);
 
   useEffect(() => {
-    const getSourcesSchemaApi = async () => {
-      const sources_schema = await getSourcesSchema(
+    const getConnectionsSchemaApi = async () => {
+      const conn_schema = await getConnectionsSchema(
         user_details.id,
         access_token_indexhub_api
       );
-      setSourcesSchema(sources_schema);
+      setConnectionsSchema(conn_schema);
     };
+
+    const getDatasetsSchemaApi = async () => {
+      const datasets_schema = await getDatasetsSchema(
+        access_token_indexhub_api
+      );
+      setDatasetsSchema(datasets_schema);
+    };
+
     if (access_token_indexhub_api && user_details.id) {
-      getSourcesSchemaApi();
+      getConnectionsSchemaApi();
+      getDatasetsSchemaApi()
     }
   }, [access_token_indexhub_api, user_details]);
 
@@ -108,8 +120,10 @@ export default function NewSource() {
   }, [time_col, entity_cols]);
 
   const submitSourceType = (source_type: string) => {
+    console.log(source_type)
+    console.log(conn_schema)
     setSourceType(source_type);
-    if (sources_schema[source_type]["is_authenticated"]) {
+    if (conn_schema[source_type]["is_authenticated"]) {
       goToNextStep();
     } else {
       onOpen();
@@ -139,7 +153,7 @@ export default function NewSource() {
 
   const submitSourcePath = async (configs: Record<string, string>) => {
     if (
-      Object.keys(sources_schema[source_type]["variables"]).every((variable) =>
+      Object.keys(conn_schema[source_type]["conn_fields"]).every((variable) =>
         Object.keys(configs).includes(variable)
       ) &&
       Object.keys(configs).includes("source_name")
@@ -212,21 +226,26 @@ export default function NewSource() {
   const stepScreens: Record<number, JSX.Element> = {
     0: (
       <SourceType
-        sources_schema={sources_schema}
+        conn_schema={conn_schema}
         submitSourceType={submitSourceType}
       />
     ),
     1: (
       <SourcePath
         source_type={source_type}
-        sources_schema={sources_schema}
+        conn_schema={conn_schema}
         goToPrevStep={goToPrevStep}
         submitSourcePath={submitSourcePath}
       />
+      // <SourceType
+      //   conn_schema={conn_schema}
+      //   submitSourceType={submitSourceType}
+      // />
     ),
     2: (
       <ConfigureSource
         column_options={column_options}
+        datasets_schema={datasets_schema}
         submitSourceConfig={submitSourceConfig}
         goToPrevStep={goToPrevStep}
         setTimeCol={setTimeCol}
@@ -248,6 +267,10 @@ export default function NewSource() {
       />
     ),
   };
+
+  useEffect(() => {
+    console.log(datasets_schema)
+  }, [datasets_schema])
 
   return (
     <>
@@ -278,7 +301,7 @@ export default function NewSource() {
               {source_type && (
                 <SourceCredentials
                   required_credentials_schema={
-                    sources_schema[source_type]["panel"]["credentials"]
+                    conn_schema[source_type]["credentials"]
                   }
                   submitSourceCreds={submitSourceCreds}
                 />

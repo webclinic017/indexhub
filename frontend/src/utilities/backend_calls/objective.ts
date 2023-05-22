@@ -60,6 +60,8 @@ export const createObjective = async (
         holiday_regions: objective_configs["holiday_regions"],
         max_lags: objective_configs["max_lags"],
         min_lags: objective_configs["min_lags"],
+        baseline_model: objective_configs["baseline_model"],
+        n_splits: objective_configs["n_splits"],
         invoice_col: objective_configs["invoice_col"] ? objective_configs["invoice_col"] : "",
         product_col: objective_configs["product_col"] ? objective_configs["product_col"] : ""
       }),

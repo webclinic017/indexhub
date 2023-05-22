@@ -120,7 +120,7 @@ const ObjectivesDashboard = () => {
                         <HStack>
                           <FontAwesomeIcon
                             size="2xs"
-                            icon={faCircleDot}
+                            icon={faCircleDot as any}
                             beatFade
                             style={{
                               color: objective_status_to_color[objective["status"]],
@@ -179,7 +179,7 @@ const ObjectivesDashboard = () => {
             >
               <CardBody>
                 <VStack>
-                  <FontAwesomeIcon size="2x" icon={faPlusCircle} />
+                  <FontAwesomeIcon size="2x" icon={faPlusCircle as any} />
                   <Text>Add a new objective</Text>
                 </VStack>
               </CardBody>

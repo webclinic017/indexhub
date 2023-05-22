@@ -429,7 +429,7 @@ export default function Forecast_Recommendations() {
     backtestsTableData["data"]
       .map((item: any) => item["mae_improvement_%"]) // eslint-disable-line @typescript-eslint/no-explicit-any
       .reduce((prev: number, next: number) => prev + next) /
-      backtestsTableData["data"].length,
+    backtestsTableData["data"].length,
   ];
   report_stats["mae_forecast"] = backtestsTableData["data"]
     .map((item: any) => item["mae:forecast"]) // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -564,8 +564,8 @@ export default function Forecast_Recommendations() {
                   {filters["quantile"][0] == 0.5
                     ? "balanced"
                     : filters["quantile"][0] > 0.5
-                    ? "over"
-                    : "under"}{" "}
+                      ? "over"
+                      : "under"}{" "}
                   forecasts where forecast values are predicted to be higher
                   than the actual values{" "}
                   {roundToTwoDecimalPlaces(filters["quantile"][0] * 100)}% of
@@ -723,8 +723,8 @@ export default function Forecast_Recommendations() {
                               <FontAwesomeIcon
                                 icon={
                                   item["mae_improvement_%"] < 0
-                                    ? faArrowDown
-                                    : faArrowUp
+                                    ? faArrowDown as any
+                                    : faArrowUp as any
                                 }
                                 color={
                                   item["mae_improvement_%"] < 0
@@ -760,8 +760,8 @@ export default function Forecast_Recommendations() {
                             {item["mae_improvement_%"] == 0
                               ? "flat"
                               : item["mae_improvement_%"] > 0
-                              ? "upwards"
-                              : "downwards"}{" "}
+                                ? "upwards"
+                                : "downwards"}{" "}
                             for the next {report_stats["forecast_horizon"]}{" "}
                             Months. AI Backtests are{" "}
                             {roundToTwoDecimalPlaces(item["mae_improvement_%"])}
@@ -898,7 +898,7 @@ export default function Forecast_Recommendations() {
                                       >
                                         {
                                           backtest_type_readable_names[
-                                            backtestType
+                                          backtestType
                                           ]
                                         }{" "}
                                         (Benchmark)
@@ -911,7 +911,7 @@ export default function Forecast_Recommendations() {
                                         {Math.round(
                                           (item[`${backtestType}:manual`] +
                                             Number.EPSILON) *
-                                            100
+                                          100
                                         ) / 100}
                                       </Text>
                                     </VStack>
@@ -923,7 +923,7 @@ export default function Forecast_Recommendations() {
                                       >
                                         {
                                           backtest_type_readable_names[
-                                            backtestType
+                                          backtestType
                                           ]
                                         }{" "}
                                         (AI)
@@ -936,7 +936,7 @@ export default function Forecast_Recommendations() {
                                         {Math.round(
                                           (item[`${backtestType}:forecast`] +
                                             Number.EPSILON) *
-                                            100
+                                          100
                                         ) / 100}
                                       </Text>
                                     </VStack>
@@ -948,7 +948,7 @@ export default function Forecast_Recommendations() {
                                       >
                                         {
                                           backtest_type_readable_names[
-                                            backtestType
+                                          backtestType
                                           ]
                                         }{" "}
                                         (Uplift)
@@ -961,7 +961,7 @@ export default function Forecast_Recommendations() {
                                         {Math.round(
                                           (item[`${backtestType}_improvement`] +
                                             Number.EPSILON) *
-                                            100
+                                          100
                                         ) / 100}
                                       </Text>
                                     </VStack>
@@ -973,7 +973,7 @@ export default function Forecast_Recommendations() {
                                       >
                                         {
                                           backtest_type_readable_names[
-                                            backtestType
+                                          backtestType
                                           ]
                                         }{" "}
                                         (Uplift %)
@@ -996,7 +996,7 @@ export default function Forecast_Recommendations() {
                                               `${backtestType}_improvement_%`
                                             ] +
                                               Number.EPSILON) *
-                                              100
+                                            100
                                           ) / 100}
                                         </CircularProgressLabel>
                                       </CircularProgress>

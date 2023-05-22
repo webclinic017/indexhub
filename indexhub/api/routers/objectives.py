@@ -55,6 +55,16 @@ def create_objective(params: CreateObjectiveParams):
         objective_fields = json.loads(objective.fields)
         source = get_source(objective_sources["panel"])["source"]
         source_fields = json.loads(source.data_fields)
+
+        ts = datetime.utcnow()
+        objective.created_at = ts
+        objective.updated_at = ts
+        session.add(objective)
+        session.commit()
+        session.refresh(objective)
+
+        # Run flow after the insert statement committed
+        # Otherwise will hit error in the flow when updating the record
         if objective.tag == "reduce_errors":
             flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             holiday_regions = objective_fields["holiday_regions"]
@@ -69,7 +79,7 @@ def create_objective(params: CreateObjectiveParams):
                 "target_col", source_fields.get("quantity_col")
             )
             entity_cols = source_fields["entity_cols"]
-            if source.type == "transaction":
+            if source.dataset_type == "transaction":
                 # Set product as entity if transaction type
                 entity_cols = [source_fields["product_col"], *entity_cols]
 
@@ -84,8 +94,8 @@ def create_objective(params: CreateObjectiveParams):
                 min_lags=int(objective_fields["min_lags"]),
                 max_lags=int(objective_fields["max_lags"]),
                 fh=int(objective_fields["fh"]),
-                freq=SUPPORTED_FREQ[source.freq],
-                sp=FREQ_TO_SP[source.freq],
+                freq=SUPPORTED_FREQ[source_fields["freq"]],
+                sp=FREQ_TO_SP[source_fields["freq"]],
                 n_splits=objective_fields["n_splits"],
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[objective_fields["error_type"]],
@@ -95,13 +105,6 @@ def create_objective(params: CreateObjectiveParams):
             )
         else:
             raise ValueError(f"Objective tag `{objective.tag}` not found")
-
-        ts = datetime.utcnow()
-        objective.created_at = ts
-        objective.updated_at = ts
-        session.add(objective)
-        session.commit()
-        session.refresh(objective)
 
         return {"user_id": params.user_id, "objective_id": objective.id}
 

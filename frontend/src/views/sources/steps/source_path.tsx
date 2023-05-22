@@ -24,14 +24,14 @@ const getOptions = (options: string[]) => {
 
 const SourcePath = (props: {
   source_type: string;
-  sources_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   goToPrevStep: () => void;
   submitSourcePath: (configs: Record<string, string>) => Promise<void>;
 }) => {
   const configs: Record<string, string> = {};
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schema_variables: Record<string, any> =
-    props.sources_schema[props.source_type]["variables"];
+    props.conn_schema[props.source_type]["conn_fields"];
   return (
     <Box
       as="form"
@@ -45,6 +45,13 @@ const SourcePath = (props: {
         px={{ base: "4", md: "6" }}
         py={{ base: "5", md: "6" }}
       >
+        <FormControl isRequired>
+          <FormLabel>Source name</FormLabel>
+          <Input
+            onChange={(e) => (configs["source_name"] = e.currentTarget.value)}
+            placeholder="Name for your new source"
+          />
+        </FormControl>
         {Object.keys(schema_variables).map((variable: string, idx: number) => {
           const has_values = Object.keys(schema_variables[variable]).includes(
             "values"
@@ -55,7 +62,6 @@ const SourcePath = (props: {
               {!has_values && (
                 <Input
                   onChange={(e) => (configs[variable] = e.currentTarget.value)}
-                  placeholder="Name for your new source"
                 />
               )}
               {has_values && (
@@ -70,13 +76,6 @@ const SourcePath = (props: {
             </FormControl>
           );
         })}
-        <FormControl isRequired>
-          <FormLabel>Source name</FormLabel>
-          <Input
-            onChange={(e) => (configs["source_name"] = e.currentTarget.value)}
-            placeholder="Name for your new source"
-          />
-        </FormControl>
       </Stack>
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>

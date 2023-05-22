@@ -32,8 +32,29 @@ const getOptions = (options: string[]) => {
   return result;
 };
 
+const getOptionsArray = (options: string[]) => {
+  const result_options: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  options.forEach((option: string) => {
+    result_options.push({
+      label: option,
+      value: option,
+    });
+  });
+  return result_options;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getValuesArray = (values: MultiValue<Record<any, string>>) => {
+  const values_array: string[] = [];
+  values.map((value) => {
+    values_array.push(value.value);
+  });
+  return values_array;
+};
+
 const ConfigureSource = (props: {
   column_options: string[];
+  datasets_schema: Record<any, any>;
   submitSourceConfig: () => void;
   goToPrevStep: () => void;
   setTimeCol: React.Dispatch<React.SetStateAction<string>>;
@@ -41,7 +62,7 @@ const ConfigureSource = (props: {
   setEntityCols: React.Dispatch<React.SetStateAction<string[]>>;
 }) => {
   const options = getOptions(props.column_options);
-
+  const dataset_configs: Record<any, any> = {}
   return (
     <Box
       as="form"
@@ -55,53 +76,51 @@ const ConfigureSource = (props: {
         px={{ base: "4", md: "6" }}
         py={{ base: "5", md: "6" }}
       >
-        <Stack spacing="6" direction={{ base: "column", md: "row" }}>
-          <FormControl isRequired>
-            <FormLabel>Time column</FormLabel>
-            <Select
-              onChange={(value) => props.setTimeCol(value ? value.value : "")}
-              options={options}
-              useBasicStyles
-            />
-          </FormControl>
-          <FormControl isRequired>
-            <FormLabel>Frequency</FormLabel>
-            <Select
-              defaultValue={{
-                label: "Daily",
-                value: "d",
-              }}
-              onChange={(value) => props.setFreq(value ? value.value : "")}
-              useBasicStyles
-              options={[
-                {
-                  label: "Daily",
-                  value: "d",
-                },
-                {
-                  label: "Weekly",
-                  value: "w",
-                },
-                {
-                  label: "Monthly",
-                  value: "m",
-                },
-                {
-                  label: "Quarterly",
-                  value: "q",
-                },
-              ]}
-            />
-          </FormControl>
-        </Stack>
-        <FormControl isRequired>
-          <FormLabel>Entity columns</FormLabel>
-          <Select
-            onChange={(value) => setColumnValue(value, props.setEntityCols)}
-            options={options}
-            isMulti
-          />
-        </FormControl>
+        {Object.keys(props.datasets_schema["transaction"]["data_fields"]).map(
+          (config_field: string, idx: number) => {
+            const has_values = props.datasets_schema["transaction"]["data_fields"][config_field][
+              "values"
+            ]
+              ? true
+              : false;
+
+            const is_multiple = props.datasets_schema["transaction"]["data_fields"][config_field][
+              "is_multiple"
+            ]
+              ? true
+              : false;
+
+            // const is_required = props.datasets_schema["transaction"]["data_fields"][config_field][
+            //   "is_required"
+            // ]
+            //   ? true
+            //   : false;
+
+            return (
+              <FormControl isRequired key={idx}>
+                <FormLabel>
+                  {props.datasets_schema["transaction"]["data_fields"][config_field]["title"]}
+                </FormLabel>
+                <Select
+                  isMulti={is_multiple ? true : false}
+                  onChange={(value) => {
+                    dataset_configs[config_field] = value
+                      ? is_multiple
+                        ? getValuesArray(value)
+                        : value.value
+                      : "";
+                  }}
+                  useBasicStyles
+                  options={has_values ?
+                    getOptionsArray(
+                      props.datasets_schema["transaction"]["data_fields"][config_field]["values"]
+                    ) : options
+                  }
+                />
+              </FormControl>
+            );
+          }
+        )}
       </Stack>
       <Divider />
       <Flex direction="row-reverse" py="4" px={{ base: "4", md: "6" }}>

@@ -196,7 +196,7 @@ export default function Reports() {
           <HStack justifyContent="space-between" width="20px">
             <FontAwesomeIcon
               cursor="pointer"
-              icon={faTrash}
+              icon={faTrash as any}
               onClick={async () =>
                 setReports(
                   await deleteReport(access_token_indexhub_api, info.getValue())

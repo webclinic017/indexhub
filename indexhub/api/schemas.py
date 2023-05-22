@@ -144,6 +144,11 @@ SUPPORTED_FREQ = {
     "Monthly": "1mo",
 }
 
+SUPPORTED_DATETIME_FMT = {
+    "Year-Month-Day": "%Y-%m-%d",
+    "Year-Month": "%Y-%m",
+}
+
 SUPPORTED_DIRECTION = {
     "Maximize": "max",
     "Minimize": "min",
@@ -182,6 +187,7 @@ SUPPORTED_FILE_EXT = {
     "title": "File extension",
     "subtitle": "",
     "values": ["csv", "xlsx", "parquet"],
+    "is_required": True,
 }
 
 
@@ -192,57 +198,58 @@ SUPPORTED_BASELINE_MODELS = {
 
 
 TIME_COL_SCHEMA = {
-    "title": "Product ID column",
-    "subtitle": "Represents the column of products / services (e.g. SKU)",
-    "values": "",
+    "title": "Time column",
+    "subtitle": "Date/time column",
+    "is_required": True,
 }
 
 
 TARGET_COL_SCHEMA = {
     "title": "Target column",
     "subtitle": "Target column to forecast such as quantity, sales amount, etc.",
-    "values": "",
+    "is_required": True,
 }
 
 
 ENTITY_COLS_SCHEMA = {
     "title": "Entity column(s)",
     "subtitle": "Run forecast by entity columns such as region, customer, product category, etc.",
-    "values": [],
+    "is_multiple": True,
+    "is_required": True,
 }
 
 INVOICE_COL_SCHEMA = {
     "title": "Invoice ID column",
     "subtitle": "Represents the ID for a basket of orders or a single trip",
-    "values": "",
+    "is_required": True,
 }
 
 
 PRODUCT_COL_SCHEMA = {
     "title": "Product ID column",
     "subtitle": "Represents the column of products / services (e.g. SKU)",
-    "values": "",
+    "is_required": True,
 }
 
 
 PRICE_COL_SCHEMA = {
     "title": "Price column",
     "subtitle": "Represents the column for prices of items at the time of purchase",
-    "values": "",
+    "is_required": True,
 }
 
 
 QUANTITY_COL_SCHEMA = {
     "title": "Quantity column",
     "subtitle": "Represents the column for quantities sold at the time of purchase",
-    "values": "",
+    "is_required": True,
 }
 
 
 FEATURE_COLS_SCHEMA = {
     "title": "Features column",
     "subtitle": "Represents the additional columns/features that are optional and might be useful in improving forecast results",
-    "values": [],
+    "is_multiple": True,
 }
 
 
@@ -250,7 +257,6 @@ AGG_METHOD_SCHEMA = {
     "title": "Aggregation Method",
     "subtitle": "How do you want to aggregate the target after group by entity columns?",
     "values": ["sum", "mean", "median"],
-    "is_required": False,
 }
 
 
@@ -266,7 +272,20 @@ IMPUTE_METHOD_SCHEMA = {
         "bfill",
         "interpolate",
     ],
-    "is_required": False,
+}
+
+FREQ_SCHEMA = {
+    "title": "Frequency",
+    "subtitle": "What is the forecast frequency?",
+    "values": list(SUPPORTED_FREQ.keys()),
+    "is_required": True,
+}
+
+DATETIME_FMT_SCHEMA = {
+    "title": "Datetime format",
+    "subtitle": "What is the datetime format for time column?",
+    "values": list(SUPPORTED_DATETIME_FMT.keys()),
+    "is_required": True,
 }
 
 
@@ -275,7 +294,8 @@ def SOURCES_SCHEMA(sources: List[Source], type: str):
         "panel": {
             "title": "Dataset",
             "subtitle": "Select one panel dataset of observed values to forecast.",
-            "values": {src.name: src.id for src in sources if src.type == type},
+            "values": {src.name: src.id for src in sources if src.dataset_type == type},
+            "is_required": True,
         },
         "baseline": {
             "title": "Baseline Forecasts",
@@ -284,16 +304,14 @@ def SOURCES_SCHEMA(sources: List[Source], type: str):
                 " Must have the same schema as `panel`."
                 " Note: If this is not specified, a seasonal naive/naive forecast will be automatically generated and used as a baseline."
             ),
-            "values": {src.name: src.id for src in sources if src.type == type},
-            "is_required": False,
+            "values": {src.name: src.id for src in sources if src.dataset_type == type},
         },
         "inventory": {
             "title": "Inventory",
             "subtitle": (
                 "Select one inventory dataset." " Must have the same schema as `panel`."
             ),
-            "values": {src.name: src.id for src in sources if src.type == type},
-            "is_required": False,
+            "values": {src.name: src.id for src in sources if src.dataset_type == type},
         },
     }
 
@@ -304,33 +322,46 @@ def OBJECTIVE_FIELDS_SCHEMA():
             "title": "Forecast Direction",
             "subtitle": "What should the forecasting model focus on?",
             "values": list(SUPPORTED_DIRECTION.keys()),
+            "is_required": True,
         },
         "error_type": {
             "title": "Forecast Error Type",
             "subtitle": "Which type of forecast error do you want to reduce?",
             "values": list(SUPPORTED_ERROR_TYPE.keys()),
+            "is_required": True,
         },
         "min_lags": {
             "title": "What is the minimum number lagged variables?",
             "subtitle": "`min_lags` must be less than `max_lags`.",
             "values": list(range(12, 25)),
             "default": 12,
+            "is_required": True,
         },
         "max_lags": {
             "title": "What is the maximum number of lagged variables?",
             "subtitle": "`max_lags` must be greater than `min_lags`.",
             "values": list(range(24, 49)),
             "default": 24,
+            "is_required": True,
+        },
+        "n_splits": {
+            "title": "Number of Splits",
+            "subtitle": "What is the number of splits for backtest?",
+            "values": list(range(3, 10)),
+            "default": 3,
+            "is_required": True,
         },
         "fh": {
             "title": "Forecast Horizon",
             "subtitle": "How many periods into the future do you want to predict?",
             "values": list(range(1, 30)),
+            "is_required": True,
         },
         "holiday_regions": {
             "title": "Holiday Regions",
             "subtitle": "Include holiday effects from a list of supported countries into the AI prediction model",
             "values": list(SUPPORTED_COUNTRIES.keys()),
+            "is_multiple": True,
         },
         "baseline_model": {
             "title": "Baseline Model",
@@ -384,7 +415,6 @@ def CONNECTION_SCHEMA(user: User):
 DATASET_SCHEMA = {
     "panel": {
         "description": "Choose this source if you have panel data (i.e. time-series data across multiple entities).",
-        "type": ["panel", "baseline", "inventory"],
         "data_fields": {
             "entity_cols": ENTITY_COLS_SCHEMA,
             "time_col": TIME_COL_SCHEMA,
@@ -392,13 +422,12 @@ DATASET_SCHEMA = {
             "feature_cols": FEATURE_COLS_SCHEMA,
             "agg_method": AGG_METHOD_SCHEMA,
             "impute_method": IMPUTE_METHOD_SCHEMA,
-            "freq": SUPPORTED_FREQ,
-            "datetime_fmt": "%Y-%m-%d",
+            "freq": FREQ_SCHEMA,
+            "datetime_fmt": DATETIME_FMT_SCHEMA,
         },
     },
     "transaction": {
         "description": "Choose this source if you have transactions data (e.g. point-of-sales).",
-        "type": ["panel", "baseline", "inventory", "transaction"],
         "data_fields": {
             "time_col": TIME_COL_SCHEMA,
             "quantity_col": QUANTITY_COL_SCHEMA,
@@ -410,14 +439,13 @@ DATASET_SCHEMA = {
             "entity_cols": {
                 "title": "Other entity column(s)",
                 "subtitle": "Run forecast by product and other entity columns such as region, customer, etc.",
-                "values": [],
-                "is_required": False,
+                "is_multiple": True,
             },
             "feature_cols": FEATURE_COLS_SCHEMA,
             "agg_method": AGG_METHOD_SCHEMA,
             "impute_method": IMPUTE_METHOD_SCHEMA,
-            "freq": SUPPORTED_FREQ,
-            "datetime_fmt": "%Y-%m-%d",
+            "freq": FREQ_SCHEMA,
+            "datetime_fmt": DATETIME_FMT_SCHEMA,
         },
     },
 }
@@ -437,6 +465,7 @@ def OBJECTIVE_SCHEMAS(sources: List[Source]):
                     "subtitle": "What percentage (%) reduction of forecast error do you plan to achieve?",
                     "values": list(range(1, 99)),
                     "default": 15,
+                    "is_required": True,
                 },
             },
         },

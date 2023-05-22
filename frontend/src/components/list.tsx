@@ -80,7 +80,7 @@ export default function List({
                   </Td>
                   {state[entity].includes(value) ? (
                     <Td height="33px" padding="unset">
-                      <FontAwesomeIcon icon={faCheck} />
+                      <FontAwesomeIcon icon={faCheck as any} />
                     </Td>
                   ) : (
                     <Td></Td>

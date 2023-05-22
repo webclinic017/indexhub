@@ -457,7 +457,7 @@ const ForecastObjective = () => {
                           <Text fontSize="xs">(</Text>
                           <FontAwesomeIcon
                             style={{ marginRight: "3px", marginLeft: "unset" }}
-                            icon={mainStats[1]["values"]["pct_change"] > 0 ? faCaretUp : faCaretDown}
+                            icon={mainStats[1]["values"]["pct_change"] > 0 ? faCaretUp as any : faCaretDown as any}
                           />
                           <Text ml="unset !important" fontSize="xs" fontWeight="bold">
                             {Math.abs(mainStats[1]["values"]["pct_change"])}
@@ -481,7 +481,7 @@ const ForecastObjective = () => {
                           <Text fontSize="xs">(</Text>
                           <FontAwesomeIcon
                             style={{ marginRight: "3px", marginLeft: "unset" }}
-                            icon={mainStats[2]["values"]["mean_pct"] > 0 ? faCaretUp : faCaretDown}
+                            icon={mainStats[2]["values"]["mean_pct"] > 0 ? faCaretUp as any : faCaretDown as any}
                           />
                           <Text ml="unset !important" fontSize="xs" fontWeight="bold">
                             {Math.abs(mainStats[2]["values"]["mean_pct"])}
@@ -701,7 +701,7 @@ const ForecastObjective = () => {
                                         <Text>(</Text>
                                         <FontAwesomeIcon
                                           style={{ marginRight: "3px", marginLeft: "unset" }}
-                                          icon={entity_data["stats"]["pct_change"] > 0 ? faCaretUp : faCaretDown}
+                                          icon={entity_data["stats"]["pct_change"] > 0 ? faCaretUp as any : faCaretDown as any}
                                         />
                                         <Text ml="unset !important" fontSize="xs" fontWeight="bold">
                                           {Math.abs(entity_data["stats"]["pct_change"])}
@@ -773,7 +773,7 @@ const ForecastObjective = () => {
                     colorScheme="blackAlpha"
                     isDisabled={currentPageAIRecommendationTable == 1}
                   >
-                    <FontAwesomeIcon icon={faChevronLeft} />
+                    <FontAwesomeIcon icon={faChevronLeft as any} />
                   </Button>
                   <Text>{currentPageAIRecommendationTable}/{AIRecommendationTable["pagination"]["end"]}</Text>
                   <Button
@@ -781,7 +781,7 @@ const ForecastObjective = () => {
                     colorScheme="blackAlpha"
                     isDisabled={currentPageAIRecommendationTable == AIRecommendationTable["pagination"]["end"]}
                   >
-                    <FontAwesomeIcon icon={faChevronRight} />
+                    <FontAwesomeIcon icon={faChevronRight as any} />
                   </Button>
                 </HStack>
               </Box>

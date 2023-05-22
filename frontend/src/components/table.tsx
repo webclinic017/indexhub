@@ -84,9 +84,9 @@ export function DataTable<Data extends object>({
                     <chakra.span pl="4">
                       {header.column.getIsSorted() ? (
                         header.column.getIsSorted() === "desc" ? (
-                          <FontAwesomeIcon icon={faSortDown} />
+                          <FontAwesomeIcon icon={faSortDown as any} />
                         ) : (
-                          <FontAwesomeIcon icon={faSortUp} />
+                          <FontAwesomeIcon icon={faSortUp as any} />
                         )
                       ) : null}
                     </chakra.span>

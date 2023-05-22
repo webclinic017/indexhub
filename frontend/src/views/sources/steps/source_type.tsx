@@ -23,7 +23,7 @@ const logos: Record<string, any> = {
 };
 
 const SourceType = (props: {
-  sources_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   submitSourceType: (source_type: string) => void;
 }) => {
   return (
@@ -40,7 +40,7 @@ const SourceType = (props: {
         py={{ base: "5", md: "6" }}
       >
         <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-          {Object.keys(props.sources_schema).map((source_type, idx) => {
+          {Object.keys(props.conn_schema).map((source_type, idx) => {
             return (
               <Card
                 cursor="pointer"
@@ -56,11 +56,11 @@ const SourceType = (props: {
                     <HStack p="3" width="100%" justify="left">
                       <FontAwesomeIcon
                         size="2xs"
-                        icon={faCircleDot}
+                        icon={faCircleDot as any}
                         beatFade
                         style={{
                           color:
-                            props.sources_schema[source_type][
+                            props.conn_schema[source_type][
                               "is_authenticated"
                             ] == true
                               ? colors.supplementary.indicators.main_green
@@ -71,14 +71,14 @@ const SourceType = (props: {
                         textAlign="center"
                         fontSize="2xs"
                         color={
-                          props.sources_schema[source_type][
+                          props.conn_schema[source_type][
                             "is_authenticated"
                           ] == true
                             ? colors.supplementary.indicators.main_green
                             : colors.supplementary.indicators.main_red
                         }
                       >
-                        {props.sources_schema[source_type][
+                        {props.conn_schema[source_type][
                           "is_authenticated"
                         ] == true
                           ? "HAS CREDENTIALS"

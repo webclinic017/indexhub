@@ -32,8 +32,8 @@ export const Stat = (props: Props) => {
               boxSize="5"
             /> */}
             <FontAwesomeIcon
-                color={delta.isUpwardsTrend ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}
-                icon={delta.isUpwardsTrend ? faArrowTrendUp : faArrowTrendDown}
+              color={delta.isUpwardsTrend ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}
+              icon={delta.isUpwardsTrend ? faArrowTrendUp as any : faArrowTrendDown as any}
             />
             <Text color={delta.isUpwardsTrend ? 'success' : 'error'}>{delta.value}</Text>
             <Text color="muted">vs last week</Text>

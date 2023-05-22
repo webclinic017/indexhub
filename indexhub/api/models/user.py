@@ -5,7 +5,7 @@ from sqlmodel import Field, SQLModel
 
 
 class User(SQLModel, table=True):
-    id: str = Field(default=None, primary_key=True)
+    id: str = Field(default=None, primary_key=True, unique=True)
     name: str
     nickname: str
     email: str
@@ -16,4 +16,3 @@ class User(SQLModel, table=True):
     storage_bucket_name: Optional[str] = None
     storage_created_at: Optional[datetime] = None
     integration_ids: Optional[str] = None  # list[int]
-

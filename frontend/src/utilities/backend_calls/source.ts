@@ -77,13 +77,13 @@ export const getSource = async (
   return response_json;
 };
 
-export const getSourcesSchema = async (
+export const getConnectionsSchema = async (
   user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const get_sources_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/schema/${user_id}`;
+  const get_conn_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/conn-schema/${user_id}`;
 
-  const get_sources_schema_response = await fetch(get_sources_schema_url, {
+  const get_conn_schema_response = await fetch(get_conn_schema_url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -91,10 +91,29 @@ export const getSourcesSchema = async (
     },
   });
 
-  const response_json = await get_sources_schema_response.json();
+  const response_json = await get_conn_schema_response.json();
 
   return response_json;
 };
+
+export const getDatasetsSchema = async (
+  access_token_indexhub_api: string
+) => {
+  const get_dataset_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/dataset-schema`;
+
+  const get_dataset_schema_response = await fetch(get_dataset_schema_url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${access_token_indexhub_api}`,
+    },
+  });
+
+  const response_json = await get_dataset_schema_response.json();
+
+  return response_json;
+};
+
 
 export const getS3SourceColumns = async (
   bucket_name: string,
@@ -103,7 +122,7 @@ export const getS3SourceColumns = async (
   access_token_indexhub_api: string
 ) => {
   const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN
-    }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list&n_rows=${1}`;
+    }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list`;
 
   const get_source_columns_response = await fetch(get_source_columns_url, {
     method: "GET",

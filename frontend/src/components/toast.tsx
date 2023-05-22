@@ -43,7 +43,7 @@ const PrimaryToast = (props: {
             px="5"
           >
             <FontAwesomeIcon
-              icon={toast_icons[props.type]}
+              icon={toast_icons[props.type] as any}
               color="white"
               size="2x"
             />
