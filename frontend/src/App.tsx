@@ -20,7 +20,7 @@ import NewObjective from "./views/objectives/new_objective";
 import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
-import Trends from "./views/trends";
+import Trends from "./views/trends/trends";
 
 function App() {
   return (
