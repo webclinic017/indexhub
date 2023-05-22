@@ -7,8 +7,8 @@ holidays
 httpx
 modal-client
 openpyxl
-pandas==2.0.0
-polars==0.17.2
+pandas==2.0.1
+polars==0.17.14
 psycopg2-binary
 pyarrow
 pyecharts
@@ -19,5 +19,5 @@ uvicorn==0.20.0
 pyecharts
 xlsx2csv
 websockets
-lance
+pylance==0.4.13
 expiringdict
