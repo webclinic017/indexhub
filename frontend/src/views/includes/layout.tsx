@@ -24,7 +24,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useLocation } from "react-router-dom";
 import { useAuth0 } from "@auth0/auth0-react";
 import { colors } from "../../theme/theme";
-import Breadcrumbs from "../../components/breadcrumbs";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { faChartLine, faDatabase, faPlusCircle } from "@fortawesome/pro-light-svg-icons";
@@ -97,7 +96,6 @@ export default function Layout() {
             margin="0 0 0 auto"
             maxW="unset"
           >
-            <Breadcrumbs current_path={current_path} />
             <Popover
               trigger="hover"
               onClose={onClose}
