@@ -22,7 +22,6 @@ FILE_EXT_TO_PARSER = {
     "excel": parse_excel,
     "csv": parse_csv,
     "parquet": parse_parquet,
-    "lance": parse_lance,
     "json": parse_json,
 }
 
@@ -57,53 +56,62 @@ def read_data_from_s3(
     if columns is not None:
         key = f"{key}:{columns}"
     data = CACHE.get(key)
-    if data is None:
-        s3_client = boto3.client(
-            "s3",
-            aws_access_key_id=AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=AWS_SECRET_KEY_ID,
-        )
-        try:
-            if file_ext != "lance":
-                obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
-                    "Body"
-                ].read()
-            else:
-                # Get presigned URI
-                uri = s3_client.generate_presigned_url(
-                    "get_object",
-                    Params={"Bucket": bucket_name, "Key": object_path},
-                    RegionName=os.environ["AWS_DEFAULT_REGION"],
-                    ExpiresIn=600,  # Expires in 10 minutes
-                )
-                read = modal.Function.lookup("indexhub-io", "read-lance-dataset")
-                obj = read(uri)
-        except botocore.exceptions.ClientError as err:
-            error_code = err.response["Error"]["Code"]
-            if error_code == "NoSuchBucket":
-                raise HTTPException(
-                    status_code=400, detail="Invalid S3 bucket when reading from source"
-                ) from err
-            elif error_code == "NoSuchKey":
-                raise HTTPException(
-                    status_code=400, detail="Invalid S3 path when reading from source"
-                ) from err
-            elif error_code == "InvalidAccessKeyId":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid S3 access key when reading from source",
-                ) from err
-            elif error_code == "SignatureDoesNotMatch":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Invalid S3 access secret when reading from source",
-                ) from err
-            else:
-                raise err
-        s3_client.close()
-        parser = FILE_EXT_TO_PARSER[file_ext]
+    if data is not None:
+        return data
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_KEY_ID,
+        region_name=os.environ["AWS_DEFAULT_REGION"],
+    )
+    try:
+        if file_ext == "lance":
+            # Get presigned URI
+            # uri = s3_client.generate_presigned_url(
+            #     "get_object",
+            #     Params={
+            #         "Bucket": bucket_name,
+            #         "Key": object_path,
+            #     },
+            #     ExpiresIn=600,  # Expires in 10 minutes
+            # )
+            uri = f"s3://{bucket_name}/{object_path}"
+            print(f"URI: {uri}")
+            read_lance = modal.Function.lookup("indexhub-io", "read_lance_dataset")
+            obj = read_lance.call(uri, columns=columns)
+        else:
+            obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
+                "Body"
+            ].read()
+    except botocore.exceptions.ClientError as err:
+        error_code = err.response["Error"]["Code"]
+        if error_code == "NoSuchBucket":
+            raise HTTPException(
+                status_code=400, detail="Invalid S3 bucket when reading from source"
+            ) from err
+        elif error_code == "NoSuchKey":
+            raise HTTPException(
+                status_code=400, detail="Invalid S3 path when reading from source"
+            ) from err
+        elif error_code == "InvalidAccessKeyId":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid S3 access key when reading from source",
+            ) from err
+        elif error_code == "SignatureDoesNotMatch":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid S3 access secret when reading from source",
+            ) from err
+        else:
+            raise err
+    s3_client.close()
+    parser = FILE_EXT_TO_PARSER.get(file_ext)
+    if parser is not None:
         data = parser(obj=obj, columns=columns)
-        CACHE[key] = data
+    else:
+        data = obj
+    CACHE[key] = data
     return data
 
 

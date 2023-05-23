@@ -52,14 +52,6 @@ def parse_parquet(
         return raw_panel
     
 
-def parse_lance(
-    obj, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
-) -> pl.DataFrame:
-    table = obj.to_table(limit=n_rows, columns=columns)
-    data = pl.from_arrow(table)
-    return data
-
-
 def parse_json(
     obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
 ) -> dict:

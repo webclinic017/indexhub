@@ -9,9 +9,9 @@
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
     "@fontsource/inter": "*",
-    "@fortawesome/react-fontawesome": "^0.2.0",
     "@fortawesome/fontawesome-pro": "^6.4.0",
     "@fortawesome/pro-light-svg-icons": "^6.4.0",
+    "@fortawesome/react-fontawesome": "^0.2.0",
     "@tanstack/react-table": "^8.7.6",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
@@ -33,6 +33,7 @@
     "redux-mock-store": "^1.5.4",
     "redux-saga": "^1.2.1",
     "scatter-gl": "^0.0.13",
+    "vega-embed": "^6.22.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

@@ -1,6 +1,9 @@
 import json
 from functools import partial
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Optional
+import logging
+
+from pydantic import BaseModel
 
 import altair as alt
 import polars as pl
@@ -14,6 +17,21 @@ from indexhub.api.routers.objectives import get_objective
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
+def _logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
+
+
+logger = _logger(name=__name__)
+
+pl.toggle_string_cache(True)
 
 def _load_trend_datasets(
     read: Callable,
@@ -28,6 +46,7 @@ def _load_trend_datasets(
         .agg(pl.col(target_col).mean())
     )
     quantiles = read(object_path=paths["quantiles"])
+    logger.info(f"Loaded trend datasets")
     return actual, forecasts, quantiles, backtests
 
 
@@ -41,9 +60,9 @@ def _create_trend_data(
     quantile_upper: int = 90,
     display_length: int = 24,
 ) -> pl.DataFrame:
-    pl.toggle_string_cache(True)
-    actual = actual.rename({target_col: "actual"})
+    # pl.toggle_string_cache(True)
     entity_col, time_col, target_col = forecasts.columns
+    actual = actual.rename({target_col: "actual"})
     quantiles_lower = (
         quantiles.filter(pl.col("quantile") == quantile_lower)
         .drop("quantile")
@@ -75,7 +94,8 @@ def _create_trend_data(
     if len(chart_data) > display_length:
         chart_data = chart_data.tail(display_length)
 
-    pl.toggle_string_cache(False)
+    # pl.toggle_string_cache(False)
+    logger.info(f"Created trend data")
     return chart_data
 
 
@@ -182,12 +202,15 @@ def _create_trend_chart(chart_data: pl.DataFrame):
         .configure_view(strokeWidth=0)
         .properties(height=100, width="container")
     )
-
+    logger.info(f"Created trend chart")
     return chart
 
+class EmbeddingsParams(BaseModel):
+    dim_size: Optional[int] = 3
 
-@router.get("/trends/public/vectors/{dataset_id}")
-def get_public_embs(dataset_id: int, dim_size: int = 3):
+@router.post("/trends/public/vectors/{dataset_id}")
+def get_public_embs(dataset_id: str, params: EmbeddingsParams):
+    dim_size = params.dim_size
     read = partial(
         SOURCE_TAG_TO_READER["s3"],
         bucket_name=DEMO_BUCKET,
@@ -199,9 +222,10 @@ def get_public_embs(dataset_id: int, dim_size: int = 3):
     # Return spec for scatter gl
     # TODO: Replace labels with cluster IDs and add entities field
     spec = {
-        "labels": list(range(len(data))),
-        "labelNames": data.get_column(entity_col).to_list(),
-        "projection": data.get_column(f"emb(n={dim_size})").to_list(),
+        "ids": list(range(len(data))),
+        "clusters": list(range(len(data))),
+        "entityIds": data.get_column(entity_col).to_list(),
+        "projections": data.get_column(f"emb(n={dim_size})").to_list(),
     }
     return spec
 
@@ -212,7 +236,8 @@ def get_private_embs(objective_id: int, dim_size: int = 3):
 
 
 @router.get("/trends/public/charts/{dataset_id}/{entity_id}")
-def get_public_trend_chart(dataset_id: int, entity_id: str):
+def get_public_trend_chart(dataset_id: str, entity_id: str):
+    # pl.toggle_string_cache(True)
     read = partial(
         SOURCE_TAG_TO_READER["s3"],
         bucket_name=DEMO_BUCKET,
@@ -227,6 +252,7 @@ def get_public_trend_chart(dataset_id: int, entity_id: str):
     )
     # Create chart
     chart = _create_trend_chart(chart_data).to_json()
+    # pl.toggle_string_cache(False)
     return chart
 
 

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from indexhub.api.db import engine
+from indexhub.api.demos import DEMO_BUCKET, DEMO_SCHEMAS
 from indexhub.api.models.copilot import (
     ACTIONS,
     ADDITIONAL_TYPES,
@@ -26,6 +27,7 @@ from indexhub.api.models.copilot import (
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
+from indexhub.api.routers.trends import _load_trend_datasets
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -114,6 +116,7 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
     return context_inputs
 
 
+
 def format_chat_response(
     content: str,
     *,
@@ -131,6 +134,7 @@ def format_chat_response(
         "content": content,
     }
 
+    
 
 class ChatService:
     def __init__(self, websocket: WebSocket, params: ForecastParams):
@@ -147,6 +151,9 @@ class ChatService:
             case "chat":
                 logger.info("Chatting")
                 await self.chat(msg)
+            case "describe":
+                logger.info("Describing")
+                await self.describe(msg)
             case "report_flow":
                 logger.info("Reporting flow")
                 await self.report_flow(msg)
@@ -155,8 +162,8 @@ class ChatService:
                 await self.sentiment_analysis(msg)
             case _:
                 logger.error(f"Unknown action: {action}")
-
-    async def _analysis_and_questions(
+    # NOTE: This is the old analysis. Keeping for backwards compatibility
+    async def _analysis(
         self, msg: ChatMessage
     ) -> tuple[list[str], list[str]]:
         logger.info("Getting analysis")
@@ -166,7 +173,13 @@ class ChatService:
             {"analysis": analysis, "channel": msg.request.channel}
         )
         logger.info("Done getting analysis")
+        return analysis
 
+
+
+    async def _questions(
+        self, msg: ChatMessage, analysis: list[str]
+    ) -> tuple[list[str], list[str]]:
         logger.info("Getting questions")
         get_questions = await modal.aio.AioFunction.lookup(MODAL_APP, "get_questions")
         questions = await get_questions.call(self.agent.dict(), analysis)
@@ -174,7 +187,7 @@ class ChatService:
             {"questions": questions, "channel": msg.request.channel}
         )
         logger.info("Done getting questions")
-        return analysis, questions
+        return questions
 
     async def _news(self, msg: ChatMessage) -> pl.DataFrame:
         logger.info("Getting news")
@@ -287,7 +300,7 @@ class ChatService:
 
 
 @router.websocket("/copilot/ws")
-async def copilot_chat(websocket: WebSocket):
+async def forecast_analyst_chat(websocket: WebSocket):
     await websocket.accept()
     logger.info("Websocket connection established.")
     ws_params = await websocket.receive_json()
@@ -295,6 +308,72 @@ async def copilot_chat(websocket: WebSocket):
     logger.info(f"Received forecast params: {params}")
     copilot = ChatService(websocket, params)
 
+    try:
+        while True:
+            msg_json = await websocket.receive_json()
+            msg = ChatMessage(**msg_json)
+            await copilot.dispatch(msg)
+    except modal.exception.NotFoundError as e:
+        logger.error(f"{e}: {traceback.format_exc()}")
+    except websockets.exceptions.ConnectionClosedOK as e:
+        logger.info(f"Connection closed: {e}")
+    except WebSocketDisconnect as e:
+        logger.error(f"Connection closed: {e}")
+    except Exception as e:
+        logger.error(f"{e}: {traceback.format_exc()}")
+    finally:
+        logger.info("Closing websocket connection.")
+
+class TrendsChatService:
+    def __init__(self, websocket: WebSocket):
+        self.websocket = websocket
+        
+    async def dispatch(self, msg: ChatMessage):
+        action = msg.request.action
+        match action:
+            case "chat":
+                logger.info("Chatting")
+                await self.chat(msg)
+            case "describe":
+                logger.info("Describing")
+                await self.describe(msg)
+            case _:
+                logger.error(f"Unknown action: {action}")
+
+    async def chat(self, msg: ChatMessage):
+        logger.info("Chatting")
+        # TODO: Actually implement this logic. Placeholder for now
+        get_chat = await modal.aio.AioFunction.lookup(MODAL_APP, "get_chat_response")
+        response = await get_chat.call(
+            agent_params=self.agent.dict(),
+            message=msg.request.content,
+            message_history=msg.message_history,
+        )
+        chat_response = format_chat_response(
+            content=response,
+            action=msg.request.action,
+        )
+        await self.websocket.send_json(
+            {"chat_response": chat_response, "channel": msg.request.channel}
+        )
+
+    async def describe(
+        self, msg: ChatMessage
+    ) -> tuple[list[str], list[str]]:
+        logger.info("Describing")
+        get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
+        analysis = await get_analysis.call(self.agent.dict())
+        await self.websocket.send_json(
+            {"analysis": analysis, "channel": msg.request.channel}
+        )
+        logger.info("Done describing")
+        return analysis
+
+@router.websocket("/copilot/ws")
+async def trends_analyst_chat(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("Websocket connection established.")
+    copilot = TrendsChatService(websocket)
     try:
         while True:
             msg_json = await websocket.receive_json()

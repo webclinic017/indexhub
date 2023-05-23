@@ -1,40 +1,108 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Point3D, Dataset, ScatterGL, ScatterGLParams, PointMetadata } from 'scatter-gl';  // adjust these imports based on your project structure
-import { data } from './data/projection';  // adjust this import based on your project structure
 import { Stack, VStack, Button, Box } from '@chakra-ui/react';
-import { TrendsContext } from '../trends';
+import { TrendsContext } from '../trends_dashboard';
+
+export interface ProjectorData {
+    ids: number[];
+    clusters: number[];
+    entityIds: string[];   // entity names
+    projections: Point3D[];
+}
+
+const getProjectorData = async (datasetId: string, apiToken: string) => {
+    console.log(`api call token = ${apiToken}`);
+    const response = await fetch(
+        `${process.env.REACT_APP__FASTAPI__DOMAIN}/trends/public/vectors/${datasetId}`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiToken}`,
+            },
+            body: JSON.stringify({ "dim_size": 3 }),
+        }
+    );
+    const response_json = await response.json();
+    console.log(`getProjectorData response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
+    return response_json;
+};
+
 
 const Projector = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const messagesRef = useRef<HTMLDivElement>(null);
     const scatterGLRef = useRef<ScatterGL | null>(null);
-    const [dataPoints, setDataPoints] = useState<Point3D[]>([]);
-    const [metadata, setMetadata] = useState<PointMetadata[]>([]);  // All points
-    const { selectedPoints, addPoint } = useContext(TrendsContext);
+    const [dataset, setDataset] = useState<Dataset>({} as Dataset);
+    const {
+        addPoint,
+        resetPoints,
+        projectorData,
+        updateProjectorData,
+        apiToken,
+        datasetId
+    } = useContext(TrendsContext);
 
-    useEffect(() => {
-        console.log(`selectedPoints in projector: ${selectedPoints.map(item => item.pointIndex as number)}`);
-    }, [selectedPoints]);
+    // useEffect(() => {
+    //     console.log(`selectedPoints in projector: ${selectedPoints.map(item => item.pointIndex as number)}`);
+    // }, [selectedPoints]);
 
 
-    useEffect(() => {
-        if (containerRef.current) {
-            // Construct dataset
-            const newPoints: Point3D[] = [];
-            const metadata: PointMetadata[] = [];
-            data.projection.forEach((vector, index) => {
-                const labelIndex = data.labels[index];
-                newPoints.push(vector);
-                metadata.push({
-                    labelIndex,
-                    label: data.labelNames[labelIndex],
-                    pointIndex: index,
-                });
+    const getDatasetFromProjectorData = (data: ProjectorData) => {
+        console.log(`enter getDatasetFromProjectorData ${JSON.stringify(data)}`);
+        const newPoints: Point3D[] = [];
+        const metadata: PointMetadata[] = [];
+        data.projections.forEach((vector, index) => {
+            newPoints.push(vector);
+            metadata.push({
+                id: data.ids[index],
+                label: data.entityIds[index],
+                cluster: data.clusters[index],
             });
+        });
 
-            setDataPoints(newPoints);
-            setMetadata(metadata);
-            const dataset = new Dataset(newPoints, metadata);  // Define the dataset here
+        const dataset = new Dataset(newPoints, metadata);
+        setDataset(dataset);
+        console.log(`exit getDatasetFromProjectorData with dataset=${JSON.stringify(dataset)}`);
+
+        return dataset;
+    }
+
+    // When projectorData changes, update the projector
+    useEffect(() => {
+        if (!scatterGLRef.current || !projectorData) {
+            return;
+        }
+        console.log(`enter projectorData change`);
+
+        const dataset = getDatasetFromProjectorData(projectorData);
+        scatterGLRef.current.render(dataset);
+        console.log(`exit projectorData change`);
+
+    }, [projectorData]);
+
+    // When datasetId changes, update the projector data
+    useEffect(() => {
+        const getAsync = async () => {
+            console.log(`enter datasetId change`);
+            const data = await getProjectorData(datasetId, apiToken) as ProjectorData;
+            resetPoints();
+            updateProjectorData(data);
+            console.log(`exit datasetId change`);
+        }
+        if (datasetId && apiToken) {
+            getAsync();
+        }
+
+    }, [datasetId, apiToken]);
+
+    // Initialize the canvas
+    useEffect(() => {
+        const setupAsync = async () => {
+            if (!containerRef.current) {
+                return;
+            }
+            console.log(`Start mount`);
 
             const setMessage = (message: string) => {
                 const messageStr = `🔥 ${message}`;
@@ -48,13 +116,7 @@ const Projector = () => {
                 onClick: (pointIndex: number | null) => {
                     setMessage(`click ${pointIndex}`);
                     if (pointIndex !== null) {
-                        const labelIndex = data.labels[pointIndex];
-                        const currPoint: PointMetadata = {
-                            labelIndex,
-                            label: data.labelNames[labelIndex],
-                            pointIndex: pointIndex,
-                        }
-                        addPoint(currPoint);
+                        selectPointHandler(pointIndex);
                     }
                 },
                 onHover: (point: number | null) => {
@@ -66,8 +128,6 @@ const Projector = () => {
                 },
             };
             scatterGLRef.current = new ScatterGL(containerRef.current, params);
-
-            scatterGLRef.current.render(dataset);
 
             // Add in a resize observer for automatic window resize.
             const resizeFunc = () => scatterGLRef.current?.resize();
@@ -90,6 +150,7 @@ const Projector = () => {
                 inputElement.addEventListener('change', handleInputChange);
             });
 
+            console.log(`End mount`);
 
             // Clean up function for removing the resize listener when the component unmounts
             return () => {
@@ -99,12 +160,18 @@ const Projector = () => {
                 });
             }
         }
+        setupAsync();
     }, []);  // Empty array means this effect runs once on mount and clean up on unmount
 
     // Your button and input handlers go here...
+    const selectPointHandler = (id: number) => {
+        console.log(`selectPointHandler ${id} of type ${typeof id}`);
+        addPoint(id);
+    };
+
     const selectRandomHandler = () => {
-        if (scatterGLRef.current && dataPoints.length > 0) {
-            const randomIndex = Math.floor(dataPoints.length * Math.random());
+        if (scatterGLRef.current && dataset.points.length > 0) {
+            const randomIndex = Math.floor(dataset.points.length * Math.random());
             scatterGLRef.current.select([randomIndex]);
         }
     };
