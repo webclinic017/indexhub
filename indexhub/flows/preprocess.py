@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, List, Literal, Mapping, Optional, Union
 
 import boto3
-import lance
 import modal
 import pandas as pd
 import polars as pl
@@ -265,6 +264,7 @@ def _upload_embs(
     source_id: int,
     storage_bucket_name: str,
 ):
+    import lance
     # Export embeddings as .lance
     uri = f"vectors/{source_id}.lance/"
     # Change to pandas df and write to .lance due to ValueError

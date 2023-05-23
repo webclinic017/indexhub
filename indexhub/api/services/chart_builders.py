@@ -2,7 +2,6 @@ import itertools
 from functools import partial, reduce
 from typing import Any, Literal, Mapping
 
-import lance
 import polars as pl
 from pyecharts import options as opts
 from pyecharts.charts import Grid, Line, Scatter, Scatter3D
@@ -676,99 +675,6 @@ def create_segmentation_chart(
     chart_json = scatter.dump_options()
     pl.toggle_string_cache(False)
     return chart_json
-
-
-def create_3d_cluster_chart(outputs: Mapping[str, str], user: User, **kwargs):
-    # Get bucket and path
-    bucket_name = user.storage_bucket_name
-    path = outputs["embeddings"]["cluster"]
-
-    # Load .lance directory and parse as pl.DataFrame
-    lance_obj = lance.dataset(f"s3://{bucket_name}/{path}/")
-    data = pl.from_arrow(lance_obj.to_table())
-    # Unpack columns from data
-    product_col = data.columns[0]
-    cluster_col = data.columns[-1]
-    # Define colors with darker theme and set cycler
-    colors = [
-        "#4D2A7F",
-        "#6D4DBE",
-        "#9B9EEC",
-        "#A5E1AD",
-        "#8BD46C",
-        "#58B033",
-        "#28A08B",
-        "#1F6D65",
-        "#204051",
-        "#292F36",
-    ]
-    colors_cycle = itertools.cycle(colors)
-
-    # Scale 3D axes to origin and remove gridlines
-    axis3d_opts = opts.Axis3DOpts(
-        type_="value",
-        name=" ",
-        is_scale=True,
-        splitline_opts=opts.SplitLineOpts(is_show=False),
-    )
-    # Get unique clusters - filter out unclustered data ("-1")
-    clusters = (
-        data.filter(pl.col(cluster_col) >= 0).get_column(cluster_col).unique().to_list()
-    )
-    # Create scatter plot based on each cluster id
-    cluster_3d = Scatter3D(init_opts=opts.InitOpts(bg_color="white"))
-    for cluster_id in clusters:
-        df = (
-            data.filter(pl.col(cluster_col) == cluster_id)
-            .select(
-                pl.all().exclude(product_col, cluster_col),
-                pl.col(product_col),
-                pl.col(cluster_col),
-            )
-            .to_numpy()
-            .tolist()
-        )
-        cluster_3d.add(
-            "",
-            df,
-            itemstyle_opts=opts.ItemStyleOpts(color=next(colors_cycle)),
-            grid3d_opts=opts.Grid3DOpts(
-                is_show=False,
-                height=100,
-                width=100,
-                depth=100,
-                axislabel_opts=opts.AxisLineOpts(is_show=False),  # removes axis labels
-                axistick_opts=opts.AxisTickOpts(is_show=False),  # removes axis ticks
-                axispointer_opts=opts.AxisPointerOpts(
-                    is_show=False
-                ),  # Removes 3d axis pointers
-                axisline_opts=opts.AxisLineOpts(
-                    is_show=True, linestyle_opts=opts.LineStyleOpts(opacity=0.5)
-                ),  # Axis lines
-            ),
-            xaxis3d_opts=axis3d_opts,
-            yaxis3d_opts=axis3d_opts,
-            zaxis3d_opts=axis3d_opts,
-        ).set_series_opts(
-            tooltip_opts=opts.TooltipOpts(
-                formatter=JsCode(
-                    # params.value is based on columns in the zip passed in final_y
-                    "function (params) {return params.value[3] + '<br>' + 'Cluster: ' + params.value[4];}"
-                ),
-                position="top",
-            ),
-        ).set_global_opts(
-            legend_opts=opts.LegendOpts(is_show=False, border_width=0),
-            visualmap_opts=[
-                # Set the size of the dots to fixed size
-                opts.VisualMapOpts(
-                    type_="size",
-                    range_size=[5, 5],  # set fixed size at 50% normal size
-                    is_show=False,
-                ),
-            ],
-        )
-    return cluster_3d.dump_options()
 
 
 def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):

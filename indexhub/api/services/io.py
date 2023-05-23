@@ -13,7 +13,6 @@ from indexhub.api.services.parsers import (
     parse_csv,
     parse_excel,
     parse_json,
-    parse_lance,
     parse_parquet,
 )
 
@@ -24,24 +23,6 @@ FILE_EXT_TO_PARSER = {
     "parquet": parse_parquet,
     "json": parse_json,
 }
-
-
-image = modal.Image.debian_slim().pip_install("pylance")
-stub = modal.Stub(name="indexhub-io")
-
-
-@stub.function(
-    name="read-lance-dataset",
-    memory=5120,
-    cpu=4.0,
-    secrets=[
-        modal.Secret.from_name("aws-credentials"),
-    ],
-)
-def read_lance_dataset(uri: str):
-    import lance
-
-    return lance.dataset(uri)
 
 
 def read_data_from_s3(
