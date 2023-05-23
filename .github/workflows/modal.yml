@@ -17,7 +17,7 @@ jobs:
       - name: Install modal-client
         run: python3 -m pip install modal-client
       - name: Install package and dependencies
-        run: python3 -m pip install .
+        run: python3 -m pip install . && python 3 -m pip install -r requirements.txt
       - name: Authenticate
         run: modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
         env:
