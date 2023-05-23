@@ -51,7 +51,7 @@ export const UserProfile = (props: UserProfileProps) => {
         <HStack spacing="3" p="1">
             <Avatar name={name} src={image} boxSize="9" />
             <Box>
-                <Text fontSize="sm" textAlign="left">
+                <Text overflow="hidden" textOverflow="ellipsis" fontSize="sm" textAlign="left">
                     {name}
                 </Text>
             </Box>
