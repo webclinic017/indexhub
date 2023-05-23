@@ -25,6 +25,6 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       - name: Deploy
         run: |
-          modal deploy indexhub/api/flows/forecast.py
-          modal deploy indexhub/api/flows/preprocess.py
+          modal deploy indexhub/flows/forecast.py
+          modal deploy indexhub/flows/preprocess.py
           modal deploy indexhub/api/services/io.py
