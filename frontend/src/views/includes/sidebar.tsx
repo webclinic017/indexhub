@@ -50,11 +50,6 @@ export const UserProfile = (props: UserProfileProps) => {
     return (
         <HStack spacing="3" p="1">
             <Avatar name={name} src={image} boxSize="9" />
-            <Box overflow="hidden">
-                <Text overflow="hidden" textOverflow="ellipsis" fontWeight="bold" fontSize="sm" textAlign="left">
-                    {name}
-                </Text>
-            </Box>
         </HStack>
     )
 }
