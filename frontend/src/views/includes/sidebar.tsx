@@ -50,6 +50,11 @@ export const UserProfile = (props: UserProfileProps) => {
     return (
         <HStack spacing="3" p="1">
             <Avatar name={name} src={image} boxSize="9" />
+            <Box>
+                <Text fontWeight="bold" fontSize="sm" textAlign="left">
+                    {name}
+                </Text>
+            </Box>
         </HStack>
     )
 }
@@ -75,7 +80,7 @@ export const Sidebar = () => {
                 <Divider/>
                 <Menu matchWidth>
                     <MenuButton cursor="pointer" borderRadius="5">
-                        <UserProfile name={user_details.nickname} image=""/>
+                        <UserProfile name={user_details.name} image=""/>
                     </MenuButton>
                     <MenuList>
                         <MenuItem><Text>{user_details.email}</Text></MenuItem>
