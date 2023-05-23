@@ -4,6 +4,7 @@
 
 import json
 import os
+from datetime import datetime
 from typing import Mapping
 
 import boto3
@@ -47,7 +48,9 @@ def create_aws_secret(
     try:
         secret_name = f"{ENV_NAME}/{secret_type}/{user_id.replace('|', '_')}@{tag}"
         response = client.create_secret(
-            Name=secret_name, SecretString=json.dumps(secret)
+            Name=secret_name,
+            SecretString=json.dumps(secret),
+            Description=f"Created at: {datetime.now():%c}"
         )
         response = client.tag_resource(
             SecretId=secret_name, Tags=[{"Key": "owner", "Value": "user"}]
