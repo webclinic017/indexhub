@@ -66,9 +66,9 @@ export const Sidebar = () => {
             <Stack shouldWrapChildren justify="start">
                 <HStack mx="3" my="6"><Logo width="48" height="100%"/></HStack>
                 <Stack>
-                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
-                    <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
-                    <NavButton isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
+                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
+                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
+                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
                 </Stack>
             </Stack>
             <Stack>
