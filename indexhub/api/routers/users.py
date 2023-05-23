@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from typing import List, Mapping, Optional, Union
 
@@ -13,6 +14,21 @@ from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.schemas import STORAGE_SCHEMAS
 from indexhub.api.services.secrets_manager import create_aws_secret
+
+
+def _logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
+
+
+logger = _logger(name=__name__)
 
 
 class CreateUser(BaseModel):
@@ -103,6 +119,8 @@ def add_source_credentials(params: CreateSourceCreds, user_id: str):
     except ClientError as err:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+
+        logger.exception(err)
 
         raise HTTPException(
             status_code=500,
