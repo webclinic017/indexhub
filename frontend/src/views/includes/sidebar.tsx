@@ -51,7 +51,7 @@ export const UserProfile = (props: UserProfileProps) => {
         <HStack spacing="3" p="1">
             <Avatar name={name} src={image} boxSize="9" />
             <Box>
-                <Text fontWeight="bold" fontSize="sm" textAlign="left">
+                <Text fontSize="sm" textAlign="left">
                     {name}
                 </Text>
             </Box>
@@ -71,21 +71,21 @@ export const Sidebar = () => {
             <Stack shouldWrapChildren justify="start">
                 <HStack mx="3" my="6"><Logo width="48" height="100%"/></HStack>
                 <Stack>
-                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
-                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
-                    <NavButton fontWeight="bold" isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
+                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
+                    <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
+                    <NavButton isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
                 </Stack>
             </Stack>
             <Stack>
                 <Divider/>
-                <Menu matchWidth>
+                <Menu>
                     <MenuButton cursor="pointer" borderRadius="5">
                         <UserProfile name={user_details.name} image=""/>
                     </MenuButton>
                     <MenuList>
-                        <MenuItem><Text>{user_details.email}</Text></MenuItem>
+                        <MenuItem><Text fontSize="sm" fontWeight="bold">{user_details.email}</Text></MenuItem>
                         <Divider/>
-                        <MenuItem mt="4" onClick={() => logout({ returnTo: window.location.origin })}>Logout</MenuItem>
+                        <MenuItem onClick={() => logout({ returnTo: window.location.origin })}><Text fontSize="sm">Logout</Text></MenuItem>
                     </MenuList>
                 </Menu>
             </Stack>
