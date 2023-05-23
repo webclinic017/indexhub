@@ -9,7 +9,7 @@ from fastapi import HTTPException, Response, status
 from pydantic import BaseModel
 from sqlmodel import Field, Session, select
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.schemas import STORAGE_SCHEMAS
@@ -43,7 +43,7 @@ class CreateUser(BaseModel):
 def create_user(
     create_user: CreateUser,
 ):
-
+    engine = create_sql_engine()
     with Session(engine) as session:
 
         user = User()
@@ -65,6 +65,7 @@ def create_user(
 
 @router.get("/users/{user_id}")
 def get_user(response: Response, user_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         user = session.get(User, user_id)
         if user is not None:
@@ -85,7 +86,7 @@ def patch_user(
     user_patch: UserPatch,
     user_id: str,
 ):
-
+    engine = create_sql_engine()
     with Session(engine) as session:
         filter_user_query = select(User).where(User.id == user_id)
         results = session.exec(filter_user_query)
@@ -127,6 +128,7 @@ def add_source_credentials(params: CreateSourceCreds, user_id: str):
             detail="Something went wrong with storing your credentials. Please contact our support team for help.",
         ) from err
     else:
+        engine = create_sql_engine()
         with Session(engine) as session:
             query = select(User).where(User.id == user_id)
             user = session.exec(query).first()
@@ -164,6 +166,7 @@ def add_storage_credentials(params: CreateStorageCreds, user_id: str):
             detail="Something went wrong with creating your storage. Please contact our support team for help.",
         ) from err
     else:
+        engine = create_sql_engine()
         with Session(engine) as session:
             query = select(User).where(User.id == user_id)
             user = session.exec(query).first()

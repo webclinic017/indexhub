@@ -1,21 +1,21 @@
 import json
+import logging
 from functools import partial
 from typing import Callable, Mapping, Optional
-import logging
-
-from pydantic import BaseModel
 
 import altair as alt
 import polars as pl
+from pydantic import BaseModel
 from sqlmodel import Session
 
-from indexhub.api.db import engine
-from indexhub.api.demos import DEMO_SCHEMAS, DEMO_BUCKET
+from indexhub.api.db import create_sql_engine
+from indexhub.api.demos import DEMO_BUCKET, DEMO_SCHEMAS
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+
 
 def _logger(name, level=logging.INFO):
     logger = logging.getLogger(name)
@@ -33,6 +33,7 @@ logger = _logger(name=__name__)
 
 pl.toggle_string_cache(True)
 
+
 def _load_trend_datasets(
     read: Callable,
     paths: Mapping[str, str],
@@ -46,7 +47,7 @@ def _load_trend_datasets(
         .agg(pl.col(target_col).mean())
     )
     quantiles = read(object_path=paths["quantiles"])
-    logger.info(f"Loaded trend datasets")
+    logger.info("Loaded trend datasets")
     return actual, forecasts, quantiles, backtests
 
 
@@ -95,7 +96,7 @@ def _create_trend_data(
         chart_data = chart_data.tail(display_length)
 
     # pl.toggle_string_cache(False)
-    logger.info(f"Created trend data")
+    logger.info("Created trend data")
     return chart_data
 
 
@@ -202,11 +203,13 @@ def _create_trend_chart(chart_data: pl.DataFrame):
         .configure_view(strokeWidth=0)
         .properties(height=100, width="container")
     )
-    logger.info(f"Created trend chart")
+    logger.info("Created trend chart")
     return chart
+
 
 class EmbeddingsParams(BaseModel):
     dim_size: Optional[int] = 3
+
 
 @router.post("/trends/public/vectors/{dataset_id}")
 def get_public_embs(dataset_id: str, params: EmbeddingsParams):
@@ -218,7 +221,9 @@ def get_public_embs(dataset_id: str, params: EmbeddingsParams):
     )
     entity_col = DEMO_SCHEMAS[dataset_id]["entity_col"]
     path = DEMO_SCHEMAS[dataset_id]["vectors"]
-    data = read(object_path=path, columns=[entity_col, f"emb(n={dim_size})", "cluster_id"])
+    data = read(
+        object_path=path, columns=[entity_col, f"emb(n={dim_size})", "cluster_id"]
+    )
     # Return spec for scatter gl
     # TODO: Replace labels with cluster IDs and add entities field
     spec = {
@@ -258,6 +263,7 @@ def get_public_trend_chart(dataset_id: str, entity_id: str):
 
 @router.get("/trends/private/charts/{objective_id}/{entity_id}")
 def get_private_trend_chart(objective_id: int, entity_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         user = session.get(User, objective.user_id)

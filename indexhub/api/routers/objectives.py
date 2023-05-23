@@ -6,7 +6,7 @@ from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.objective import Objective
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
@@ -30,6 +30,7 @@ FREQ_TO_SP = {
 
 @router.get("/objectives/schema/{user_id}")
 def list_objective_schemas(user_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Source).where(Source.user_id == user_id)
         sources = session.exec(query).all()
@@ -47,6 +48,7 @@ class CreateObjectiveParams(BaseModel):
 
 @router.post("/objectives")
 def create_objective(params: CreateObjectiveParams):
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = Objective(**params.__dict__)
         user = session.get(User, objective.user_id)
@@ -111,6 +113,7 @@ def create_objective(params: CreateObjectiveParams):
 
 @router.get("/objectives")
 def list_objectives(user_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Objective).where(Objective.user_id == user_id)
         objectives = session.exec(query).all()
@@ -119,6 +122,7 @@ def list_objectives(user_id: str):
 
 @router.get("/objectives/{objective_id}")
 def get_objective(objective_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Objective).where(Objective.id == objective_id)
         objective = session.exec(query).first()
@@ -127,6 +131,7 @@ def get_objective(objective_id: str):
 
 @router.delete("/objectives/{objective_id}")
 def delete_objective(objective_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Objective).where(Objective.id == objective_id)
         report = session.exec(query).first()

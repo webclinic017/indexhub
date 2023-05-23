@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.objective import Objective
 from indexhub.api.models.user import User
 from indexhub.api.routers.sources import get_source
@@ -414,6 +414,7 @@ def _update_objective(
     msg: str,
 ) -> Objective:
     # Establish connection
+    engine = create_sql_engine()
     with Session(engine) as session:
         # Select rows with specific report_id only
         query = select(Objective).where(Objective.id == objective_id)
@@ -639,6 +640,7 @@ def run_forecast(
 
 
 def _get_all_objectives() -> List[Objective]:
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Objective)
         objectives = session.exec(query).all()
@@ -648,6 +650,7 @@ def _get_all_objectives() -> List[Objective]:
 
 
 def get_user(user_id: str) -> User:
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(User).where(User.id == user_id)
         user = session.exec(query).first()

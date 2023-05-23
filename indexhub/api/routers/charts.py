@@ -6,7 +6,7 @@ from fastapi import Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
@@ -17,7 +17,6 @@ from indexhub.api.services.chart_builders import (
     create_segmentation_chart,
     create_single_forecast_chart,
 )
-
 
 OBJECTIVE_TAG_TO_BUILDERS = {
     "reduce_errors": {
@@ -70,6 +69,7 @@ OBJECTIVE_TAG_TO_PARAMS = {
 
 @router.post("/charts/{objective_id}/{chart_tag}")
 async def get_chart(objective_id: str, chart_tag: ChartTag, request: Request):
+    engine = create_sql_engine()
     with Session(engine) as session:
         # Get the metadata on tag to define which chart to return
         objective = get_objective(objective_id)["objective"]

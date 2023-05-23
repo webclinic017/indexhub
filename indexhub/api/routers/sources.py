@@ -6,7 +6,7 @@ from fastapi import HTTPException, WebSocket
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
@@ -24,6 +24,7 @@ class CreateSourceParams(BaseModel):
 
 @router.get("/sources/conn-schema/{user_id}")
 def list_conn_schemas(user_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(User).where(User.id == user_id)
         user = session.exec(query).first()
@@ -37,6 +38,7 @@ def list_dataset_schemas():
 
 @router.post("/sources")
 def create_source(params: CreateSourceParams):
+    engine = create_sql_engine()
     with Session(engine) as session:
         source = Source(**params.__dict__)
         user = session.get(User, source.user_id)
@@ -70,6 +72,7 @@ def create_source(params: CreateSourceParams):
 
 @router.get("/sources")
 def list_sources(user_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Source).where(Source.user_id == user_id)
         sources = session.exec(query).all()
@@ -78,6 +81,7 @@ def list_sources(user_id: str):
 
 @router.get("/sources/{source_id}")
 def get_source(source_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Source).where(Source.id == source_id)
         source = session.exec(query).first()
@@ -86,6 +90,7 @@ def get_source(source_id: str):
 
 @router.delete("/sources/{source_id}")
 def delete_source(source_id: str):
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Source).where(Source.id == source_id)
         source = session.exec(query).first()

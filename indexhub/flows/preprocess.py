@@ -13,7 +13,7 @@ from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.source import Source
 from indexhub.api.schemas import SUPPORTED_DATETIME_FMT, SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
@@ -231,6 +231,7 @@ def _update_source(
     msg: str,
 ) -> Source:
     # Establish connection
+    engine = create_sql_engine()
     with Session(engine) as session:
         # Select rows with specific report_id only
         query = select(Source).where(Source.id == source_id)
@@ -265,6 +266,7 @@ def _upload_embs(
     storage_bucket_name: str,
 ):
     import lance
+
     # Export embeddings as .lance
     uri = f"vectors/{source_id}.lance/"
     # Change to pandas df and write to .lance due to ValueError
@@ -414,6 +416,7 @@ def run_preprocess(
 )
 def flow():
     # 1. Get all sources
+    engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Source)
         sources = session.exec(query).all()

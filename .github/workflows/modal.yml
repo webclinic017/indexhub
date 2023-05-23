@@ -30,3 +30,8 @@ jobs:
           modal deploy indexhub/flows/forecast.py
           modal deploy indexhub/flows/preprocess.py
           modal deploy indexhub/api/services/io.py
+        env:
+          ENV_NAME: ${{ vars.ENV_NAME }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+          MODAL_TOKEN_ID: ${{ vars.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ vars.MODAL_TOKEN_SECRET }}

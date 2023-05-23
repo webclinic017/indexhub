@@ -4,7 +4,7 @@ from functools import partial
 import polars as pl
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
@@ -16,6 +16,7 @@ from indexhub.api.services.secrets_manager import get_aws_secret
 @router.post("/upload/upload_plan/{objective_id}/{filename}/{csv_content}")
 def upload_plan(objective_id: str, filename: str, csv_content: str):
     pl.toggle_string_cache(True)
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         user = session.get(User, objective.user_id)

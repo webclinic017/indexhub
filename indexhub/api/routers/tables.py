@@ -9,7 +9,7 @@ import polars as pl
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
@@ -17,6 +17,7 @@ from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+
 
 MODEL_NAME_TO_SHORT = {
     "knn": "KNN",
@@ -374,6 +375,7 @@ def get_objective_table(
 ) -> TableResponse:
     if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         getter = TAGS_TO_GETTER[objective.tag][table_tag]

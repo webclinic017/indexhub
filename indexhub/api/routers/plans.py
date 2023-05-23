@@ -7,7 +7,7 @@ import polars as pl
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
@@ -159,6 +159,7 @@ class ExecutePlanParams(BaseModel):
 
 @router.post("/plans/{objective_id}")
 def execute_plan(objective_id: str, params: ExecutePlanParams):
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         getter = TAGS_TO_GETTER[objective.tag]

@@ -5,7 +5,7 @@ from typing import Any, List, Mapping
 import polars as pl
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import FREQ_TO_SP, get_objective
@@ -13,6 +13,7 @@ from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
+
 
 FREQ_NAME_TO_LABEL = {
     "Hourly": "hours",
@@ -217,6 +218,7 @@ OBJECTIVE_TAG_TO_GETTER = {"reduce_errors": _get_forecast_results}
 def get_stats(
     objective_id: str,
 ) -> List[Mapping[str, Any]]:
+    engine = create_sql_engine()
     with Session(engine) as session:
         objective = get_objective(objective_id)["objective"]
         getter = OBJECTIVE_TAG_TO_GETTER[objective.tag]

@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from indexhub.api.db import engine
+from indexhub.api.db import create_sql_engine
 from indexhub.api.demos import DEMO_BUCKET, DEMO_SCHEMAS
 from indexhub.api.models.copilot import (
     ACTIONS,
@@ -49,7 +49,6 @@ logger = _logger(name=__name__)
 
 MODAL_APP = "copilot-forecast-analyst-async-gpt3.5"
 
-
 class ForecastParams(BaseModel):
     user_id: str
     objective_id: str
@@ -66,6 +65,7 @@ class ForecastParams(BaseModel):
 # should be switched out on demand
 def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
     # Load forecast and quantiles data
+    engine = create_sql_engine()
     with Session(engine) as session:
         user = session.get(User, params.user_id)
         if user is None:
@@ -134,7 +134,7 @@ def format_chat_response(
         "content": content,
     }
 
-    
+
 
 class ChatService:
     def __init__(self, websocket: WebSocket, params: ForecastParams):
@@ -327,7 +327,7 @@ async def forecast_analyst_chat(websocket: WebSocket):
 class TrendsChatService:
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        
+
     async def dispatch(self, msg: ChatMessage):
         action = msg.request.action
         match action:
