@@ -49,6 +49,9 @@ def create_aws_secret(
         response = client.create_secret(
             Name=secret_name, SecretString=json.dumps(secret)
         )
+        response = client.tag_resource(
+            SecretId=secret_name, Tags={"Key": "owner", "Value": "user"}
+        )
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html

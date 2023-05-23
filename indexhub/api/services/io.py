@@ -1,10 +1,10 @@
 import io
+import os
 from typing import List, Optional
 
-import os
 import boto3
-import modal
 import botocore
+import modal
 import polars as pl
 from fastapi import HTTPException
 
@@ -13,8 +13,8 @@ from indexhub.api.services.parsers import (
     parse_csv,
     parse_excel,
     parse_json,
+    parse_lance,
     parse_parquet,
-    parse_lance
 )
 
 
@@ -31,16 +31,17 @@ image = modal.Image.debian_slim().pip_install("pylance")
 stub = modal.Stub(name="indexhub-io")
 
 
-@stub.Function(
+@stub.function(
     name="read-lance-dataset",
     memory=5120,
     cpu=4.0,
     secrets=[
         modal.Secret.from_name("aws-credentials"),
-    ]
+    ],
 )
 def read_lance_dataset(uri: str):
     import lance
+
     return lance.dataset(uri)
 
 
@@ -73,7 +74,7 @@ def read_data_from_s3(
                     "get_object",
                     Params={"Bucket": bucket_name, "Key": object_path},
                     RegionName=os.environ["AWS_DEFAULT_REGION"],
-                    ExpiresIn=600  # Expires in 10 minutes
+                    ExpiresIn=600,  # Expires in 10 minutes
                 )
                 read = modal.Function.lookup("indexhub-io", "read-lance-dataset")
                 obj = read(uri)
