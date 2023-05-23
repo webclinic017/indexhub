@@ -42,3 +42,22 @@ export const getSegmentationChart = async (
     const response_json = await get_segmentation_chart_response.json();
     return JSON.parse(response_json)
 };
+
+export const getRollingForecastChart = async (
+    objective_id: string,
+    access_token_indexhub_api: string,
+) => {
+
+    const get_rolling_forecast_chart_url = `${process.env.REACT_APP_INDEXHUB_API_DOMAIN}/charts/${objective_id}/rolling_forecast`;
+    const get_rolling_forecast_chart_response = await fetch(get_rolling_forecast_chart_url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token_indexhub_api}`,
+        },
+        body: JSON.stringify({})
+    });
+
+    const response_json = await get_rolling_forecast_chart_response.json();
+    return response_json
+};

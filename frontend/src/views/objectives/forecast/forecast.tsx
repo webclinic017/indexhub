@@ -14,11 +14,12 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../../components/table";
 import { getForecastObjectiveStats } from "../../../utilities/backend_calls/stats";
 import { colors } from "../../../theme/theme";
-import { getSegmentationChart, getTrendChart } from "../../../utilities/backend_calls/charts";
+import { getRollingForecastChart, getSegmentationChart, getTrendChart } from "../../../utilities/backend_calls/charts";
 import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/pro-light-svg-icons";
-import { faCircleInfo, faFileChartColumn, faFileExport, faMicrochipAi, faPenToSquare, faWrench } from "@fortawesome/pro-light-svg-icons";
+import { faArrowUpRightAndArrowDownLeftFromCenter, faCircleInfo, faFileChartColumn, faFileExport, faMicrochipAi, faPenToSquare, faWrench } from "@fortawesome/pro-light-svg-icons";
 import Toast from "../../../components/toast";
 import AiAnalysisModal from "./_includes/ai_analysis_modal";
+import ExpandedChartModal from "../../../components/expanded_chart_modal";
 
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
@@ -51,6 +52,7 @@ const ForecastObjective = () => {
   const [chartFilter, setChartFilter] = useState<Record<string, string[]>>({})
   const [mainTrendChart, setMainTrendChart] = useState<Record<any, any> | null>(null)
   const [entityTrendChart, setEntityTrendChart] = useState<Record<any, any> | null>(null)
+  const [rollingForecastChart, setRollingForecastChart] = useState<Record<any, any> | null>(null)
   const [segmentationPlot, setSegmentationPlot] = useState<Record<any, any> | null>(null)
   const [segmentationFactor, setSegmentationFactor] = useState("volatility")
 
@@ -63,6 +65,9 @@ const ForecastObjective = () => {
   const [manualOverrideVal, setManualOverrideVal] = useState<string>("")
   const [executePlanCustomEntries, setExecutePlanCustomEntries] = useState<Record<string, any>[] | null>(null)
   const [isExportingTable, setIsExportingTable] = useState(false)
+
+  const [expandedChartJSONspec, setExpandedChartJSONspec] = useState<Record<any, any> | null>(null)
+  const [expandedChartModalHeader, setExpandedChartModalHeader] = useState("")
 
   const [cutoff, setCutoff] = useState<any[]>([])
 
@@ -79,6 +84,11 @@ const ForecastObjective = () => {
     isOpen: isOpenManualOverrideModal,
     onOpen: onOpenManualOverrideModal,
     onClose: onCloseManualOverrideModal
+  } = useDisclosure()
+  const {
+    isOpen: isOpenExpandedChartModal,
+    onOpen: onOpenExpandedChartModal,
+    onClose: onCloseExpandedChartModal
   } = useDisclosure()
 
   const insertExcecutePlanCustomEntries = (fh: number, ai: number, baseline: number, override: number, use: string) => {
@@ -135,6 +145,16 @@ const ForecastObjective = () => {
         chartFilter
       );
       setEntityTrendChart(entityTrendChart);
+    }
+  };
+
+  const getRollingForecastChartApi = async () => {
+    if (objective_id) {
+      const rollingForecastChart = await getRollingForecastChart(
+        objective_id,
+        access_token_indexhub_api
+      );
+      setRollingForecastChart(rollingForecastChart);
     }
   };
 
@@ -325,6 +345,7 @@ const ForecastObjective = () => {
       getObjectiveApi()
       getMainTrendChartApi()
       getForecastObjectiveStatsApi()
+      getRollingForecastChartApi()
     }
   }, [access_token_indexhub_api, user_details, objective_id]);
 
@@ -366,6 +387,15 @@ const ForecastObjective = () => {
       getSegmentationPlot()
     }
   }, [segmentationFactor, access_token_indexhub_api, objective_id])
+
+  useEffect(() => {
+    if (AIRecommendationTable && expandedEntityIndex > -1) {
+      chartFilter["entity"] = [AIRecommendationTable["results"][expandedEntityIndex]["entity"]]
+      setChartFilter(chartFilter)
+      setEntityTrendChart(null)
+      getEntityTrendChartApi()
+    }
+  }, [expandedEntityIndex, AIRecommendationTable])
 
   if (objective) {
     return (
@@ -659,7 +689,7 @@ const ForecastObjective = () => {
                             <HStack as="span" flex='1' textAlign='left'>
                               <VStack width="20%" alignItems="flex-start">
                                 <Text pb="1rem" fontWeight="bold" fontSize="large">{entity_data["entity"]}</Text>
-                                <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
+                                {/* <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
                                   e.stopPropagation()
                                   chartFilter["entity"] = [entity_data["entity"]]
                                   setChartFilter(chartFilter)
@@ -674,7 +704,7 @@ const ForecastObjective = () => {
                                     <FontAwesomeIcon color="white" icon={faMicrochipAi as any} />
                                   </HStack>
 
-                                </Button>
+                                </Button> */}
                               </VStack>
 
                               <HStack width="80%" alignItems="stretch">
@@ -754,13 +784,81 @@ const ForecastObjective = () => {
                           </AccordionButton>
                         </h2>
                         <AccordionPanel pb={4}>
-                          <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
-                            <DataTable
-                              columns={columns}
-                              data={entity_data["tables"]}
-                              body_height="73px"
-                            ></DataTable>
-                          </TableContainer>
+                          <VStack>
+                            <HStack width="100%">
+                              <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
+                                <HStack width="100%" justify="flex-end">
+                                  <Tooltip label="Expand Chart" placement='left'>
+                                    <Button onClick={() => {
+                                      setExpandedChartJSONspec(entityTrendChart)
+                                      setExpandedChartModalHeader(`Trend (${entity_data["entity"]})`)
+                                      onOpenExpandedChartModal()
+                                    }}>
+                                      <HStack>
+                                        <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
+                                      </HStack>
+                                    </Button>
+                                  </Tooltip>
+                                </HStack>
+                                <Box height="20rem">
+                                  {entityTrendChart ? (
+                                    <ReactEcharts
+                                      option={entityTrendChart}
+                                      style={{
+                                        height: "100%",
+                                        width: "100%",
+                                      }}
+                                    />
+                                  ) : (
+                                    <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
+                                      <Spinner />
+                                      <Text>Loading...</Text>
+                                    </Stack>
+                                  )}
+                                </Box>
+
+                              </Box>
+                              <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
+                                <HStack width="100%" justify="flex-end">
+                                  <Tooltip label="Expand Chart" placement='left'>
+                                    <Button onClick={() => {
+                                      setExpandedChartJSONspec(rollingForecastChart ? JSON.parse(rollingForecastChart[entity_data["entity"]]) : null)
+                                      setExpandedChartModalHeader(`Rolling Forecast (${entity_data["entity"]})`)
+                                      onOpenExpandedChartModal()
+                                    }}>
+                                      <HStack>
+                                        <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
+                                      </HStack>
+                                    </Button>
+                                  </Tooltip>
+                                </HStack>
+                                <Box height="20rem">
+                                  {rollingForecastChart ? (
+                                    <ReactEcharts
+                                      option={JSON.parse(rollingForecastChart[entity_data["entity"]])}
+                                      style={{
+                                        height: "100%",
+                                        width: "100%",
+                                      }}
+                                    />
+                                  ) : (
+                                    <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
+                                      <Spinner />
+                                      <Text>Loading...</Text>
+                                    </Stack>
+                                  )}
+                                </Box>
+                              </Box>
+                            </HStack>
+                            <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
+                              <DataTable
+                                columns={columns}
+                                data={entity_data["tables"]}
+                                body_height="73px"
+                              ></DataTable>
+                            </TableContainer>
+                          </VStack>
+
                         </AccordionPanel>
                       </AccordionItem>
                     )
@@ -839,6 +937,9 @@ const ForecastObjective = () => {
             </ModalBody>
           </ModalContent>
         </Modal>
+        {expandedChartJSONspec && (
+          <ExpandedChartModal isOpenExpandedChartModal={isOpenExpandedChartModal} onCloseExpandedChartModal={onCloseExpandedChartModal} EChartJSONspec={expandedChartJSONspec} header={expandedChartModalHeader} />
+        )}
       </>
     )
   } else {
