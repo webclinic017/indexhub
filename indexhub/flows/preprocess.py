@@ -1,14 +1,14 @@
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Any, List, Literal, Mapping, Optional, Union
 
-import os
+import boto3
+import lance
 import modal
 import pandas as pd
 import polars as pl
-import boto3
-import lance
 from botocore.exceptions import ClientError
 from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
@@ -267,16 +267,20 @@ def _upload_embs(
 ):
     # Export embeddings as .lance
     uri = f"vectors/{source_id}.lance/"
-    lance.write_dataset(embs.to_arrow(), uri)
+    # Change to pandas df and write to .lance due to ValueError
+    try:
+        lance.write_dataset(embs.to_pandas(), uri, mode="overwrite")
+    except OSError:
+        lance.write_dataset(embs.to_pandas(), uri, mode="create")
     # Upload entire .lance directory to s3
     s3 = boto3.client("s3")
     for root, _, files in os.walk(uri):
         for file in files:
             file_path = os.path.join(root, file)
             if root[-1] != "/":
-                key = uri + root + "/" + file
+                key = root + "/" + file
             else:
-                key = uri + root + file
+                key = root + file
             s3.upload_file(file_path, storage_bucket_name, key)
     return f"s3://{storage_bucket_name}/{uri}"
 
@@ -384,11 +388,7 @@ def run_preprocess(
     else:
         # Embed time series and write to S3
         embs = _embed_ts(panel_data=panel_data)
-        _upload_embs(
-            embs,
-            source_id=source_id,
-            storage_bucket_name=storage_bucket_name
-        )
+        _upload_embs(embs, source_id=source_id, storage_bucket_name=storage_bucket_name)
 
     finally:
         # Update state in database
@@ -458,7 +458,7 @@ def flow():
 
 @stub.local_entrypoint
 def test():
-    user_id = "auth0|64332760aa7cdd2e63b40f57"
+    user_id = os.environ["USER_ID"]
 
     # Source
     source_id = 1
