@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 from typing import List, Optional
 
@@ -15,6 +16,21 @@ from indexhub.api.services.parsers import (
     parse_json,
     parse_parquet,
 )
+
+
+def _logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
+
+
+logger = _logger(name=__name__)
 
 
 FILE_EXT_TO_PARSER = {
@@ -65,6 +81,7 @@ def read_data_from_s3(
                 "Body"
             ].read()
     except botocore.exceptions.ClientError as err:
+        logger.exception("❌ Error occured when reading from s3 storage.")
         error_code = err.response["Error"]["Code"]
         if error_code == "NoSuchBucket":
             raise HTTPException(
@@ -120,6 +137,7 @@ def write_data_to_s3(
     try:
         s3_client.put_object(Bucket=bucket_name, Key=object_path, Body=body)
     except botocore.exceptions.ClientError as err:
+        logger.exception("❌ Error occured when writing to s3 storage.")
         error_code = err.response["Error"]["Code"]
         if error_code == "NoSuchBucket":
             raise HTTPException(

@@ -45,7 +45,6 @@ def create_user(
 ):
     engine = create_sql_engine()
     with Session(engine) as session:
-
         user = User()
         user.id = create_user.user_id
         user.name = create_user.name
@@ -121,7 +120,7 @@ def add_source_credentials(params: CreateSourceCreds, user_id: str):
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
 
-        logger.exception(err)
+        logger.exception("❌ Error occured when adding source credentials")
 
         raise HTTPException(
             status_code=500,
@@ -161,6 +160,8 @@ def add_storage_credentials(params: CreateStorageCreds, user_id: str):
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
 
+        logger.exception("❌ Error occured when adding storage credentials")
+
         raise HTTPException(
             status_code=500,
             detail="Something went wrong with creating your storage. Please contact our support team for help.",
@@ -194,7 +195,6 @@ class UserContextParams(BaseModel):
 # FOR DEMO PURPOSE ONLY
 @router.post("/users/context")
 def store_user_context(params: UserContextParams):
-
     # Set up the S3 client
     s3 = boto3.client("s3")
 
