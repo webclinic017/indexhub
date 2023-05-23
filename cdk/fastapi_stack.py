@@ -93,12 +93,7 @@ class FastAPIStack(Stack):
                         "secretsmanager:GetSecretValue",
                         "secretsmanager:DescribeSecret",
                     ],
-                    resources=[
-                        psql_secret.secret_arn,
-                        modal_secret.secret_arn,
-                        f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:*:secret:prod/storage/*",
-                        f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:*:secret:prod/sources/*"
-                    ],
+                    resources=[psql_secret.secret_arn, modal_secret.secret_arn],
                 ),
             ],
             roles=[execution_role],
@@ -134,14 +129,15 @@ class FastAPIStack(Stack):
                         "secretsmanager:PutSecretValue",
                         "secretsmanager:TagResource",
                     ],
-                    resources=[
-                        f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:*:secret:prod/storage/*",
-                        f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:*:secret:prod/sources/*"
-                    ],
-                    conditions={
-                        "StringNotEquals": {"aws:ResourceTag/owner": "indexhub"},
-                        "StringEquals": {"aws:ResourceTag/owner": "user"},
-                    },
+                    resources=["*"]
+                    # resources=[
+                    #     f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:{AWS_ACCOUNT_ID}:secret:prod/storage/*",
+                    #     f"arn:aws:secretsmanager:{AWS_DEFAULT_REGION}:{AWS_ACCOUNT_ID}:secret:prod/sources/*"
+                    # ],
+                    # conditions={
+                    #     "StringNotEquals": {"aws:ResourceTag/owner": "indexhub"},
+                    #     "StringEquals": {"aws:ResourceTag/owner": "user"},
+                    # },
                 ),
             ],
             roles=[task_role],
