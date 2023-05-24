@@ -7,5 +7,6 @@ DEMO_SCHEMAS = {
         "forecasts": "commodities/artifacts/forecasts__best_models.parquet",
         "backtests": "commodities/artifacts/backtests__best_models.parquet",
         "quantiles": "commodities/artifacts/quantiles__best_models.parquet",
+        "metadata": "commodities/metadata.json",
     }
 }

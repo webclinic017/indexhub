@@ -240,6 +240,42 @@ def get_private_embs(objective_id: int, dim_size: int = 3):
     pass
 
 
+@router.get("/trends/public")
+def list_public_trends():
+    """Retrieve a list of public trends.
+
+    Returns:
+        dict: A dictionary containing trend metadata.
+
+        Example:
+        {
+            "dataset_id": {
+                "entities": List[str],
+                "entity_count": int
+            }
+            ...
+        }
+    """
+    read = partial(
+        SOURCE_TAG_TO_READER["s3"],
+        bucket_name=DEMO_BUCKET,
+        file_ext="json",
+    )
+    trends = {}
+    for dataset_id, schema in DEMO_SCHEMAS.items():
+        # Read metadata from schema
+        metadata_path = schema["metadata"]
+        metadata = read(object_path=metadata_path)
+        metadata.pop("dataset_id")
+        trends[dataset_id] = metadata
+    return trends
+
+
+@router.get("/trends/private")
+def lsit_private_trends(user_id: str):
+    pass
+
+
 @router.get("/trends/public/charts/{dataset_id}/{entity_id}")
 def get_public_trend_chart(dataset_id: str, entity_id: str):
     # pl.toggle_string_cache(True)
