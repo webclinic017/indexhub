@@ -662,6 +662,7 @@ FREQ_TO_DURATION = {
     "Daily": "24h",  # Run if current date >= last run + 1d
     "Weekly": "168h",  # Run if current date >= last run + 7d
     "Monthly": "1mo",  # Run on first day of every month
+    "Quarterly": "3mo",
 }
 
 
@@ -669,7 +670,7 @@ FREQ_TO_DURATION = {
     memory=5120,
     cpu=8.0,
     timeout=3600,
-    schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
+    schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
 )
 def flow():
     logger.info("Flow started")
@@ -693,6 +694,9 @@ def flow():
         updated_at = objective.updated_at.replace(microsecond=0)
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
+            run_dt = datetime(new_dt.year, new_dt.month, 1)
+        elif duration == "3mo":
+            new_dt = updated_at + relativedelta(months=3)
             run_dt = datetime(new_dt.year, new_dt.month, 1)
         else:
             run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))

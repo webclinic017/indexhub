@@ -15,15 +15,14 @@ class Integration(SQLModel, table=True):
     status: str  # e.g. SUCCESS
     description: Optional[str]  # optional
     # Fields
-    # entities: list[str]
-    # entity_name: str
     # entity_col: str # e.g. iso_country_code. TODO: Support multiple as a list
     # freq: str # Same as all other freq variables
     # agg_method: str  # Same as functime
     # impute_method: str # Same as functime
     fields: str
-    # Variables
+    # Outputs
     # object_path: str # Read path from cloud storage
     # bucket_name: str
     # file_ext: str
-    variables: str
+    outputs: str
+    msg: str

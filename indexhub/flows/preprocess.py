@@ -444,6 +444,9 @@ def flow():
         if duration == "1mo":
             new_dt = updated_at + relativedelta(months=1)
             run_dt = datetime(new_dt.year, new_dt.month, 1)
+        elif duration == "3mo":
+            new_dt = updated_at + relativedelta(months=3)
+            run_dt = datetime(new_dt.year, new_dt.month, 1)
         else:
             run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
         logger.info(f"Next run for {source.id} at: {run_dt}")
