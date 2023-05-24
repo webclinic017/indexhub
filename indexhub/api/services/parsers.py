@@ -34,7 +34,7 @@ def parse_excel(
             xlsx2csv_options={"ignore_formats": "float"},
             read_csv_options={
                 "infer_schema_length": None,
-                "parse_dates": True,
+                "try_parse_dates": True,
                 "use_pyarrow": True,
                 "n_rows": n_rows,
             },

@@ -505,14 +505,14 @@ def run_forecast(
         # 5. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
         if feature_cols is not None and len(feature_cols) > 0:
-            X = y_panel.select([entity_col, time_col, *feature_cols])
+            X = y_panel.select([entity_col, time_col, *feature_cols]).to_arrow()
             y = y_panel.select(pl.exclude(feature_cols))
         else:
             X = None
             y = y_panel
 
         y, outputs = automl_flow.call(
-            y=y,
+            y=y.to_arrow(),
             min_lags=min_lags,
             max_lags=max_lags,
             fh=fh,
@@ -521,6 +521,7 @@ def run_forecast(
             holiday_regions=holiday_regions,
             X=X,
         )
+        y = pl.from_arrow(y)
         outputs["y"] = make_path(prefix="y")
 
         write(y, object_path=make_path(prefix="y"))
@@ -532,11 +533,11 @@ def run_forecast(
             y_baseline = read(object_path=baseline_path)
         else:
             y_baseline_backtest = (
-                outputs["backtests"][baseline_model]
+                pl.from_arrow(outputs["backtests"][baseline_model])
                 .groupby([entity_col, time_col])
                 .agg(pl.mean(target_col))
             )
-            y_baseline_forecast = outputs["forecasts"][baseline_model]
+            y_baseline_forecast = pl.from_arrow(outputs["forecasts"][baseline_model])
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         if inventory_path:
@@ -553,7 +554,7 @@ def run_forecast(
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
-        kwargs = {"y": y, "y_baseline": y_baseline}
+        kwargs = {"y": y.to_arrow(), "y_baseline": y_baseline.to_arrow()}
         baseline_scores, baseline_metrics, uplift = uplift_flow.call(
             outputs["scores"]["best_models"],
             **kwargs,
@@ -564,8 +565,8 @@ def run_forecast(
         outputs["uplift"] = make_path(prefix="uplift")
 
         write(y_baseline, object_path=outputs["y_baseline"])
-        write(baseline_scores, object_path=outputs["baseline__scores"])
-        write(uplift, object_path=make_path(prefix="uplift"))
+        write(pl.from_arrow(baseline_scores), object_path=outputs["baseline__scores"])
+        write(pl.from_arrow(uplift), object_path=make_path(prefix="uplift"))
 
         # 7. Export artifacts for each model
         model_artifacts_keys = [
@@ -581,13 +582,13 @@ def run_forecast(
 
             for model, df in model_artifacts.items():
                 output_path = make_path(prefix=f"{key}__{model}")
-                write(df, object_path=output_path)
+                write(pl.from_arrow(df), object_path=output_path)
                 outputs[key][model] = output_path
 
         # 8. Export statistics
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
-            write(df, object_path=output_path)
+            write(pl.from_arrow(df), object_path=output_path)
             outputs["statistics"][key] = output_path
 
         # 9. Create and export best plan

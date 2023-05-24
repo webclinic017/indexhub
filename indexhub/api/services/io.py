@@ -34,7 +34,7 @@ logger = _logger(name=__name__)
 
 
 FILE_EXT_TO_PARSER = {
-    "excel": parse_excel,
+    "xlsx": parse_excel,
     "csv": parse_csv,
     "parquet": parse_parquet,
     "json": parse_json,

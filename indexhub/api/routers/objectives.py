@@ -18,6 +18,7 @@ from indexhub.api.schemas import (
     SUPPORTED_ERROR_TYPE,
     SUPPORTED_FREQ,
 )
+import os
 
 
 FREQ_TO_SP = {
@@ -68,7 +69,10 @@ def create_objective(params: CreateObjectiveParams):
         # Run flow after the insert statement committed
         # Otherwise will hit error in the flow when updating the record
         if objective.tag == "reduce_errors":
-            flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
+            if os.environ.get("ENV_NAME", "dev") == "prod":
+                flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
+            else:
+                flow = modal.Function.lookup("dev-indexhub-forecast", "run_forecast")
             holiday_regions = objective_fields["holiday_regions"]
             if holiday_regions is not None:
                 holiday_regions = [

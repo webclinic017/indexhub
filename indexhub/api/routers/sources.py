@@ -11,6 +11,7 @@ from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.schemas import CONNECTION_SCHEMA, DATASET_SCHEMA
+import os
 
 
 class CreateSourceParams(BaseModel):
@@ -41,7 +42,6 @@ def create_source(params: CreateSourceParams):
     engine = create_sql_engine()
     with Session(engine) as session:
         source = Source(**params.__dict__)
-        user = session.get(User, source.user_id)
         source.status = "RUNNING"
         conn_fields = json.loads(source.conn_fields)
         data_fields = json.loads(source.data_fields)
@@ -53,9 +53,14 @@ def create_source(params: CreateSourceParams):
         session.commit()
         session.refresh(source)
 
+        query = select(User).where(User.id == source.user_id)
+        user = session.exec(query).first()
         # Run flow after the insert statement committed
         # Otherwise will hit error in the flow when updating the record
-        flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess")
+        if os.environ.get("ENV_NAME", "dev") == "prod":
+            flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess")
+        else:
+            flow = modal.Function.lookup("dev-indexhub-preprocess", "run_preprocess")
         flow.call(
             user_id=source.user_id,
             source_id=source.id,
@@ -66,7 +71,6 @@ def create_source(params: CreateSourceParams):
             storage_tag=user.storage_tag,
             storage_bucket_name=user.storage_bucket_name,
         )
-
         return {"user_id": params.user_id, "source_id": source.id}
 
 

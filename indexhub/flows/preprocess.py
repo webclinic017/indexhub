@@ -237,9 +237,11 @@ def _resample_panel(
     return X_new
 
 
-def _make_output_path(source_id: int, updated_at: datetime) -> str:
+def _make_output_path(source_id: int, updated_at: datetime, prefix: str) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
-    path = f"raw/staging/{source_id}/{timestamp}.parquet"
+    path = f"staging/{source_id}/{timestamp}.parquet"
+    if prefix != "":
+        path = f"{prefix}/{path}"
     return path
 
 
@@ -276,7 +278,9 @@ def _embed_ts(panel_data: pl.DataFrame) -> pl.DataFrame:
     entity_col = panel_data.columns[0]
     target_col = panel_data.columns[-1]
     # Generate embeddings for panel
-    embs = ts_emb_flow.call(panel_data, entity_col=entity_col, target_col=target_col)
+    embs = ts_emb_flow.call(
+        data=panel_data.to_arrow(), entity_col=entity_col, target_col=target_col
+    )
     return embs
 
 
@@ -284,6 +288,7 @@ def _upload_embs(
     embs: pl.DataFrame,
     source_id: int,
     storage_bucket_name: str,
+    prefix: str,
 ):
     import lance
 
@@ -300,11 +305,15 @@ def _upload_embs(
         for file in files:
             file_path = os.path.join(root, file)
             if root[-1] != "/":
-                key = root + "/" + file
+                key = prefix + "/" + root + "/" + file
             else:
-                key = root + file
+                key = prefix + "/" + root + file
             s3.upload_file(file_path, storage_bucket_name, key)
-    return f"s3://{storage_bucket_name}/{uri}"
+    if prefix == "":
+        path = f"s3://{storage_bucket_name}/{uri}"
+    else:
+        path = f"s3://{storage_bucket_name}/{prefix}/{uri}"
+    return path
 
 
 @stub.function()
@@ -321,6 +330,12 @@ def run_preprocess(
     """Load panel dataset then clean, write, and compute time-series embeddings."""
     try:
         status, msg = "SUCCESS", "OK"
+        object_path = conn_fields.get("object_path")
+        if "/" in object_path:
+            prefix = object_path.split("/")[0]
+        else:
+            prefix = ""
+
         # Get credentials
         source_creds = get_aws_secret(
             tag=source_tag, secret_type="sources", user_id=user_id
@@ -365,12 +380,22 @@ def run_preprocess(
         # Write data to data lake storage
         updated_at = datetime.utcnow()
         write = STORAGE_TAG_TO_WRITER[storage_tag]
-        output_path = _make_output_path(source_id=source_id, updated_at=updated_at)
+        output_path = _make_output_path(
+            source_id=source_id, updated_at=updated_at, prefix=prefix
+        )
         write(
             panel_data,
             bucket_name=storage_bucket_name,
             object_path=output_path,
             **storage_creds,
+        )
+        # Embed time series and write to S3
+        embs = _embed_ts(panel_data=panel_data)
+        _upload_embs(
+            pl.from_arrow(embs),
+            source_id=source_id,
+            storage_bucket_name=storage_bucket_name,
+            prefix=prefix,
         )
 
     except ClientError as exc:
@@ -400,11 +425,6 @@ def run_preprocess(
         output_path = None
         msg = repr(exc)
         logger.exception(exc)
-
-    else:
-        # Embed time series and write to S3
-        embs = _embed_ts(panel_data=panel_data)
-        _upload_embs(embs, source_id=source_id, storage_bucket_name=storage_bucket_name)
 
     finally:
         # Update state in database
