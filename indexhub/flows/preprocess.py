@@ -41,7 +41,15 @@ PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
 IMAGE = modal.Image.from_name("indexhub-image")
-stub = modal.Stub("indexhub-preprocess", image=IMAGE)
+stub = modal.Stub(
+    "indexhub-preprocess",
+    image=IMAGE,
+    secrets=[
+        modal.Secret.from_name("postgres-credentials"),
+        modal.Secret.from_name("aws-credentials"),
+        modal.Secret.from_name("env-name"),
+    ]
+)
 
 
 def _clean_panel(
@@ -287,13 +295,7 @@ def _upload_embs(
     return f"s3://{storage_bucket_name}/{uri}"
 
 
-@stub.function(
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
+@stub.function()
 def run_preprocess(
     user_id: int,
     source_id: int,
@@ -407,11 +409,6 @@ def run_preprocess(
     memory=5120,
     cpu=4.0,
     timeout=900,
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ],
     schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
 )
 def flow():

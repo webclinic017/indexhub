@@ -41,16 +41,18 @@ logger = _logger(name=__name__)
 
 
 IMAGE = modal.Image.from_name("indexhub-image")
-stub = modal.Stub("indexhub-forecast", image=IMAGE)
-
-
-@stub.function(
+stub = modal.Stub(
+    "indexhub-forecast",
+    image=IMAGE,
     secrets=[
         modal.Secret.from_name("postgres-credentials"),
         modal.Secret.from_name("aws-credentials"),
         modal.Secret.from_name("env-name"),
     ]
 )
+
+
+@stub.function()
 def compute_rolling_forecast(
     output_json: Mapping[str, Any],
     objective_id: int,
@@ -252,13 +254,7 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
     return new_data
 
 
-@stub.function(
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
+@stub.function()
 def compute_rolling_uplift(
     output_json: Mapping[str, Any],
     objective_id: int,
@@ -336,13 +332,7 @@ def compute_rolling_uplift(
         pl.toggle_string_cache(False)
 
 
-@stub.function(
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
+@stub.function()
 def create_best_plan(
     output_json: Mapping[str, Any],
     objective: str,
@@ -438,11 +428,6 @@ def _update_objective(
     memory=5120,
     cpu=8.0,
     timeout=3600,  # 60 mins
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ],
 )
 def run_forecast(
     user_id: int,
@@ -671,11 +656,6 @@ FREQ_TO_DURATION = {
     memory=5120,
     cpu=8.0,
     timeout=3600,
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ],
     schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
 def flow():
