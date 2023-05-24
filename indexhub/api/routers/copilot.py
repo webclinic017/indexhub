@@ -5,29 +5,35 @@ import traceback
 from datetime import datetime
 from functools import partial
 from typing import List, Optional
+from collections import deque
 
 import modal.aio
 import polars as pl
 import websockets
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from indexhub.api.db import create_sql_engine
 from indexhub.api.demos import DEMO_BUCKET, DEMO_SCHEMAS
 from indexhub.api.models.copilot import (
-    ACTIONS,
-    ADDITIONAL_TYPES,
+    Action,
+    AdditionalType,
     Company,
     ForecastAnalystAgent,
     ForecastContextInputs,
     Persona,
     ChatMessage,
+    Request,
 )
 from indexhub.api.models.user import User
 from indexhub.api.routers import router
 from indexhub.api.routers.objectives import get_objective
-from indexhub.api.routers.trends import _load_trend_datasets
+from indexhub.api.routers.trends import (
+    _create_trend_chart,
+    _create_trend_data,
+    _load_trend_datasets,
+)
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 
@@ -48,6 +54,7 @@ logger = _logger(name=__name__)
 
 
 MODAL_APP = "copilot-forecast-analyst-async-gpt3.5"
+
 
 class ForecastParams(BaseModel):
     user_id: str
@@ -116,24 +123,23 @@ def _get_context_inputs(params: ForecastParams) -> ForecastContextInputs:
     return context_inputs
 
 
-
 def format_chat_response(
     content: str,
     *,
-    action: ACTIONS,
-    additional_type: Optional[ADDITIONAL_TYPES] = None,
+    action: Action,
+    additional_type: Optional[AdditionalType] = None,
     **kwargs,
-) -> dict:
-    return {
-        "role": "assistant",
-        "action": action,
-        "additional_type": additional_type,
-        "props": {
+) -> Request:
+    return Request(
+        role="assistant",
+        action=action,
+        additional_type=additional_type,
+        channel=0,
+        props={
             **kwargs,
         },
-        "content": content,
-    }
-
+        content=content,
+    )
 
 
 class ChatService:
@@ -162,10 +168,9 @@ class ChatService:
                 await self.sentiment_analysis(msg)
             case _:
                 logger.error(f"Unknown action: {action}")
+
     # NOTE: This is the old analysis. Keeping for backwards compatibility
-    async def _analysis(
-        self, msg: ChatMessage
-    ) -> tuple[list[str], list[str]]:
+    async def _analysis(self, msg: ChatMessage) -> tuple[list[str], list[str]]:
         logger.info("Getting analysis")
         get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
         analysis = await get_analysis.call(self.agent.dict())
@@ -174,8 +179,6 @@ class ChatService:
         )
         logger.info("Done getting analysis")
         return analysis
-
-
 
     async def _questions(
         self, msg: ChatMessage, analysis: list[str]
@@ -324,56 +327,189 @@ async def forecast_analyst_chat(websocket: WebSocket):
     finally:
         logger.info("Closing websocket connection.")
 
+
+class TrendsChatContext(BaseModel):
+    dataset_id: str
+    entity_id: str
+    entity_col: str
+    target_col: str
+    forecasts: pl.DataFrame
+    quantiles: pl.DataFrame
+    chart: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
 class TrendsChatService:
-    def __init__(self, websocket: WebSocket):
+    def __init__(
+        self,
+        websocket: WebSocket,
+        user_id: str,
+        max_context_length: int = 2,
+        max_message_history: int = 50,
+    ):
+        self.user_id = user_id
         self.websocket = websocket
+        self.max_message_history = max_message_history
+        # self.messages = deque(maxlen=50)  # Chat history maintained on FE
+        self.context = deque(maxlen=max_context_length)  # Data it's looking at
+        self.reader = partial(
+            SOURCE_TAG_TO_READER["s3"],
+            bucket_name=DEMO_BUCKET,
+            file_ext="parquet",
+        )
+
+    @property
+    def name(self):
+        return "IndexBot"
 
     async def dispatch(self, msg: ChatMessage):
+        # We should never hit a mismatched action as pydantic validates the input
         action = msg.request.action
         match action:
             case "chat":
-                logger.info("Chatting")
                 await self.chat(msg)
-            case "describe":
-                logger.info("Describing")
-                await self.describe(msg)
+            case "load_context":
+                await self.load_context(msg)
             case _:
                 logger.error(f"Unknown action: {action}")
 
-    async def chat(self, msg: ChatMessage):
+    async def load_context(self, msg: ChatMessage):
+        """Load trend context after selecting an embedding.
+
+        We pass in the context from the FE through the props variable in the request.
+        This should contain dataset_id, entity_id required to make the call.
+
+        """
+        logger.info("Loading context")
+
+        dataset_id = msg.request.props["dataset_id"]
+        entity_id = msg.request.props["entity_id"]
+
+        # Get tables and chart
+        paths = DEMO_SCHEMAS[dataset_id]
+        trend_datasets = _load_trend_datasets(self.reader, paths)
+        actual, forecasts, quantiles, _ = trend_datasets
+        entity_col, _, target_col = actual.columns
+        chart_data = _create_trend_data(
+            *trend_datasets,
+            entity_id=entity_id,
+        )
+
+        forecasts = forecasts.filter(pl.col(entity_col) == entity_id)
+        quantiles = quantiles.filter(pl.col(entity_col) == entity_id).filter(
+            pl.col("quantile").is_in([10, 90])
+        )
+        # Create chart - this needs to be handled separately
+        chart = _create_trend_chart(chart_data).to_json()
+        new_context = TrendsChatContext(
+            dataset_id=dataset_id,
+            entity_id=entity_id,
+            entity_col=entity_col,
+            target_col=target_col,
+            forecasts=forecasts,
+            quantiles=quantiles,
+            chart=chart,
+        )
+        self.context.append(new_context)
+        msg_content = (
+            f"I've loaded the context for {dataset_id}:{entity_id}!"
+            f" My context now contains {[f'{ctx.dataset_id}:{ctx.entity_id}' for ctx in self.context]}."
+        )
+        logger.info(f"{msg_content}")
+        chat_response = format_chat_response(
+            content=msg_content,
+            action=msg.request.action,
+            additional_type="chart",
+            chart=chart,
+        )
+        await self.websocket.send_json(
+            {"response": chat_response.dict(), "channel": msg.request.channel}
+        )
+
+    def _get_context_block(self):
+        if not self.context:
+            return "You do not have any context loaded."
+        contexts = []
+        for ctx in self.context:
+            section = (
+                f"## {ctx.dataset_id} - {ctx.entity_id}"
+                f"\n\n{ctx.forecasts.to_pandas().to_markdown(index=False)}"
+                f"\n\n{ctx.quantiles.to_pandas().to_markdown(index=False)}"
+            )
+            contexts.append(section)
+        return "\n\n".join(contexts)
+
+    def _format_messages(self, msg: ChatMessage):
+        """Modify the request for the chatbot service.
+
+        This step involves creating the prompt for the agent.chat endpoint.
+
+        """
+        system_message = {
+            "role": "system",
+            "content": (
+                f"You are an AI chatbot called {self.name}."
+                " You are an expert forecast analyst and data communicator."
+                " You always speak clearly and concisely."
+                " You use simple percentage and difference calculations to explain trends."
+                " You do not answer questions you do not know the answer to."
+                " If you don't know the answer to a question, say that you don't know, and don't make up answers."
+                " You do not provide recommendations that you could put."
+                " You are having a conversation with a user."
+                " Your job is to answer questions about forecast trends to the best of your ability."
+            ),
+        }
+        curr_date = datetime.now().strftime("%B %Y")
+        prompt = (
+            "These are the datasets you are currently looking at:"
+            f"\n\n```{self._get_context_block()}```"
+            "\n\nUse the above data, general knowledge, and expert reasoning ability to respond to the user's message."
+            f" Note that it is now {curr_date} - COVID-19 is no longer relevant."
+            " Be specific and respond with non-obvious statistical analysis."
+            " Describe trend, seasonality, and anomalies. Do not provide recommendations. Do not describe or refer to the table."
+            f"\nUser: {msg.request.content}"
+            f"\n\n{self.name}:"
+        )
+
+        user_message = {"role": "user", "content": prompt}
+        messages = [
+            system_message,
+            *msg.message_history[: self.max_message_history],
+            user_message,
+        ]
+        return messages
+
+    async def chat(
+        self, msg: ChatMessage, model: str = "gpt-3.5-turbo", temperature: float = 0.5
+    ):
         logger.info("Chatting")
-        # TODO: Actually implement this logic. Placeholder for now
-        get_chat = await modal.aio.AioFunction.lookup(MODAL_APP, "get_chat_response")
-        response = await get_chat.call(
-            agent_params=self.agent.dict(),
-            message=msg.request.content,
-            message_history=msg.message_history,
+        # Using modal endpoint that does a raw openai call for maximum flexibility
+        get_raw_chat_response = await modal.aio.AioFunction.lookup(
+            MODAL_APP, "get_raw_chat_response"
+        )
+        messages = self._format_messages(msg)
+        response = await get_raw_chat_response.call(
+            messages=messages, model=model, temperature=temperature
         )
         chat_response = format_chat_response(
             content=response,
             action=msg.request.action,
         )
+        logger.info(f"{response}")
         await self.websocket.send_json(
-            {"chat_response": chat_response, "channel": msg.request.channel}
+            {"response": chat_response.dict(), "channel": msg.request.channel}
         )
 
-    async def describe(
-        self, msg: ChatMessage
-    ) -> tuple[list[str], list[str]]:
-        logger.info("Describing")
-        get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
-        analysis = await get_analysis.call(self.agent.dict())
-        await self.websocket.send_json(
-            {"analysis": analysis, "channel": msg.request.channel}
-        )
-        logger.info("Done describing")
-        return analysis
 
-@router.websocket("/copilot/ws")
+@router.websocket("/trends/copilot/ws")
 async def trends_analyst_chat(websocket: WebSocket):
     await websocket.accept()
     logger.info("Websocket connection established.")
-    copilot = TrendsChatService(websocket)
+    config = await websocket.receive_json()
+    logger.info(f"Hello user {config['user_id']}.")
+    copilot = TrendsChatService(websocket, **config)
     try:
         while True:
             msg_json = await websocket.receive_json()

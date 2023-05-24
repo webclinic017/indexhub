@@ -44,17 +44,17 @@ class ForecastAnalystAgent(BaseModel):
     n_iter: Optional[int]
 
 
-ADDITIONAL_TYPES = Literal["metric", "chart"]
-ROLES = Literal["user", "assistant"]
-ACTIONS = Literal["chat", "report_flow", "sentiment_analysis"]
+AdditionalType = Literal["metric", "chart", "trend"]
+Role = Literal["user", "assistant"]
+Action = Literal["chat", "report_flow", "sentiment_analysis", "load_context"]
 
 
 class Request(BaseModel):
-    role: ROLES
-    action: ACTIONS
-    additional_type: Optional[ADDITIONAL_TYPES]
+    role: Role
+    action: Action
+    additional_type: Optional[AdditionalType]
     channel: int
-    props: Mapping[str, Any]
+    props: Optional[Mapping[str, Any]]
     content: str
 
 
