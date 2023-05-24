@@ -14,7 +14,7 @@ export const TrendsContext = createContext({
     datasetId: "",
     setDatasetId: (_datasetId: string) => { /* do nothing */ },
     apiToken: "",
-    projectorData: {} as ProjectorData,
+    projectorData: null as ProjectorData | null,
     updateProjectorData: (_newData: ProjectorData) => { /* do nothing */ },
 });
 
@@ -26,7 +26,7 @@ export default function TrendsDashboard() {
     const [currentPointContext, setCurrentPointContext] = useState<number | null>(null);
     const [selectedPointIds, setSelectedPointIds] = useState<number[]>([]);
     const [datasetId, setDatasetId] = useState<string>("commodities");
-    const [projectorData, setProjectorData] = useState<ProjectorData>({} as ProjectorData);
+    const [projectorData, setProjectorData] = useState<ProjectorData | null>(null);
     const apiToken = useAuth0AccessToken();
     const { handleSendMessage } = useChatContext();
 
@@ -55,17 +55,18 @@ export default function TrendsDashboard() {
         setProjectorData(newData);
     }
     useEffect(() => {
-        if (currentPointContext !== null) {
-            console.log(`currentPointContext change: ${projectorData}`);
-            const props = {
-                "dataset_id": datasetId,
-                "entity_id": projectorData.entityIds[currentPointContext],
-            }
-            console.log(`currentPointContext props: ${JSON.stringify(props)}`);
-            handleSendMessage("load_context", props);
+        if (!currentPointContext || !projectorData) {
+            return;
         }
+        console.log(`currentPointContext change: ${projectorData}`);
+        const props = {
+            "dataset_id": datasetId,
+            "entity_id": projectorData.entityIds[currentPointContext],
+        }
+        console.log(`currentPointContext props: ${JSON.stringify(props)}`);
+        handleSendMessage("load_context", props);
     }, [currentPointContext]);
-   
+
     return (
         <TrendsContext.Provider value={{
             selectPoint,

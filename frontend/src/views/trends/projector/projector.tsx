@@ -24,7 +24,6 @@ const getProjectorData = async (datasetId: string, apiToken: string) => {
         }
     );
     const response_json = await response.json();
-    // console.log(`getProjectorData response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
     return response_json;
 };
 
@@ -33,12 +32,11 @@ const Projector = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const messagesRef = useRef<HTMLDivElement>(null);
     const scatterGLRef = useRef<ScatterGL | null>(null);
-    const [dataset, setDataset] = useState<Dataset>({} as Dataset);
-
+    const [dataset, setDataset] = useState<Dataset | null>(null);
     const {
         selectPoint,
-        addPoint,
-        resetPoints,
+        // addPoint,
+        // resetPoints,
         projectorData,
         updateProjectorData,
         apiToken,
@@ -46,7 +44,6 @@ const Projector = () => {
     } = useContext(TrendsContext);
 
     const getDatasetFromProjectorData = (data: ProjectorData) => {
-        console.log(`enter getDatasetFromProjectorData`);
         const newPoints: Point3D[] = [];
         const metadata: PointMetadata[] = [];
         data.projections.forEach((vector, index) => {
@@ -59,47 +56,46 @@ const Projector = () => {
         });
 
         const dataset = new Dataset(newPoints, metadata);
-        setDataset(dataset);
-        console.log(`exit getDatasetFromProjectorData`);
-
         return dataset;
     }
+
+    // Only rerender when dataset changes
+    useEffect(() => {
+        if (!dataset || !scatterGLRef.current) {
+            return;
+        }
+        scatterGLRef.current.render(dataset);
+    }, [dataset])
 
     // When projectorData changes, update the projector
     useEffect(() => {
         if (!scatterGLRef.current || !projectorData) {
             return;
         }
-        console.log(`enter projectorData change`);
-
         const dataset = getDatasetFromProjectorData(projectorData);
-        scatterGLRef.current.render(dataset);
-        console.log(`exit projectorData change`);
+        setDataset(dataset);
 
     }, [projectorData]);
 
     // When datasetId changes, update the projector data
     useEffect(() => {
         const getAsync = async () => {
-            console.log(`enter datasetId change`);
             const data = await getProjectorData(datasetId, apiToken) as ProjectorData;
-            resetPoints();
+            // resetPoints();
             updateProjectorData(data);
-            console.log(`exit datasetId change`);
         }
         if (datasetId && apiToken) {
             getAsync();
         }
-
     }, [datasetId, apiToken]);
 
     // Initialize the canvas
     useEffect(() => {
         const setupAsync = async () => {
-            if (!containerRef.current) {
+            if (!containerRef.current || scatterGLRef.current) {
                 return;
             }
-            console.log(`Start mount`);
+            console.log(`Start projector mount`);
 
             const setMessage = (message: string) => {
                 const messageStr = `🔥 ${message}`;
@@ -147,7 +143,7 @@ const Projector = () => {
                 inputElement.addEventListener('change', handleInputChange);
             });
 
-            console.log(`End mount`);
+            console.log(`End projector mount`);
 
             // Clean up function for removing the resize listener when the component unmounts
             return () => {
@@ -158,16 +154,19 @@ const Projector = () => {
             }
         }
         setupAsync();
-    }, []);  // Empty array means this effect runs once on mount and clean up on unmount
+    }, []);
 
     // Your button and input handlers go here...
     const selectPointHandler = (id: number) => {
         console.log(`selectPointHandler ${id} of type ${typeof id}`);
         selectPoint(id);
-        addPoint(id);
+        // addPoint(id);
     };
 
     const selectRandomHandler = () => {
+        if (!dataset) {
+            return;
+        }
         if (scatterGLRef.current && dataset.points.length > 0) {
             const randomIndex = Math.floor(dataset.points.length * Math.random());
             scatterGLRef.current.select([randomIndex]);

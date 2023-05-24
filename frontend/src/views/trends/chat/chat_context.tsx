@@ -41,11 +41,11 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
 
     useEffect(() => {
         if (lastJsonMessage !== null) {
-            console.log(`received message: ${JSON.stringify(lastJsonMessage)}:${typeof lastJsonMessage}`);
+            // console.log(`received message: ${JSON.stringify(lastJsonMessage)}:${typeof lastJsonMessage}`);
             const data = lastJsonMessage as Record<string, any>;
             if (Object.keys(data).includes("response")) {
                 const response = data["response"];
-                console.log(`received response: ${response}:${typeof response}`);
+                // console.log(`received response: ${response}:${typeof response}`);
                 setMessages((old) => [...old, response]);
             }
         }
@@ -62,7 +62,7 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
         let request: ChatMessage;
         switch (action) {
             case "load_context":
-                console.log(`loadContextRequest: ${JSON.stringify(props)}`);
+                console.log("loadContextRequest");
                 if (props === undefined) {
                     throw new Error("props must be defined for load_context action");
                 }
@@ -77,7 +77,7 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
             message_history: messages.map((msg) => ({ "role": msg.role, "content": msg.content })),
             request: request,
         };
-        console.log(`sending message: ${JSON.stringify(fullMessage)}`);
+        // console.log(`sending message: ${JSON.stringify(fullMessage)}`);
         // Using sendMessage instead of sendJsonMessage because there is some type error
         sendMessage(JSON.stringify(fullMessage));
         setMessages((old) => [...old, request]);
@@ -85,9 +85,9 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
     };
 
 
-    useEffect(() => {
-        console.log(`messages: ${JSON.stringify(messages)}`);
-    }, [messages]);
+    // useEffect(() => {
+    //     console.log(`messages: ${JSON.stringify(messages)}`);
+    // }, [messages]);
     return (
         <ChatContext.Provider value={{
             messages,

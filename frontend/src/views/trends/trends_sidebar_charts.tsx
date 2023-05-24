@@ -17,7 +17,7 @@ export const getJsonVegaSpec = async (datasetId: string, entityId: string, apiTo
         }
     );
     const response_json = await response.json();
-    console.log(`getJsonVegaSpec response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
+    // console.log(`getJsonVegaSpec response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
     return response_json;
 };
 
@@ -34,7 +34,7 @@ const TrendsSidebarCharts = () => {
             Select up to 2 points to compare.
         </Text>) : (
             <UnorderedList>
-                {selectedPointIds.map((pointId) => {
+                {projectorData && selectedPointIds.map((pointId) => {
                     const entityId = projectorData.entityIds[pointId];
                     const cluster = projectorData.clusters[pointId];
 
@@ -46,7 +46,7 @@ const TrendsSidebarCharts = () => {
                                     <Text fontSize={{ base: 'sm' }} color={'gray.500'}>
                                         pointId={pointId} entityId={entityId} cluster={cluster}
                                     </Text>
-                                    <Button size='xs' colorScheme='red'  onClick={() => {
+                                    <Button size='xs' colorScheme='red' onClick={() => {
                                         removePoint(pointId);
                                     }}>
                                         Remove
@@ -61,20 +61,22 @@ const TrendsSidebarCharts = () => {
 }
 
 interface VegaChartProps {
-    pointId?: number;
-    entityId: string;
-    cluster?: number;
     spec: string;
+    entityId: string;
+    pointId?: number;
+    cluster?: number;
 }
 
 export const VegaChart = (props: VegaChartProps) => {
     const { spec } = props;
     const containerRef = useRef<HTMLDivElement>(null);
-    // const { datasetId, apiToken } = useContext(TrendsContext);
 
     useEffect(() => {
         const runAsync = async () => {
-            if (!containerRef.current) return;
+            if (!containerRef.current || !spec) {
+                return;
+            }
+
             try {
                 const result = await embed(containerRef.current, JSON.parse(spec) as VisualizationSpec);
                 console.log(result.view);
@@ -84,7 +86,7 @@ export const VegaChart = (props: VegaChartProps) => {
         };
 
         runAsync();
-    }, []); // The empty array as second argument to useEffect makes it run only once
+    }, []);
 
     return <div ref={containerRef} style={{ height: "100%", width: "100%" }} />;
 };
