@@ -41,15 +41,27 @@ PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
 IMAGE = modal.Image.from_name("indexhub-image")
-stub = modal.Stub(
-    "indexhub-preprocess",
-    image=IMAGE,
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
+
+if os.environ.get("ENV_NAME", "dev") == "prod":
+    stub = modal.Stub(
+        "indexhub-preprocess",
+        image=IMAGE,
+        secrets=[
+            modal.Secret.from_name("aws-credentials"),
+            modal.Secret.from_name("postgres-credentials"),
+            modal.Secret.from_name("env-name"),
+        ]
+    )
+else:
+    stub = modal.Stub(
+        "dev-indexhub-preprocess",
+        image=IMAGE,
+        secrets=[
+            modal.Secret.from_name("aws-credentials"),
+            modal.Secret.from_name("dev-postgres-credentials"),
+            modal.Secret.from_name("dev-env-name"),
+        ]
+    )
 
 
 def _clean_panel(

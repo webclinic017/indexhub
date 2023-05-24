@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime
 from functools import partial
 from typing import Any, Callable, List, Mapping, Optional
@@ -41,15 +42,27 @@ logger = _logger(name=__name__)
 
 
 IMAGE = modal.Image.from_name("indexhub-image")
-stub = modal.Stub(
-    "indexhub-forecast",
-    image=IMAGE,
-    secrets=[
-        modal.Secret.from_name("postgres-credentials"),
-        modal.Secret.from_name("aws-credentials"),
-        modal.Secret.from_name("env-name"),
-    ]
-)
+
+if os.environ.get("ENV_NAME", "dev") == "prod":
+    stub = modal.Stub(
+        "indexhub-forecast",
+        image=IMAGE,
+        secrets=[
+            modal.Secret.from_name("aws-credentials"),
+            modal.Secret.from_name("postgres-credentials"),
+            modal.Secret.from_name("env-name"),
+        ]
+    )
+else:
+    stub = modal.Stub(
+        "dev-indexhub-forecast",
+        image=IMAGE,
+        secrets=[
+            modal.Secret.from_name("aws-credentials"),
+            modal.Secret.from_name("dev-postgres-credentials"),
+            modal.Secret.from_name("dev-env-name"),
+        ]
+    )
 
 
 @stub.function()
