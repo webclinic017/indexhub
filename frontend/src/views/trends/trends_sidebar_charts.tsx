@@ -4,7 +4,7 @@ import { TrendsContext } from "./trends_dashboard";
 import embed, { VisualizationSpec } from 'vega-embed';
 
 
-const getJsonVegaSpec = async (datasetId: string, entityId: string, apiToken: string) => {
+export const getJsonVegaSpec = async (datasetId: string, entityId: string, apiToken: string) => {
     const charts_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/trends/public/charts/${datasetId}/${entityId}`;
     const response = await fetch(
         charts_url,
@@ -41,7 +41,7 @@ const TrendsSidebarCharts = () => {
                     return (
                         <ListItem key={pointId} margin={"5px"} listStyleType='none'>
                             <VStack height={"100%"} width={"100%"}>
-                                <VegaChart pointId={pointId} entityId={entityId} cluster={cluster} />
+                                {/* <VegaChart entityId={entityId} cluster={cluster} /> */}
                                 <Stack direction='row' spacing={4} align='center' margin={"5px"}>
                                     <Text fontSize={{ base: 'sm' }} color={'gray.500'}>
                                         pointId={pointId} entityId={entityId} cluster={cluster}
@@ -61,21 +61,21 @@ const TrendsSidebarCharts = () => {
 }
 
 interface VegaChartProps {
-    pointId: number;
+    pointId?: number;
     entityId: string;
-    cluster: number;
+    cluster?: number;
+    spec: string;
 }
 
-const VegaChart = (props: VegaChartProps) => {
-    const { pointId, entityId, cluster } = props;
+export const VegaChart = (props: VegaChartProps) => {
+    const { spec } = props;
     const containerRef = useRef<HTMLDivElement>(null);
-    const { datasetId, apiToken } = useContext(TrendsContext);
+    // const { datasetId, apiToken } = useContext(TrendsContext);
 
     useEffect(() => {
         const runAsync = async () => {
             if (!containerRef.current) return;
             try {
-                const spec = await getJsonVegaSpec(datasetId, entityId, apiToken);
                 const result = await embed(containerRef.current, JSON.parse(spec) as VisualizationSpec);
                 console.log(result.view);
             } catch (error) {

@@ -16,7 +16,6 @@ import NewObjective from "./views/objectives/new_objective";
 import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
-import TrendsDashboard from "./views/trends/trends_dashboard";
 import Trends from "./views/trends/trends";
 
 function App() {
@@ -28,7 +27,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
               <Route index element={<Home />} />
-              <Route path="trends" element={<TrendsDashboard />} />
+              <Route path="trends" element={<Trends />} />
               <Route path="data" element={<Data />}>
                 <Route index element={<DataAndIntegrations />} />
               </Route>

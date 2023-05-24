@@ -1,9 +1,10 @@
 import React from "react";
-import { Box, Flex, Text, VStack, ListItem, UnorderedList } from "@chakra-ui/react";
-
+import { Flex, Text, VStack, ListItem, UnorderedList } from "@chakra-ui/react";
+import { VegaChart } from "../trends_sidebar_charts";
+import { useChatContext } from "./chat_context";
 
 export type Role = "user" | "assistant";
-export type Action = "chat" | "describe";
+export type Action = "chat" | "load_context";
 export type AdditionalType = "chart" | "metric" | "trend";
 
 
@@ -15,69 +16,66 @@ export interface ChatMessage {
     props: Record<string, any> | null;
     content: string;
 }
-export interface ChatMessageViewProps {
-    messages: ChatMessage[];
-}
 
-const ChatMessageView = (props: ChatMessageViewProps) => {
-    const { messages } = props;
-    return <Flex id="trends-sidebar-chat-messages" w="100%" overflowY="scroll" flexDirection="column">
+
+const ChatMessageView = () => {
+    const { messages } = useChatContext();
+    return <Flex id="trends-sidebar-chat-messages" h="100%" w="100%" overflowY="scroll" flexDirection="column">
         <UnorderedList>
             {messages.map((msg, index) =>
-                <ListItem key={index}>
-                    <ChatItem msg={msg} index={index} />
+                <ListItem key={index} margin={"10px"} listStyleType='none'>
+                    <Flex key={index} w="100%" justify={msg.role === "user" ? "flex-end" : "flex-start"}>
+                        <ChatItem msg={msg} />
+                    </Flex>
                 </ListItem>
             )}
         </UnorderedList>
-    </Flex>;
+    </Flex >;
 };
 
 
-const ChatItem = (props: { msg: ChatMessage, index: number }) => {
-    const { msg, index } = props;
+const ChatItem = (props: { msg: ChatMessage }) => {
+    const { msg } = props;
     switch (msg.action) {
-        case "describe":
-            return <DescribeResponse msg={msg} index={index} />
+        case "load_context":
+            return <LoadContextResponse msg={msg} />
         default:
-            return <ChatResponse msg={msg} index={index} />
+            return <ChatResponse msg={msg} />
     }
 }
 
-const ChatResponse = (props: { msg: ChatMessage; index: number }) => {
-    const { msg, index } = props;
+const ChatResponse = (props: { msg: ChatMessage }) => {
+    const { msg } = props;
     return (
-        <Flex key={index} w="100%" justify={msg.role === "user" ? "flex-end" : "flex-start"}>
-            <Flex
-                bg={msg.role === "user" ? "black" : "gray.100"}
-                color={msg.role === "user" ? "white" : "black"}
-                minW="100px"
-                maxW="90%"
-                my="1"
-                p="3"
-                borderRadius={8}
-            >
-                <Text>{msg.content}</Text>
-            </Flex>
+        <Flex
+            bg={msg.role === "user" ? "black" : "gray.100"}
+            color={msg.role === "user" ? "white" : "black"}
+            minW="100px"
+            maxW="90%"
+            my="1"
+            p="3"
+            borderRadius={8}
+        >
+            <Text>{msg.content}</Text>
         </Flex>
     )
 }
 
-const DescribeResponse = (props: { msg: ChatMessage; index: number }) => {
-    const { msg, index } = props;
+const LoadContextResponse = (props: { msg: ChatMessage }) => {
+    const { msg } = props;
     return (
-        <Flex key={index} w="100%" justify={msg.role === "user" ? "flex-end" : "flex-start"}>
-            <VStack
-                bg={msg.role === "user" ? "black" : "gray.100"}
-                color={msg.role === "user" ? "white" : "black"}
-                minW="100px"
-                maxW="90%"
-                my="1"
-                p="3"
-                borderRadius={8}
-            >
-                <Text>{msg.content}</Text>
-            </VStack>
-        </Flex>
+        <VStack
+            bg={msg.role === "user" ? "black" : "gray.100"}
+            color={msg.role === "user" ? "white" : "black"}
+            minW="100px"
+            maxW="90%"
+            my="1"
+            p="3"
+            borderRadius={8}
+        >,
+            {msg.props === null ? <></> : <VegaChart entityId={msg.props?.entity_id} spec={msg.props?.chart as string} />}
+            <Text>{msg.content}</Text>
+        </VStack>
     );
 };
 

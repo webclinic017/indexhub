@@ -1,16 +1,16 @@
 import React from "react";
-import { Box, VStack } from '@chakra-ui/react';
-import ChatWindow from "./chat/window";
-import TrendsSidebarCharts from "./trends_sidebar_charts";
+import { Flex, VStack } from '@chakra-ui/react';
+import ChatMessageView from "./chat/messages";
+import ChatFooter from "./chat/footer";
 
 const TrendsSidebar = () => {
     return (
-        <Box id="trends-sidebar" height="full" maxH='100%' maxW={'md'} boxShadow="xs" margin="5px" overflowY={"scroll"}>
-            <VStack height="full" w='full' maxW={'md'}>
-                <TrendsSidebarCharts />
-                <ChatWindow /> 
-            </VStack>
-        </Box>
+        <Flex width="100%" maxW={"md"} height="100%" justify="center" align="start">
+            <VStack id="trends-sidebar-chat-window" w="100%" h="100%" justify="center" align="center" boxShadow="xs" margin="5px">
+                <ChatMessageView />
+                <ChatFooter />
+            </VStack >
+        </Flex>
     )
 }
 

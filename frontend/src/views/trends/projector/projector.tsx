@@ -24,7 +24,7 @@ const getProjectorData = async (datasetId: string, apiToken: string) => {
         }
     );
     const response_json = await response.json();
-    console.log(`getProjectorData response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
+    // console.log(`getProjectorData response_json type=${typeof response_json} value=${JSON.stringify(response_json)}`);
     return response_json;
 };
 
@@ -34,7 +34,9 @@ const Projector = () => {
     const messagesRef = useRef<HTMLDivElement>(null);
     const scatterGLRef = useRef<ScatterGL | null>(null);
     const [dataset, setDataset] = useState<Dataset>({} as Dataset);
+
     const {
+        selectPoint,
         addPoint,
         resetPoints,
         projectorData,
@@ -43,13 +45,8 @@ const Projector = () => {
         datasetId
     } = useContext(TrendsContext);
 
-    // useEffect(() => {
-    //     console.log(`selectedPoints in projector: ${selectedPoints.map(item => item.pointIndex as number)}`);
-    // }, [selectedPoints]);
-
-
     const getDatasetFromProjectorData = (data: ProjectorData) => {
-        console.log(`enter getDatasetFromProjectorData ${JSON.stringify(data)}`);
+        console.log(`enter getDatasetFromProjectorData`);
         const newPoints: Point3D[] = [];
         const metadata: PointMetadata[] = [];
         data.projections.forEach((vector, index) => {
@@ -63,7 +60,7 @@ const Projector = () => {
 
         const dataset = new Dataset(newPoints, metadata);
         setDataset(dataset);
-        console.log(`exit getDatasetFromProjectorData with dataset=${JSON.stringify(dataset)}`);
+        console.log(`exit getDatasetFromProjectorData`);
 
         return dataset;
     }
@@ -166,6 +163,7 @@ const Projector = () => {
     // Your button and input handlers go here...
     const selectPointHandler = (id: number) => {
         console.log(`selectPointHandler ${id} of type ${typeof id}`);
+        selectPoint(id);
         addPoint(id);
     };
 

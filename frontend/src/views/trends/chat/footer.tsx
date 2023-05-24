@@ -4,14 +4,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperPlane } from "@fortawesome/pro-light-svg-icons";
 import { Action } from "./messages";
 import { TrendsContext } from "../trends_dashboard";
+import { useChatContext } from "./chat_context";
 
-interface ChatFooterProps {
-    inputMessage: string;
-    setInputMessage: (inputMessage: string) => void;
-    handleSendMessage: (action: Action) => void;
-}
-const ChatFooter = (props: ChatFooterProps) => {
-    const { inputMessage, setInputMessage, handleSendMessage } = props;
+
+const ChatFooter = () => {
+    const { inputMessage, setInputMessage, handleSendMessage } = useChatContext();
     const [actions, setActions] = useState<Action[]>([]);
     const { selectedPointIds } = useContext(TrendsContext);
 
@@ -19,22 +16,23 @@ const ChatFooter = (props: ChatFooterProps) => {
         if (selectedPointIds.length === 0) {
             setActions([]);
         } else {
-            setActions(["describe"]);
+            setActions(["load_context"]);
         }
     }, [selectedPointIds]);
     return (
         <VStack id="trends-sidebar-chat-footer" w="100%">
-            <SuggestedActions inputMessage={inputMessage} handleSendMessage={handleSendMessage} actions={actions} />
+            {/* <SuggestedInputs inputMessage={inputMessage} handleSendMessage={handleSendMessage} actions={actions} /> */}
             <ChatInput inputMessage={inputMessage} setInputMessage={setInputMessage} handleSendMessage={handleSendMessage} />
         </VStack>
     );
 };
+
 interface SuggestedActionsProps {
     inputMessage: string;
     handleSendMessage: (action: Action) => void;
     actions?: Action[];
 }
-const SuggestedActions = (props: SuggestedActionsProps) => {
+const SuggestedInputs = (props: SuggestedActionsProps) => {
     const { inputMessage, handleSendMessage, actions } = props;
 
     return (
@@ -78,8 +76,8 @@ const ChatInput = (props: ChatInputProps) => {
         <Flex w="100%" mt="5">
             <Input
                 placeholder="Type Something..."
-                border="none"
-                borderRadius="none"
+                border={"1px solid grey"}
+                borderRadius={8}
                 w={"100%"}
                 _focus={{
                     border: "1px solid black",

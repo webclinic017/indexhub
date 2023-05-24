@@ -21,3 +21,4 @@ xlsx2csv
 websockets
 pylance==0.4.13
 expiringdict
+tabulate

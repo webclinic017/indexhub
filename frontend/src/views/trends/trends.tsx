@@ -1,14 +1,11 @@
 import React from "react";
-import { Text, VStack } from "@chakra-ui/react";
-import { Outlet } from "react-router-dom";
+import ChatContextProvider from "./chat/chat_context";
+import TrendsDashboard from "./trends_dashboard";
 
 export default function Trends() {
     return (
-        <VStack>
-            <Text fontSize="2xl" fontWeight="bold" width="98%" textAlign="left">
-                Trends
-            </Text>
-            <Outlet />
-        </VStack>
+        <ChatContextProvider>
+            <TrendsDashboard />
+        </ChatContextProvider>
     );
 }
