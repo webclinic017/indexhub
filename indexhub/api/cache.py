@@ -1,4 +1,4 @@
-from expiringdict import ExpiringDict
+from cacheout import Cache
 
 
-CACHE = ExpiringDict(max_len=20, max_age_seconds=3000)
+CACHE = Cache(maxsize=20, ttl=3000)

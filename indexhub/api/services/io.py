@@ -109,7 +109,7 @@ def read_data_from_s3(
         data = parser(obj=obj, columns=columns)
     else:
         data = obj
-    CACHE[key] = data
+    CACHE.set(key, data)
     return data
 
 
