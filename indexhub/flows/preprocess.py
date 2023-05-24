@@ -50,7 +50,7 @@ if os.environ.get("ENV_NAME", "dev") == "prod":
             modal.Secret.from_name("aws-credentials"),
             modal.Secret.from_name("postgres-credentials"),
             modal.Secret.from_name("env-name"),
-        ]
+        ],
     )
 else:
     stub = modal.Stub(
@@ -60,7 +60,7 @@ else:
             modal.Secret.from_name("aws-credentials"),
             modal.Secret.from_name("dev-postgres-credentials"),
             modal.Secret.from_name("dev-env-name"),
-        ]
+        ],
     )
 
 
@@ -468,7 +468,7 @@ def flow():
         future.get()
 
 
-@stub.local_entrypoint
+@stub.local_entrypoint()
 def test():
     user_id = os.environ["USER_ID"]
 
