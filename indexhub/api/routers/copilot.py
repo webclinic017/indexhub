@@ -7,7 +7,7 @@ from functools import partial
 from typing import List, Optional
 from collections import deque
 
-import modal.aio
+import modal
 import polars as pl
 import websockets
 from fastapi import HTTPException, WebSocket, WebSocketDisconnect
@@ -172,8 +172,8 @@ class ChatService:
     # NOTE: This is the old analysis. Keeping for backwards compatibility
     async def _analysis(self, msg: ChatMessage) -> tuple[list[str], list[str]]:
         logger.info("Getting analysis")
-        get_analysis = await modal.aio.AioFunction.lookup(MODAL_APP, "get_analysis")
-        analysis = await get_analysis.call(self.agent.dict())
+        get_analysis = modal.Function.lookup(MODAL_APP, "get_analysis")
+        analysis = await get_analysis.call.aio(self.agent.dict())
         await self.websocket.send_json(
             {"analysis": analysis, "channel": msg.request.channel}
         )
@@ -184,8 +184,8 @@ class ChatService:
         self, msg: ChatMessage, analysis: list[str]
     ) -> tuple[list[str], list[str]]:
         logger.info("Getting questions")
-        get_questions = await modal.aio.AioFunction.lookup(MODAL_APP, "get_questions")
-        questions = await get_questions.call(self.agent.dict(), analysis)
+        get_questions = modal.Function.lookup(MODAL_APP, "get_questions")
+        questions = await get_questions.call.aio(self.agent.dict(), analysis)
         await self.websocket.send_json(
             {"questions": questions, "channel": msg.request.channel}
         )
@@ -194,8 +194,8 @@ class ChatService:
 
     async def _news(self, msg: ChatMessage) -> pl.DataFrame:
         logger.info("Getting news")
-        get_news = await modal.aio.AioFunction.lookup(MODAL_APP, "get_news")
-        news = await get_news.call(self.agent.dict())
+        get_news = modal.Function.lookup(MODAL_APP, "get_news")
+        news = await get_news.call.aio(self.agent.dict())
         await self.websocket.send_json(
             {"news": news.to_dicts(), "channel": msg.request.channel}
         )
@@ -204,8 +204,8 @@ class ChatService:
 
     async def _sources(self, msg: ChatMessage) -> pl.DataFrame:
         logger.info("Getting sources")
-        get_sources = await modal.aio.AioFunction.lookup(MODAL_APP, "get_sources")
-        sources = await get_sources.call(self.agent.dict())
+        get_sources = modal.Function.lookup(MODAL_APP, "get_sources")
+        sources = await get_sources.call.aio(self.agent.dict())
         await self.websocket.send_json(
             {"sources": sources.to_dicts(), "channel": msg.request.channel}
         )
@@ -220,9 +220,9 @@ class ChatService:
         sources: pl.DataFrame,
         news: pl.DataFrame,
     ):
-        get_one_answer = await modal.aio.AioFunction.lookup(MODAL_APP, "get_one_answer")
+        get_one_answer = modal.Function.lookup(MODAL_APP, "get_one_answer")
         tasks = [
-            get_one_answer.call(
+            get_one_answer.call.aio(
                 agent_params=self.agent.dict(),
                 analysis=analysis,
                 question=question,
@@ -268,8 +268,8 @@ class ChatService:
     async def chat(self, msg: ChatMessage):
         logger.info("Chatting")
         # TODO: Actually implement this logic. Placeholder for now
-        get_chat = await modal.aio.AioFunction.lookup(MODAL_APP, "get_chat_response")
-        response = await get_chat.call(
+        get_chat = modal.Function.lookup(MODAL_APP, "get_chat_response")
+        response = await get_chat.call.aio(
             agent_params=self.agent.dict(),
             message=msg.request.content,
             message_history=msg.message_history,
@@ -284,8 +284,8 @@ class ChatService:
 
     async def sentiment_analysis(self, msg: ChatMessage):
         logger.info("Sentiment analysis")
-        get_sentiment = await modal.aio.AioFunction.lookup(MODAL_APP, "get_sentiment")
-        response = await get_sentiment.call(agent_params=self.agent.dict())
+        get_sentiment = modal.Function.lookup(MODAL_APP, "get_sentiment")
+        response = await get_sentiment.call.aio(agent_params=self.agent.dict())
         chat_response = format_chat_response(
             (
                 f"Across {response['metadata']['successes']} sources the average "
@@ -486,11 +486,11 @@ class TrendsChatService:
     ):
         logger.info("Chatting")
         # Using modal endpoint that does a raw openai call for maximum flexibility
-        get_raw_chat_response = await modal.aio.AioFunction.lookup(
+        get_raw_chat_response = modal.Function.lookup(
             MODAL_APP, "get_raw_chat_response"
         )
         messages = self._format_messages(msg)
-        response = await get_raw_chat_response.call(
+        response = await get_raw_chat_response.call.aio(
             messages=messages, model=model, temperature=temperature
         )
         chat_response = format_chat_response(
