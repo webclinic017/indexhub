@@ -137,40 +137,39 @@ def flow():
     with Session(engine) as session:
         query = select(Integration)
         integrations = session.exec(query).all()
-        if not integrations:
-            raise HTTPException(status_code=404, detail="Integration not found")
 
-    futures = []
-    for integration in integrations:
-        logger.info(f"Checking integration: {integration.id}")
-        fields = json.loads(integration.fields)
+    if integrations:
+        futures = []
+        for integration in integrations:
+            logger.info(f"Checking integration: {integration.id}")
+            fields = json.loads(integration.fields)
 
-        # 2. Check freq from integration for schedule
-        duration = FREQ_TO_DURATION[fields["freq"]]
-        updated_at = integration.updated_at.replace(microsecond=0)
-        if duration == "1mo":
-            new_dt = updated_at + relativedelta(months=1)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        elif duration == "3mo":
-            new_dt = updated_at + relativedelta(months=3)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        else:
-            run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
-        logger.info(f"Next run for {integration.id} at: {run_dt}")
-        # 4. Run preprocess flow
-        current_datetime = datetime.now().replace(microsecond=0)
-        if (current_datetime >= run_dt) or integration.status == "FAILED":
-            # Spawn preprocess and embs flow for source
-            futures.append(
-                run_integration_etl.spawn(
-                    integration_id=integration.id,
-                    ticker=integration.ticker,
-                    provider=integration.provider,
+            # 2. Check freq from integration for schedule
+            duration = FREQ_TO_DURATION[fields["freq"]]
+            updated_at = integration.updated_at.replace(microsecond=0)
+            if duration == "1mo":
+                new_dt = updated_at + relativedelta(months=1)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
+            elif duration == "3mo":
+                new_dt = updated_at + relativedelta(months=3)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
+            else:
+                run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
+            logger.info(f"Next run for {integration.id} at: {run_dt}")
+            # 4. Run preprocess flow
+            current_datetime = datetime.now().replace(microsecond=0)
+            if (current_datetime >= run_dt) or integration.status == "FAILED":
+                # Spawn preprocess and embs flow for source
+                futures.append(
+                    run_integration_etl.spawn(
+                        integration_id=integration.id,
+                        ticker=integration.ticker,
+                        provider=integration.provider,
+                    )
                 )
-            )
 
-    for future in futures:
-        future.get()
+        for future in futures:
+            future.get()
 
 
 @stub.local_entrypoint()

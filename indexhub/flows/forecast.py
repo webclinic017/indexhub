@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from functools import partial
+from functools import partial, reduce
 from typing import Any, Callable, List, Mapping, Optional
 
 import modal
@@ -13,11 +13,13 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from indexhub.api.db import create_sql_engine
+from indexhub.api.models.integration import Integration
 from indexhub.api.models.objective import Objective
 from indexhub.api.models.user import User
 from indexhub.api.routers.sources import get_source
 from indexhub.api.routers.stats import FREQ_TO_SP
 from indexhub.api.schemas import (
+    SUPPORTED_BASELINE_MODELS,
     SUPPORTED_COUNTRIES,
     SUPPORTED_ERROR_TYPE,
     SUPPORTED_FREQ,
@@ -403,6 +405,90 @@ def create_best_plan(
         logger.info("Best plan created and exported")
 
 
+@stub.function(
+    timeout=600,  # 10 mins
+)
+def load_integrations(
+    user_id: str, entity_col: str, entities: List[str], freq: str, read: Callable
+):
+    try:
+        logger.info("Loading integrations")
+        integrations_df = None
+        # 1. Load user's integrations
+        engine = create_sql_engine()
+        with Session(engine) as session:
+            query = select(User).where(User.id == user_id)
+            user = session.exec(query).first()
+            if user.integration_ids:
+                integration_ids = json.loads(user.integration_ids)
+                query = select(Integration).where(Integration.id.in_(integration_ids))
+                integrations = session.exec(query).all()
+            else:
+                integrations = None
+
+        if integrations:
+            futures = []
+            for integration in integrations:
+                # 2. Read integration from feature store
+                fields = json.loads(integration.fields)
+                outputs = json.loads(integration.outputs)
+                bucket_name = outputs["bucket_name"]
+                path = f"{outputs['object_path']}.{outputs['file_ext']}"
+                raw_panel = read(bucket_name=bucket_name, object_path=path).to_arrow()
+
+                # 3. Spawn exogenous flow
+                flow = modal.Function.lookup("tsdata-exogenous", "process_integration")
+                futures.append(
+                    flow.spawn(
+                        raw_panel=raw_panel,
+                        ticker=integration.ticker,
+                        entities=entities,
+                        freq=freq,  # User selected freq
+                        agg_method=fields.get("agg_method", "sum"),
+                        impute_method=fields.get("impute_method", "ffill"),
+                    )
+                )
+
+            # 4. Gather futures
+            integrations_dfs = []
+            for future in futures:
+                try:
+                    integrations_dfs.append(
+                        pl.from_arrow(future.get()).pipe(
+                            lambda df: df.rename(
+                                {
+                                    df.columns[0]: entity_col,
+                                }
+                            )
+                        )
+                    )
+                except Exception as err:
+                    # Skip and log exception if integration failed
+                    logger.exception(
+                        f"Failed to load integration {integration.ticker}: {err}"
+                    )
+
+            # 5. Join integrations by entity and time columns
+            if len(integrations_dfs) > 0:
+                integrations_df = reduce(
+                    lambda x, y: x.join(y, on=x.columns[:2], how="outer"),
+                    integrations_dfs,
+                ).select(
+                    [
+                        entity_col,
+                        "time",
+                        # Add prefix
+                        pl.exclude([entity_col, "time"]).prefix("exog__"),
+                    ]
+                )
+    except Exception as err:
+        # Skip integrations if failed
+        logger.exception(f"Error in loading integrations: {err}")
+
+    logger.info("Integrations loaded")
+    return integrations_df
+
+
 def _make_output_path(objective_id: int, updated_at: datetime, prefix: str) -> str:
     timestamp = datetime.strftime(updated_at, "%Y%m%dT%X").replace(":", "")
     path = f"artifacts/{objective_id}/{timestamp}/{prefix}.parquet"
@@ -504,12 +590,39 @@ def run_forecast(
 
         # 5. Run automl flow
         automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
+
         if feature_cols is not None and len(feature_cols) > 0:
-            X = y_panel.select([entity_col, time_col, *feature_cols]).to_arrow()
+            X = y_panel.select([entity_col, time_col, *feature_cols])
             y = y_panel.select(pl.exclude(feature_cols))
         else:
             X = None
             y = y_panel
+
+        # Get integrations and append to X
+        integrations_df = load_integrations(
+            user_id=user_id,
+            entity_col=entity_col,
+            entities=y.get_column(entity_col).unique().to_list(),
+            freq=freq,  # User selected freq
+            read=read,
+        )
+
+        if integrations_df is not None:
+            dtypes = y.select([entity_col, time_col]).dtypes
+            integrations_df = integrations_df.rename(
+                {integrations_df.columns[0]: entity_col}
+            ).with_columns(
+                pl.col(entity_col).cast(dtypes[0]), pl.col(time_col).cast(dtypes[1])
+            )
+            if X is not None:
+                X = X.join(integrations_df, on=[entity_col, time_col], how="left")
+            else:
+                X = y.join(integrations_df, on=[entity_col, time_col], how="left").drop(
+                    target_col
+                )
+
+        if X is not None:
+            X = X.to_arrow()
 
         y, outputs = automl_flow.call(
             y=y.to_arrow(),
@@ -638,16 +751,6 @@ def run_forecast(
         )
 
 
-def _get_all_objectives() -> List[Objective]:
-    engine = create_sql_engine()
-    with Session(engine) as session:
-        query = select(Objective)
-        objectives = session.exec(query).all()
-        if not objectives:
-            raise HTTPException(status_code=404, detail="Objective not found")
-        return objectives
-
-
 def get_user(user_id: str) -> User:
     engine = create_sql_engine()
     with Session(engine) as session:
@@ -676,91 +779,105 @@ FREQ_TO_DURATION = {
 def flow():
     logger.info("Flow started")
     # 1. Get all objectives
-    objectives = _get_all_objectives()
+    engine = create_sql_engine()
+    with Session(engine) as session:
+        query = select(Objective)
+        objectives = session.exec(query).all()
 
-    futures = {}
-    for objective in objectives:
-        logger.info(f"Checking objective: {objective.id}")
-        fields = json.loads(objective.fields)
-        sources = json.loads(objective.sources)
+    if objectives:
+        futures = {}
+        for objective in objectives:
+            logger.info(f"Checking objective: {objective.id}")
+            fields = json.loads(objective.fields)
+            sources = json.loads(objective.sources)
 
-        # 2. Get user and source
-        user = get_user(objective.user_id)
-        panel_source = get_source(sources["panel"])["source"]
-        source_fields = json.loads(panel_source.data_fields)
-        freq = source_fields["freq"]
+            # 2. Get user and source
+            user = get_user(objective.user_id)
+            panel_source = get_source(sources["panel"])["source"]
+            source_fields = json.loads(panel_source.data_fields)
+            freq = source_fields["freq"]
 
-        # 3. Check freq from source for schedule
-        duration = FREQ_TO_DURATION[freq]
-        updated_at = objective.updated_at.replace(microsecond=0)
-        if duration == "1mo":
-            new_dt = updated_at + relativedelta(months=1)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        elif duration == "3mo":
-            new_dt = updated_at + relativedelta(months=3)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        else:
-            run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
-        logger.info(f"Next run at: {run_dt}")
-
-        # 4. Run forecast flow
-        current_datetime = datetime.now().replace(microsecond=0)
-        if (current_datetime >= run_dt) or objective.status == "FAILED":
-            # Get staging path for each source
-            panel_path = panel_source.output_path
-            if sources["baseline"]:
-                baseline_path = get_source(sources["baseline"])["source"].output_path
+            # 3. Check freq from source for schedule
+            duration = FREQ_TO_DURATION[freq]
+            updated_at = objective.updated_at.replace(microsecond=0)
+            if duration == "1mo":
+                new_dt = updated_at + relativedelta(months=1)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
+            elif duration == "3mo":
+                new_dt = updated_at + relativedelta(months=3)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
             else:
-                baseline_path = None
-            if sources["inventory"]:
-                inventory_path = get_source(sources["inventory"])["source"].output_path
-            else:
-                inventory_path = None
+                run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
+            logger.info(f"Next run at: {run_dt}")
 
-            holiday_regions = fields["holiday_regions"]
-            if holiday_regions is not None:
-                holiday_regions = [
-                    SUPPORTED_COUNTRIES[country]
-                    for country in fields["holiday_regions"]
-                ]
+            # 4. Run forecast flow
+            current_datetime = datetime.now().replace(microsecond=0)
+            if (current_datetime >= run_dt) or objective.status == "FAILED":
+                # Get staging path for each source
+                panel_path = panel_source.output_path
+                if sources["baseline"]:
+                    baseline_path = get_source(sources["baseline"])[
+                        "source"
+                    ].output_path
+                else:
+                    baseline_path = None
+                if sources["inventory"]:
+                    inventory_path = get_source(sources["inventory"])[
+                        "source"
+                    ].output_path
+                else:
+                    inventory_path = None
 
-            # Set quantity as target if transaction type
-            target_col = source_fields.get(
-                "target_col", source_fields.get("quantity_col")
-            )
-            entity_cols = source_fields["entity_cols"]
-            if panel_source.dataset_type == "transaction":
-                # Set product as entity if transaction type
-                entity_cols = [source_fields["product_col"], *entity_cols]
+                if fields.get("holiday_regions", None) is not None:
+                    holiday_regions = [
+                        SUPPORTED_COUNTRIES[country]
+                        for country in fields["holiday_regions"]
+                    ]
+                else:
+                    holiday_regions = None
 
-            # Spawn forecast flow for objective
-            futures[objective.id] = run_forecast.spawn(
-                user_id=objective.user_id,
-                objective_id=objective.id,
-                panel_path=panel_path,
-                storage_tag=user.storage_tag,
-                bucket_name=user.storage_bucket_name,
-                target_col=target_col,
-                entity_cols=entity_cols,
-                min_lags=fields["min_lags"],
-                max_lags=fields["max_lags"],
-                fh=fields["fh"],
-                freq=SUPPORTED_FREQ[freq],
-                sp=FREQ_TO_SP[freq],
-                n_splits=fields["n_splits"],
-                feature_cols=source_fields["feature_cols"],
-                holiday_regions=holiday_regions,
-                objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
-                baseline_model=fields.get("baseline_model", None),
-                baseline_path=baseline_path,
-                inventory_path=inventory_path,
-            )
+                if fields.get("baseline_model", None) is not None:
+                    baseline_model = SUPPORTED_BASELINE_MODELS[fields["baseline_model"]]
+                else:
+                    baseline_model = None
 
-    # 5. Get future for each objective
-    for objective_id, future in futures.items():
-        logger.info(f"Running forecast flow for objective: {objective_id}")
-        future.get()
-        logger.info(f"Forecast flow completed for objective: {objective_id}")
+                # Set quantity as target if transaction type
+                target_col = source_fields.get(
+                    "target_col", source_fields.get("quantity_col")
+                )
+                entity_cols = source_fields["entity_cols"]
+                if panel_source.dataset_type == "transaction":
+                    # Set product as entity if transaction type
+                    entity_cols = [source_fields["product_col"], *entity_cols]
+
+                # Spawn forecast flow for objective
+                futures[objective.id] = run_forecast.spawn(
+                    user_id=objective.user_id,
+                    objective_id=objective.id,
+                    panel_path=panel_path,
+                    storage_tag=user.storage_tag,
+                    bucket_name=user.storage_bucket_name,
+                    target_col=target_col,
+                    entity_cols=entity_cols,
+                    min_lags=fields["min_lags"],
+                    max_lags=fields["max_lags"],
+                    fh=fields["fh"],
+                    freq=SUPPORTED_FREQ[freq],
+                    sp=FREQ_TO_SP[freq],
+                    n_splits=fields["n_splits"],
+                    feature_cols=source_fields.get("feature_cols", None),
+                    holiday_regions=holiday_regions,
+                    objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
+                    baseline_model=baseline_model,
+                    baseline_path=baseline_path,
+                    inventory_path=inventory_path,
+                )
+
+        # 5. Get future for each objective
+        for objective_id, future in futures.items():
+            logger.info(f"Running forecast flow for objective: {objective_id}")
+            future.get()
+            logger.info(f"Forecast flow completed for objective: {objective_id}")
 
     logger.info("Flow completed")
 
@@ -768,28 +885,30 @@ def flow():
 @stub.local_entrypoint()
 def test(user_id: str = "indexhub-demo-dev"):
     # Objective
-    objective_id = 1
+    objective_id = 9
     fields = {
-        "sources": {
-            "panel": 1,
-            "baseline": None,
-            "inventory": 2,
-        },
-        "error_type": "mae",
-        "min_lags": 6,
-        "max_lags": 6,
-        "fh": 3,
+        "direction": "Minimize",
+        "description": "Minimize {target_col} mean absolute error (MAE) for {entity_cols}.",
+        "error_type": "mean absolute error (MAE)",
+        "fh": 6,
+        "goal": 80,
+        "holiday_regions": ["Australia"],
+        "max_lags": 24,
+        "min_lags": 12,
+        "baseline_model": "Seasonal Naive",
         "n_splits": 3,
-        "holiday_regions": ["AU"],
-        "baseline_model": "snaive",
+        "invoice_col": "",
+        "product_col": "",
     }
 
+    sources = {"panel": 92, "baseline": "", "inventory": "", "transaction": ""}
+
     source_fields = {
+        "entity_cols": ["state"],
+        "time_col": "time",
         "target_col": "trips_in_000s",
-        "entity_cols": ["country", "territory", "state"],
-        "freq": "1mo",
-        "agg_method": "sum",
-        "impute_method": 0,
+        "freq": "Monthly",
+        "datetime_fmt": "Year-Month-Day",
     }
 
     # User
@@ -797,7 +916,6 @@ def test(user_id: str = "indexhub-demo-dev"):
     storage_bucket_name = "indexhub-demo-dev"
 
     # Get staging path for each source
-    sources = fields["sources"]
     panel_path = get_source(sources["panel"])["source"].output_path
     if sources["baseline"]:
         baseline_path = get_source(sources["baseline"])["source"].output_path
@@ -819,14 +937,14 @@ def test(user_id: str = "indexhub-demo-dev"):
         min_lags=fields["min_lags"],
         max_lags=fields["max_lags"],
         fh=fields["fh"],
-        freq=source_fields["freq"],
+        freq=SUPPORTED_FREQ[source_fields["freq"]],
         sp=FREQ_TO_SP[source_fields["freq"]],
         n_splits=fields["n_splits"],
         holiday_regions=fields["holiday_regions"],
         objective=fields["error_type"],  # default is mae
-        agg_method=source_fields["agg_method"],  # default is mean
-        impute_method=source_fields["impute_method"],  # default is 0
-        baseline_model=fields["baseline_model"],  # default is snaive
+        baseline_model=SUPPORTED_BASELINE_MODELS[
+            fields["baseline_model"]
+        ],  # default is snaive
         baseline_path=baseline_path,
         inventory_path=inventory_path,
     )

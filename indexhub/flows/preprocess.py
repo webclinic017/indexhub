@@ -453,46 +453,45 @@ def flow():
     with Session(engine) as session:
         query = select(Source)
         sources = session.exec(query).all()
-        if not sources:
-            raise HTTPException(status_code=404, detail="Source not found")
 
-    futures = []
-    for source in sources:
-        logger.info(f"Checking source: {source.id}")
-        data_fields = json.loads(source.data_fields)
-        # 2. Get user
-        user = get_user(source.user_id)
-        # 3. Check freq from source for schedule
-        duration = FREQ_TO_DURATION[data_fields["freq"]]
-        updated_at = source.updated_at.replace(microsecond=0)
-        if duration == "1mo":
-            new_dt = updated_at + relativedelta(months=1)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        elif duration == "3mo":
-            new_dt = updated_at + relativedelta(months=3)
-            run_dt = datetime(new_dt.year, new_dt.month, 1)
-        else:
-            run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
-        logger.info(f"Next run for {source.id} at: {run_dt}")
-        # 4. Run preprocess flow
-        current_datetime = datetime.now().replace(microsecond=0)
-        if (current_datetime >= run_dt) or source.status == "FAILED":
-            # Spawn preprocess and embs flow for source
-            futures.append(
-                run_preprocess.spawn(
-                    user_id=source.user_id,
-                    source_id=source.id,
-                    source_tag=source.tag,
-                    conn_fields=json.loads(source.conn_fields),
-                    source_type=source.dataset_type,
-                    data_fields=data_fields,
-                    storage_tag=user.storage_tag,
-                    storage_bucket_name=user.storage_bucket_name,
+    if sources:
+        futures = []
+        for source in sources:
+            logger.info(f"Checking source: {source.id}")
+            data_fields = json.loads(source.data_fields)
+            # 2. Get user
+            user = get_user(source.user_id)
+            # 3. Check freq from source for schedule
+            duration = FREQ_TO_DURATION[data_fields["freq"]]
+            updated_at = source.updated_at.replace(microsecond=0)
+            if duration == "1mo":
+                new_dt = updated_at + relativedelta(months=1)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
+            elif duration == "3mo":
+                new_dt = updated_at + relativedelta(months=3)
+                run_dt = datetime(new_dt.year, new_dt.month, 1)
+            else:
+                run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
+            logger.info(f"Next run for {source.id} at: {run_dt}")
+            # 4. Run preprocess flow
+            current_datetime = datetime.now().replace(microsecond=0)
+            if (current_datetime >= run_dt) or source.status == "FAILED":
+                # Spawn preprocess and embs flow for source
+                futures.append(
+                    run_preprocess.spawn(
+                        user_id=source.user_id,
+                        source_id=source.id,
+                        source_tag=source.tag,
+                        conn_fields=json.loads(source.conn_fields),
+                        source_type=source.dataset_type,
+                        data_fields=data_fields,
+                        storage_tag=user.storage_tag,
+                        storage_bucket_name=user.storage_bucket_name,
+                    )
                 )
-            )
 
-    for future in futures:
-        future.get()
+        for future in futures:
+            future.get()
 
 
 @stub.local_entrypoint()

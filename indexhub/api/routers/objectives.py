@@ -74,12 +74,14 @@ def create_objective(params: CreateObjectiveParams):
                 flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
             else:
                 flow = modal.Function.lookup("dev-indexhub-forecast", "run_forecast")
-            holiday_regions = objective_fields["holiday_regions"]
-            if holiday_regions is not None:
+
+            if objective_fields.get("holiday_regions", None) is not None:
                 holiday_regions = [
                     SUPPORTED_COUNTRIES[country]
                     for country in objective_fields["holiday_regions"]
                 ]
+            else:
+                holiday_regions = None
 
             # Set quantity as target if transaction type
             target_col = source_fields.get(
@@ -121,6 +123,7 @@ def create_objective(params: CreateObjectiveParams):
                 freq=SUPPORTED_FREQ[source_fields["freq"]],
                 sp=FREQ_TO_SP[source_fields["freq"]],
                 n_splits=objective_fields["n_splits"],
+                feature_cols=source_fields.get("feature_cols", None),
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[objective_fields["error_type"]],
                 baseline_model=baseline_model,
