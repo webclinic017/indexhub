@@ -75,9 +75,12 @@ def _clean_panel(
         pl.col(entity_cols).str.replace("#N/A", "0"),
     ]
     if raw_panel_data.get_column(time_col).dtype not in [pl.Date, pl.Datetime]:
-        expr.append(
-            pl.col("time").cast(pl.Utf8).str.strptime(pl.Date, fmt=datetime_fmt)
-        )
+        if datetime_fmt.endswith("%H:%M"):
+            dtype = pl.Datetime
+        else:
+            dtype = pl.Date
+
+        expr.append(pl.col("time").cast(pl.Utf8).str.strptime(dtype, fmt=datetime_fmt))
 
     panel_data = (
         raw_panel_data.rename({time_col: "time"}).with_columns(expr)
@@ -345,7 +348,8 @@ def run_preprocess(
         )
         # Read data from source
         read = SOURCE_TAG_TO_READER[source_tag]
-        raw_panel_data = read(**conn_fields, **source_creds)
+        dateformat = SUPPORTED_DATETIME_FMT[data_fields["datetime_fmt"]]
+        raw_panel_data = read(**conn_fields, **source_creds, dateformat=dateformat)
         # Set quantity as target if transaction type
         target_col = data_fields.get("target_col", data_fields.get("quantity_col"))
         entity_cols = data_fields["entity_cols"]
@@ -359,7 +363,7 @@ def run_preprocess(
                 _clean_panel,
                 entity_cols=entity_cols,
                 time_col=data_fields["time_col"],
-                datetime_fmt=SUPPORTED_DATETIME_FMT[data_fields["datetime_fmt"]],
+                datetime_fmt=dateformat,
             )
             # Merge multi levels
             .pipe(

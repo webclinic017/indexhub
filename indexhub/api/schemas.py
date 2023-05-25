@@ -145,6 +145,7 @@ SUPPORTED_FREQ = {
 }
 
 SUPPORTED_DATETIME_FMT = {
+    "Year-Month-Day Hour:Minute": "%Y-%m-%d %H:%M",
     "Year-Month-Day": "%Y-%m-%d",
     "Year-Month": "%Y-%m",
 }

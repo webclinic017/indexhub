@@ -25,13 +25,16 @@ logger = _logger(name=__name__)
 
 
 def parse_excel(
-    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes,
+    n_rows: Optional[int] = None,
+    columns: Optional[List[str]] = None,
+    dateformat: Optional[str] = None,
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_excel(
             io.BytesIO(obj),
             # Ignore infer datatype to float as it is not supported by xlsx2csv
-            xlsx2csv_options={"ignore_formats": "float"},
+            xlsx2csv_options={"ignore_formats": "float", "dateformat": dateformat},
             read_csv_options={
                 "infer_schema_length": None,
                 "try_parse_dates": True,
@@ -48,7 +51,10 @@ def parse_excel(
 
 
 def parse_csv(
-    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes,
+    n_rows: Optional[int] = None,
+    columns: Optional[List[str]] = None,
+    dateformat: Optional[str] = None,
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_csv(io.BytesIO(obj), n_rows=n_rows)
@@ -60,7 +66,10 @@ def parse_csv(
 
 
 def parse_parquet(
-    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes,
+    n_rows: Optional[int] = None,
+    columns: Optional[List[str]] = None,
+    dateformat: Optional[str] = None,
 ) -> pl.DataFrame:
     try:
         raw_panel = pl.read_parquet(io.BytesIO(obj), n_rows=n_rows, columns=columns)
@@ -72,7 +81,10 @@ def parse_parquet(
 
 
 def parse_json(
-    obj: bytes, n_rows: Optional[int] = None, columns: Optional[List[str]] = None
+    obj: bytes,
+    n_rows: Optional[int] = None,
+    columns: Optional[List[str]] = None,
+    dateformat: Optional[str] = None,
 ) -> dict:
     try:
         content = obj.decode("utf-8")

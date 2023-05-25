@@ -46,6 +46,7 @@ def read_data_from_s3(
     object_path: str,
     file_ext: str,
     columns: Optional[List[str]] = None,
+    dateformat: Optional[str] = None,
     AWS_ACCESS_KEY_ID: Optional[str] = None,
     AWS_SECRET_KEY_ID: Optional[str] = None,
 ):
@@ -106,7 +107,7 @@ def read_data_from_s3(
     s3_client.close()
     parser = FILE_EXT_TO_PARSER.get(file_ext)
     if parser is not None:
-        data = parser(obj=obj, columns=columns)
+        data = parser(obj=obj, columns=columns, dateformat=dateformat)
     else:
         data = obj
     CACHE.set(key, data)
