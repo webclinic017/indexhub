@@ -187,7 +187,7 @@ def _resample_panel(
     X: pl.DataFrame,
     freq: str,
     target_col: str,
-    agg_method: Optional[str] = "mean",
+    agg_method: Optional[str] = "sum",
     impute_method: Optional[Union[str, int, float]] = 0,
     price_col: Optional[str] = None,
 ) -> pl.DataFrame:
@@ -372,7 +372,7 @@ def run_preprocess(
                 _resample_panel,
                 freq=SUPPORTED_FREQ[data_fields["freq"]],
                 target_col=target_col,
-                agg_method=data_fields.get("agg_method", "mean"),
+                agg_method=data_fields.get("agg_method", "sum"),
                 impute_method=data_fields.get("impute_method", 0),
                 price_col=data_fields.get("price_col", None),
             )

@@ -1,4 +1,5 @@
 import json
+import logging
 from enum import Enum
 from typing import List, Mapping
 
@@ -17,6 +18,21 @@ from indexhub.api.services.chart_builders import (
     create_segmentation_chart,
     create_single_forecast_chart,
 )
+
+
+def _logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
+
+
+logger = _logger(name=__name__)
 
 OBJECTIVE_TAG_TO_BUILDERS = {
     "reduce_errors": {
@@ -69,21 +85,26 @@ OBJECTIVE_TAG_TO_PARAMS = {
 
 @router.post("/charts/{objective_id}/{chart_tag}")
 async def get_chart(objective_id: str, chart_tag: ChartTag, request: Request):
-    engine = create_sql_engine()
-    with Session(engine) as session:
-        # Get the metadata on tag to define which chart to return
-        objective = get_objective(objective_id)["objective"]
-        params = json.loads(await request.body())
-        build = OBJECTIVE_TAG_TO_BUILDERS[objective.tag][chart_tag]
-        user = session.get(User, objective.user_id)
-        source = get_source(json.loads(objective.sources)["panel"])["source"]
-        chart_json = build(
-            fields=json.loads(objective.fields),
-            outputs=json.loads(objective.outputs),
-            source_fields=json.loads(source.data_fields),
-            user=user,
-            objective_id=objective_id,
-            **params,
-        )
+    try:
+        chart_json = None
+        engine = create_sql_engine()
+        with Session(engine) as session:
+            # Get the metadata on tag to define which chart to return
+            objective = get_objective(objective_id)["objective"]
+            params = json.loads(await request.body())
+            build = OBJECTIVE_TAG_TO_BUILDERS[objective.tag][chart_tag]
+            user = session.get(User, objective.user_id)
+            source = get_source(json.loads(objective.sources)["panel"])["source"]
+            chart_json = build(
+                fields=json.loads(objective.fields),
+                outputs=json.loads(objective.outputs),
+                source_fields=json.loads(source.data_fields),
+                user=user,
+                objective_id=objective_id,
+                **params,
+            )
+    except Exception as err:
+        logger.exception(f"Error in get_chart: {err}")
+        raise err
 
-        return chart_json
+    return chart_json

@@ -49,7 +49,7 @@ def _get_forecast_results(
     y = read(object_path=outputs["y"]).lazy()
     forecasts = read(object_path=outputs["forecasts"]["best_models"])
     backtests = read(object_path=outputs["backtests"]["best_models"])
-    fields_agg_method = source_fields["agg_method"]
+    fields_agg_method = source_fields.get("agg_method", "sum")
     agg_method = AGG_METHODS[fields_agg_method]
     statistics = read(
         object_path=outputs["statistics"][f"last_window__{fields_agg_method}"]

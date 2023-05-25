@@ -135,7 +135,7 @@ def _get_forecast_table(
     y = read(object_path=outputs["y"])
 
     best_models = outputs["best_models"]
-    agg_method = source_fields["agg_method"]
+    agg_method = source_fields.get("agg_method", "sum")
     entity_col, time_col, target_col = forecast.columns
     idx_cols = entity_col, time_col
 
@@ -244,6 +244,7 @@ def _get_forecast_table(
         y.with_columns(
             [
                 pl.col(time_col).rank("ordinal").over(entity_col).alias("i"),
+                # Rounding only works for f64
                 pl.col(target_col).cast(pl.Float64),
             ]
         )
@@ -251,7 +252,13 @@ def _get_forecast_table(
         .select(pl.all().exclude("i"))
     )
     # Join with forecast and groupby entity_col
-    groupby = pl.concat([y_last12, forecast]).groupby(entity_col)
+    groupby = pl.concat(
+        [
+            y_last12,
+            # Rounding only works for f64
+            forecast.with_columns(pl.col(target_col).cast(pl.Float64)),
+        ]
+    ).groupby(entity_col)
 
     sparklines = {}
     for entity, df in groupby:

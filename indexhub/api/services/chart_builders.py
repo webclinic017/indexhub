@@ -3,9 +3,9 @@ from functools import partial, reduce
 from typing import Any, Literal, Mapping
 
 import polars as pl
+from fastapi import HTTPException
 from pyecharts import options as opts
-from pyecharts.charts import Grid, Line, Scatter, Scatter3D
-from pyecharts.commons.utils import JsCode
+from pyecharts.charts import Grid, Line, Scatter
 
 from indexhub.api.models.user import User
 from indexhub.api.routers.stats import AGG_METHODS
@@ -41,6 +41,10 @@ def create_single_forecast_chart(
 
     # Read artifacts
     forecast = read(object_path=outputs["forecasts"]["best_models"])
+    entity_col, time_col, target_col = forecast.columns
+    idx_cols = entity_col, time_col
+    agg_method = source_fields.get("agg_method", "sum")
+
     backtest = read(object_path=outputs["backtests"]["best_models"]).pipe(
         lambda df: df.groupby(df.columns[:2]).agg(pl.mean(df.columns[-2]))
     )
@@ -54,13 +58,19 @@ def create_single_forecast_chart(
         "quantile"
     )
     best_plan = read(object_path=outputs["best_plan"])
-    plan = read(
-        object_path=outputs["best_plan"].replace("best_plan.parquet", "plan.parquet")
-    )
+    try:
+        plan = read(
+            object_path=outputs["best_plan"].replace(
+                "best_plan.parquet", "plan.parquet"
+            )
+        )
+    except HTTPException:
+        # If plan.parquet not found, use best plan as plan
+        # This happens if user has not clicked on execute plan
+        plan = read(object_path=outputs["best_plan"]).rename(
+            {entity_col: "entity", "best_plan": "plan"}
+        )
 
-    entity_col, time_col, target_col = forecast.columns
-    idx_cols = entity_col, time_col
-    agg_method = source_fields["agg_method"]
     rolling = read(
         object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
         columns=[

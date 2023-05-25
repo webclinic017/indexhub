@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 
 import modal
@@ -14,11 +15,11 @@ from indexhub.api.routers import router
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import (
     OBJECTIVE_SCHEMAS,
+    SUPPORTED_BASELINE_MODELS,
     SUPPORTED_COUNTRIES,
     SUPPORTED_ERROR_TYPE,
     SUPPORTED_FREQ,
 )
-import os
 
 
 FREQ_TO_SP = {
@@ -89,10 +90,27 @@ def create_objective(params: CreateObjectiveParams):
                 # Set product as entity if transaction type
                 entity_cols = [source_fields["product_col"], *entity_cols]
 
+            baseline_path = None
+            inventory_path = None
+            if objective_sources["baseline"] != "":
+                baseline_source = get_source(objective_sources["baseline"])["source"]
+                baseline_path = baseline_source.output_path
+
+            if objective_sources["inventory"] != "":
+                inventory_source = get_source(objective_sources["inventory"])["source"]
+                inventory_path = inventory_source.output_path
+
+            if objective_fields.get("baseline_model", None) is not None:
+                baseline_model = SUPPORTED_BASELINE_MODELS[
+                    objective_fields["baseline_model"]
+                ]
+            else:
+                baseline_model = None
+
             flow.call(
                 user_id=objective.user_id,
                 objective_id=objective.id,
-                panel_path=objective_sources["panel"],
+                panel_path=source.output_path,
                 storage_tag=user.storage_tag,
                 bucket_name=user.storage_bucket_name,
                 target_col=target_col,
@@ -105,9 +123,9 @@ def create_objective(params: CreateObjectiveParams):
                 n_splits=objective_fields["n_splits"],
                 holiday_regions=holiday_regions,
                 objective=SUPPORTED_ERROR_TYPE[objective_fields["error_type"]],
-                baseline_model=objective_fields.get("baseline_model", None),
-                baseline_path=objective_sources["baseline"],
-                inventory_path=objective_sources["inventory"],
+                baseline_model=baseline_model,
+                baseline_path=baseline_path,
+                inventory_path=inventory_path,
             )
         else:
             raise ValueError(f"Objective tag `{objective.tag}` not found")
