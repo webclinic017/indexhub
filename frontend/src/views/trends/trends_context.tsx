@@ -1,9 +1,10 @@
-import React, { createContext, useEffect, useState } from "react";
-import Projector, { ProjectorData } from "./projector/projector";
-import { HStack } from '@chakra-ui/react';
-import TrendsSidebar from "./trends_sidebar";
-import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
-import { useChatContext } from "./chat/chat_context";
+import React, { createContext, useContext, useEffect, useState } from "react"
+import { ProjectorData } from "./projector"
+import { useAuth0AccessToken } from "../../utilities/hooks/auth0"
+import { useChatContext } from "../chat/chat_context"
+import { TrendsListItemProps } from "./trends_landing"
+
+export const useTrendsContext = () => useContext(TrendsContext);
 
 export const TrendsContext = createContext({
     selectPoint: (_id: number) => { /* do nothing */ },
@@ -16,19 +17,24 @@ export const TrendsContext = createContext({
     apiToken: "",
     projectorData: null as ProjectorData | null,
     updateProjectorData: (_newData: ProjectorData) => { /* do nothing */ },
+    trendsList: [] as TrendsListItemProps[],
+    setTrendsList: (_trendsList: TrendsListItemProps[]) => { /* do nothing */ },
 });
 
 
 const MAX_CHARTS = 2;
 
-export default function TrendsDashboard() {
+const TrendsContextProvider = (props: { children: React.ReactNode }) => {
+
     // Hold the shared state here
     const [currentPointContext, setCurrentPointContext] = useState<number | null>(null);
     const [selectedPointIds, setSelectedPointIds] = useState<number[]>([]);
     const [datasetId, setDatasetId] = useState<string>("commodities");
     const [projectorData, setProjectorData] = useState<ProjectorData | null>(null);
+    const [trendsList, setTrendsList] = useState<TrendsListItemProps[]>([]);
     const apiToken = useAuth0AccessToken();
-    const { handleSendMessage } = useChatContext();
+    const { handleSendMessage, onOpenChatBot } = useChatContext();
+    
 
 
     const addPoint = (id: number) => {
@@ -65,6 +71,7 @@ export default function TrendsDashboard() {
         }
         console.log(`currentPointContext props: ${JSON.stringify(props)}`);
         handleSendMessage("load_context", props);
+        onOpenChatBot()
     }, [currentPointContext]);
 
     return (
@@ -79,11 +86,12 @@ export default function TrendsDashboard() {
             apiToken,
             projectorData,
             updateProjectorData,
+            trendsList,
+            setTrendsList,
         }}>
-            <HStack id="main_view" height="full" width="full" maxH='100%' >
-                <Projector />
-                <TrendsSidebar />
-            </HStack>
+            {props.children}
         </TrendsContext.Provider>
     )
 }
+
+export default TrendsContextProvider

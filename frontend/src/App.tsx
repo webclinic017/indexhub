@@ -16,34 +16,41 @@ import NewObjective from "./views/objectives/new_objective";
 import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
-import Trends from "./views/trends/trends";
+import ChatContextProvider from "./views/chat/chat_context";
+import TrendsContextProvider from "./views/trends/trends_context";
+import TrendsLanding from "./views/trends/trends_landing";
 
 function App() {
   return (
     <ChakraProvider theme={themes["default_theme"]}>
-      <BrowserRouter>
-        <Routes>
-          {/* All protected pages will go inside this parent route */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Home />} />
-              <Route path="trends" element={<Trends />} />
-              <Route path="data" element={<Data />}>
-                <Route index element={<DataAndIntegrations />} />
+      <ChatContextProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* All protected pages will go inside this parent route */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Layout />}>
+                <Route index element={
+                  <TrendsContextProvider>
+                    <TrendsLanding />
+                  </TrendsContextProvider>
+                } />
+                <Route path="data" element={<Data />}>
+                  <Route index element={<DataAndIntegrations />} />
+                </Route>
+                <Route path="objectives" element={<Objectives />}>
+                  <Route index element={<ObjectivesDashboard />} />
+                  <Route path="new_objective" element={<NewObjective />} />
+                </Route>
+                <Route path="objectives/forecast/:objective_id" element={<ForecastObjective />} />
+                <Route path="alerts" element={<Alerts />} />
+                <Route path="new_storage" element={<NewStorage />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="profile" element={<Profile />} />
               </Route>
-              <Route path="objectives" element={<Objectives />}>
-                <Route index element={<ObjectivesDashboard />} />
-                <Route path="new_objective" element={<NewObjective />} />
-              </Route>
-              <Route path="objectives/forecast/:objective_id" element={<ForecastObjective />} />
-              <Route path="alerts" element={<Alerts />} />
-              <Route path="new_storage" element={<NewStorage />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="profile" element={<Profile />} />
             </Route>
-          </Route>
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </ChatContextProvider>
     </ChakraProvider>
   );
 }

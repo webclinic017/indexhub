@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
-import { Action, ChatMessage } from "./messages";
+import { Action, ChatMessage } from "./chat_body";
+import { useDisclosure } from "@chakra-ui/react";
 
 export const useChatContext = () => useContext(ChatContext);
 
@@ -9,6 +10,9 @@ export const ChatContext = createContext({
     inputMessage: "",
     setInputMessage: (_inputMessage: string) => { /* do nothing */ },
     handleSendMessage: (_action: Action, _props?: Record<string, any>) => { /* do nothing */ },
+    isOpenChatBot: false,
+    onOpenChatBot: () => { /* do nothing */ },
+    onCloseChatBot: () => { /* do nothing */ },
 });
 
 interface ChatResponse {
@@ -23,6 +27,11 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
     });
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputMessage, setInputMessage] = useState("");
+    const {
+        isOpen: isOpenChatBot,
+        onOpen: onOpenChatBot,
+        onClose: onCloseChatBot
+    } = useDisclosure()
 
     // Websocket lifecycle
     useEffect(() => {
@@ -46,7 +55,12 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
             if (Object.keys(data).includes("response")) {
                 const response = data["response"];
                 // console.log(`received response: ${response}:${typeof response}`);
-                setMessages((old) => [...old, response]);
+                setMessages((old) => {
+                    old = old.filter(msg => msg.action !== "loading_response")
+                    return (
+                        [...old, response]
+                    )
+                });
             }
         }
     }, [lastJsonMessage])
@@ -66,7 +80,7 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
                 if (props === undefined) {
                     throw new Error("props must be defined for load_context action");
                 }
-                request = getLoadContextRequest(sanitizedInputMessage, props);
+                request = getLoadContextRequest(props);
                 break;
             default:
                 console.log("getBasicChatRequest");
@@ -77,10 +91,18 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
             message_history: messages.map((msg) => ({ "role": msg.role, "content": msg.content })),
             request: request,
         };
+        const loadingResponse: ChatMessage = {
+            role: "assistant",
+            action: "loading_response",
+            channel: 0,
+            additional_type: null,
+            props: null,
+            content: "Loading",
+        };
         // console.log(`sending message: ${JSON.stringify(fullMessage)}`);
         // Using sendMessage instead of sendJsonMessage because there is some type error
         sendMessage(JSON.stringify(fullMessage));
-        setMessages((old) => [...old, request]);
+        setMessages((old) => [...old, request, loadingResponse]);
         setInputMessage("");
     };
 
@@ -93,7 +115,10 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
             messages,
             handleSendMessage,
             inputMessage,
-            setInputMessage
+            setInputMessage,
+            isOpenChatBot,
+            onOpenChatBot,
+            onCloseChatBot,
         }}>
             {props.children}
         </ChatContext.Provider>
@@ -113,7 +138,6 @@ const getBasicChatRequest = (msg: string): ChatMessage => {
 };
 
 const getLoadContextRequest = (
-    msg: string,
     props: Record<string, any>
 ): ChatMessage => {
     const newMessage: ChatMessage = {
@@ -125,7 +149,7 @@ const getLoadContextRequest = (
             dataset_id: props["dataset_id"],
             entity_id: props["entity_id"],
         },
-        content: msg,
+        content: props["entity_id"],
     };
     return newMessage;
 };

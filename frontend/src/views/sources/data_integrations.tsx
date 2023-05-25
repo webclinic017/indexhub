@@ -176,26 +176,26 @@ export default function DataAndIntegrations() {
         <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
           Data Sources
         </Text>
-        <HStack width="100%" justify="space-between">
-          <Card p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewSourceModal() }}>
+        <HStack width="100%" justify="space-between" alignItems="stretch" >
+          <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewSourceModal() }}>
             <HStack height="100%">
               <VStack height="100%" alignItems="flex-start" justify="space-between">
                 <VStack mb="6" alignItems="flex-start">
-                  <Flex p="1rem" mb="2" border="1px solid #eeeef1" borderRadius="8">
+                  <Flex p="1rem" mb="2" border="1px solid" borderColor="cards.border" borderRadius="8">
                     <FontAwesomeIcon icon={faDatabase as any} />
                   </Flex>
                   <Heading fontSize="md">New data source</Heading>
                   <Text color="text.gray">Connect to your data from multiple sources</Text>
                 </VStack>
-                <Button>Create new</Button>
+                <Button backgroundColor="cards.button">Create new</Button>
               </VStack>
             </HStack>
           </Card>
-          <Card p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewIntegrationModal() }}>
+          <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewIntegrationModal() }}>
             <HStack height="100%">
               <VStack height="100%" alignItems="flex-start" justify="space-between">
                 <VStack mb="6" alignItems="flex-start">
-                  <Flex p="1rem" border="1px solid #eeeef1" borderRadius="8">
+                  <Flex p="1rem" border="1px solid" borderColor="cards.border" borderRadius="8">
                     <FontAwesomeIcon icon={faArrowsToCircle as any}></FontAwesomeIcon>
                   </Flex>
                   <Heading fontSize="md">New integration</Heading>
@@ -203,7 +203,7 @@ export default function DataAndIntegrations() {
                     Integrate external datasets to improve your forecasts
                   </Text>
                 </VStack>
-                <Button>
+                <Button backgroundColor="cards.button">
                   Create new
                 </Button>
               </VStack>

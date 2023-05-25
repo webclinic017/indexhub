@@ -32,7 +32,7 @@ export const NavButton = (props: NavButtonProps) => {
     return (
         <Button variant="ghost" justifyContent="start" {...buttonProps}>
             <HStack spacing="2">
-                <Box width="6"><FontAwesomeIcon size="lg" cursor="pointer" icon={icon}/></Box>
+                <Box width="6"><FontAwesomeIcon size="lg" cursor="pointer" icon={icon} /></Box>
                 <Text fontWeight="normal" fontSize="sm">{label}</Text>
             </HStack>
         </Button>
@@ -69,22 +69,22 @@ export const Sidebar = () => {
     return (
         <Stack p="2" minH="100vh" justify="space-between">
             <Stack shouldWrapChildren justify="start">
-                <HStack mx="3" my="6"><Logo width="48" height="100%"/></HStack>
+                <HStack mx="3" my="6"><Logo width="48" height="100%" /></HStack>
                 <Stack>
-                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/trends")} />
+                    <NavButton isActive={current_path.split("/")[1] == "trends"} label="Trends" icon={faChartLineUp} onClick={() => navigate("/")} />
                     <NavButton isActive={current_path.split("/")[1] == "objectives"} label="Objectives" icon={faBullseyeArrow} onClick={() => navigate("/objectives")} />
                     <NavButton isActive={current_path.split("/")[1] == "data"} label="Data" icon={faDatabase} onClick={() => navigate("/data")} />
                 </Stack>
             </Stack>
             <Stack>
-                <Divider/>
+                <Divider />
                 <Menu>
                     <MenuButton cursor="pointer" borderRadius="5">
-                        <UserProfile name={user_details.name} image=""/>
+                        <UserProfile name={user_details.name} image="" />
                     </MenuButton>
                     <MenuList>
                         <MenuItem><Text fontSize="sm" fontWeight="bold">{user_details.email}</Text></MenuItem>
-                        <Divider/>
+                        <Divider />
                         <MenuItem onClick={() => logout({ returnTo: window.location.origin })}><Text fontSize="sm">Logout</Text></MenuItem>
                     </MenuList>
                 </Menu>

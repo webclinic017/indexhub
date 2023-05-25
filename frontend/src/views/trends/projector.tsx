@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Point3D, Dataset, ScatterGL, ScatterGLParams, PointMetadata } from 'scatter-gl';  // adjust these imports based on your project structure
 import { Stack, VStack, Button, Box } from '@chakra-ui/react';
-import { TrendsContext } from '../trends_dashboard';
+import { useTrendsContext } from './trends_context';
 
 export interface ProjectorData {
     ids: number[];
@@ -41,7 +41,7 @@ const Projector = () => {
         updateProjectorData,
         apiToken,
         datasetId
-    } = useContext(TrendsContext);
+    } = useTrendsContext();
 
     const getDatasetFromProjectorData = (data: ProjectorData) => {
         const newPoints: Point3D[] = [];

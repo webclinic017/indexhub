@@ -266,7 +266,7 @@ def list_public_trends():
         # Read metadata from schema
         metadata_path = schema["metadata"]
         metadata = read(object_path=metadata_path)
-        metadata.pop("dataset_id")
+        metadata.pop("dataset_id", None)    # Silently drop dataset_id
         trends[dataset_id] = metadata
     return trends
 

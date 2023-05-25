@@ -81,17 +81,17 @@ const ObjectivesDashboard = () => {
         Your Objectives
       </Text>
       <HStack width="100%" justify="space-between">
-        <Card p="1rem" width="49%" cursor="pointer" onClick={() => navigate("/objectives/new_objective")}>
+        <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => navigate("/objectives/new_objective")}>
           <HStack height="100%">
             <VStack height="100%" alignItems="flex-start" justify="space-between">
               <VStack mb="6" alignItems="flex-start">
-                <Flex p="1rem" mb="2" border="1px solid #eeeef1" borderRadius="8">
+                <Flex p="1rem" mb="2" border="1px solid" borderColor="cards.border" borderRadius="8">
                   <FontAwesomeIcon icon={faChartLine as any} />
                 </Flex>
                 <Heading fontSize="md">New Objective</Heading>
                 <Text color="text.gray">Create new objectives from your sources</Text>
               </VStack>
-              <Button>Create new</Button>
+              <Button backgroundColor="cards.button">Create new</Button>
             </VStack>
           </HStack>
         </Card>

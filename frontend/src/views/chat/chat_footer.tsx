@@ -2,23 +2,14 @@ import React, { useContext, useEffect, useState } from "react";
 import { Flex, Input, Button, VStack, UnorderedList, Text } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperPlane } from "@fortawesome/pro-light-svg-icons";
-import { Action } from "./messages";
-import { TrendsContext } from "../trends_dashboard";
+import { Action } from "./chat_body";
 import { useChatContext } from "./chat_context";
 
 
 const ChatFooter = () => {
     const { inputMessage, setInputMessage, handleSendMessage } = useChatContext();
     const [actions, setActions] = useState<Action[]>([]);
-    const { selectedPointIds } = useContext(TrendsContext);
 
-    useEffect(() => {
-        if (selectedPointIds.length === 0) {
-            setActions([]);
-        } else {
-            setActions(["load_context"]);
-        }
-    }, [selectedPointIds]);
     return (
         <VStack id="trends-sidebar-chat-footer" w="100%">
             {/* <SuggestedInputs inputMessage={inputMessage} handleSendMessage={handleSendMessage} actions={actions} /> */}
@@ -94,10 +85,10 @@ const ChatInput = (props: ChatInputProps) => {
                 bg="black"
                 color="white"
                 borderRadius={8}
+                border="1px solid black"
                 _hover={{
                     bg: "white",
                     color: "black",
-                    border: "1px solid black",
                 }}
                 ml="5px"
                 disabled={inputMessage.trim().length <= 0}

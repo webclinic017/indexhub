@@ -102,6 +102,11 @@ const default_theme = extendTheme({
       gray: colors.primary.brand_colors.gray,
       main_green: colors.supplementary.indicators.main_green,
     },
+    cards: {
+      background: colors.primary.brand_colors.gray,
+      button: colors.primary.brand_colors.white,
+      border: "#c1c1c1"
+    }
   },
   fonts: {
     heading: `'Inter', sans-serif`,
