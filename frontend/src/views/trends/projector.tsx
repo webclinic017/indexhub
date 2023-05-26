@@ -27,12 +27,20 @@ const getProjectorData = async (datasetId: string, apiToken: string) => {
     return response_json;
 };
 
+const enum CanvasState {
+    IDLE = 0,
+    PAN = 1,
+    HOVER = 2,
+    CLICK = 3,
+}
+const ORBIT_DELAY = 3000;
 
 const Projector = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const messagesRef = useRef<HTMLDivElement>(null);
     const scatterGLRef = useRef<ScatterGL | null>(null);
     const [dataset, setDataset] = useState<Dataset | null>(null);
+    const [canvasState, setCanvasState] = useState<CanvasState>(CanvasState.IDLE);
     const {
         selectPoint,
         // addPoint,
@@ -89,6 +97,21 @@ const Projector = () => {
         }
     }, [datasetId, apiToken]);
 
+    useEffect(() => {
+        if (!scatterGLRef.current) {
+            return;
+        }
+        console.log(`canvasState = ${canvasState}`);
+        if (canvasState === CanvasState.IDLE) {
+            const timer = setTimeout(() => {
+                scatterGLRef.current?.startOrbitAnimation();
+            }, ORBIT_DELAY);
+            return () => clearTimeout(timer);
+        } else {
+            scatterGLRef.current.stopOrbitAnimation();
+        }
+    }, [canvasState]);
+
     // Initialize the canvas
     useEffect(() => {
         const setupAsync = async () => {
@@ -111,9 +134,15 @@ const Projector = () => {
                     if (pointIndex !== null) {
                         selectPointHandler(pointIndex);
                     }
+                    setCanvasState(pointIndex === null ? CanvasState.IDLE : CanvasState.CLICK);
                 },
                 onHover: (point: number | null) => {
                     setMessage(`hover ${point}`);
+                    setCanvasState(point === null ? CanvasState.IDLE : CanvasState.HOVER);
+                },
+                onCameraMove: (value) => {
+                    setMessage(`camera move: ${JSON.stringify(value)}`);
+                    setCanvasState(CanvasState.PAN);
                 },
                 renderMode: renderMode,
                 orbitControls: {
@@ -121,37 +150,38 @@ const Projector = () => {
                 },
             };
             scatterGLRef.current = new ScatterGL(containerRef.current, params);
-
+            
             // Add in a resize observer for automatic window resize.
-            const resizeFunc = () => scatterGLRef.current?.resize();
-            window.addEventListener('resize', resizeFunc);
+            // const resizeFunc = () => scatterGLRef.current?.resize();
+            // window.addEventListener('resize', resizeFunc);
 
-            const handleInputChange: EventListener = (event) => {
-                const inputElement = event.target as HTMLInputElement;
-                if (inputElement.value === 'pan') {
-                    scatterGLRef.current?.setPanMode();
-                } else if (inputElement.value === 'select') {
-                    scatterGLRef.current?.setSelectMode();
-                }
-            };
+            // const handleInputChange: EventListener = (event) => {
+            //     const inputElement = event.target as HTMLInputElement;
+            //     console.log(`inputElement.value = ${inputElement.value}`)
+            //     if (inputElement.value === 'pan') {
+            //         scatterGLRef.current?.setPanMode();
+            //     } else if (inputElement.value === 'select') {
+            //         scatterGLRef.current?.setSelectMode();
+            //     }
+            // };
 
-            const inputElements = containerRef.current?.querySelectorAll<HTMLInputElement>(
-                'input[name="interactions"]'
-            );
+            // const inputElements = containerRef.current?.querySelectorAll<HTMLInputElement>(
+            //     'input[name="interactions"]'
+            // );
 
-            inputElements?.forEach((inputElement) => {
-                inputElement.addEventListener('change', handleInputChange);
-            });
+            // inputElements?.forEach((inputElement) => {
+            //     inputElement.addEventListener('change', handleInputChange);
+            // });
 
             console.log(`End projector mount`);
 
             // Clean up function for removing the resize listener when the component unmounts
-            return () => {
-                window.removeEventListener('resize', resizeFunc);
-                inputElements?.forEach((inputElement) => {
-                    inputElement.removeEventListener('change', handleInputChange);
-                });
-            }
+            // return () => {
+            //     window.removeEventListener('resize', resizeFunc);
+            // inputElements?.forEach((inputElement) => {
+            //     inputElement.removeEventListener('change', handleInputChange);
+            // });
+            // }
         }
         setupAsync();
     }, []);
@@ -187,6 +217,7 @@ const Projector = () => {
         <Box id="trends-projector" height="100%" width="100%">
             <VStack style={{ flex: 1, width: '100%', height: '100%' }}>
                 <div id="this_is_the_container" ref={containerRef} style={{ flex: 1, width: '100%', height: '100vh' }} />
+
                 <Stack direction={{ base: 'column', md: 'row' }}>
                     <Button
                         rounded={'full'}
@@ -199,7 +230,7 @@ const Projector = () => {
                         Toggle Orbit
                     </Button>
                     <Button rounded={'full'} onClick={selectRandomHandler}>Select Random</Button>
-                    <div id="messages" ref={messagesRef} style={{ flex: 1 }} />
+                    <div ref={messagesRef} />
                 </Stack>
             </VStack>
         </Box>
