@@ -56,10 +56,33 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
                 const response = data["response"];
                 // console.log(`received response: ${response}:${typeof response}`);
                 setMessages((old) => {
+                    // First check what the last message was.
+                    // Case 0: No messages -> add the response
+                    if (old.length === 0) {
+                        return [response];
+                    }
+                    // Case 1: Last message is a stream -> modify the last response
+                    const lastMessage = old[old.length - 1];
+                    if (lastMessage.action === "stream_chat" && lastMessage.role === "assistant") {
+                        // TODO: Fix edge case: Strict mode rendering twice
+                        // Solution: Check if the last message has already been updated
+                        console.log(`parts: ${lastMessage.props?.part}:${response.props?.part}`);
+                        const lastPart = lastMessage.props?.part;
+                        const newPart = response.props?.part;
+                        if (lastPart === newPart) {
+                            return old;
+                        }
+                        const updatedList = [...old]; // Create a copy of the original list
+                        const newLastMsg = updatedList[updatedList.length - 1];
+                        newLastMsg.content += response.content; // Update the content
+                        newLastMsg.props = { ...response.props }; // Update the props
+
+                        return updatedList; // Return the updated list
+                    }
+
+                    // Default case: remove loading and add the response
                     old = old.filter(msg => msg.action !== "loading_response")
-                    return (
-                        [...old, response]
-                    )
+                    return [...old, response];
                 });
             }
         }
@@ -81,6 +104,10 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
                     throw new Error("props must be defined for load_context action");
                 }
                 request = getLoadContextRequest(props);
+                break;
+            case "stream_chat":
+                console.log("getBasicChatRequest");
+                request = getStreamChatRequest(sanitizedInputMessage);
                 break;
             default:
                 console.log("getBasicChatRequest");
@@ -124,6 +151,17 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
         </ChatContext.Provider>
     );
 }
+const getStreamChatRequest = (msg: string): ChatMessage => {
+    const newMessage: ChatMessage = {
+        role: "user",
+        action: "stream_chat",
+        channel: 0,
+        additional_type: null,
+        props: null,
+        content: msg,
+    };
+    return newMessage;
+};
 
 const getBasicChatRequest = (msg: string): ChatMessage => {
     const newMessage: ChatMessage = {
@@ -149,7 +187,7 @@ const getLoadContextRequest = (
             dataset_id: props["dataset_id"],
             entity_id: props["entity_id"],
         },
-        content: props["entity_id"],
+        content: `Let's look at ${props["entity_id"]}.`,
     };
     return newMessage;
 };

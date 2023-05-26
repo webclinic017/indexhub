@@ -44,9 +44,9 @@ class ForecastAnalystAgent(BaseModel):
     n_iter: Optional[int]
 
 
-AdditionalType = Literal["metric", "chart", "trend"]
+AdditionalType = Literal["metric", "chart", "trend", "stream_chunk"]
 Role = Literal["user", "assistant"]
-Action = Literal["chat", "report_flow", "sentiment_analysis", "load_context"]
+Action = Literal["chat", "report_flow", "sentiment_analysis", "load_context", "stream_chat"]
 
 
 class Request(BaseModel):

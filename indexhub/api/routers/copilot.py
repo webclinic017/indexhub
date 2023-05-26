@@ -368,6 +368,8 @@ class TrendsChatService:
         # We should never hit a mismatched action as pydantic validates the input
         action = msg.request.action
         match action:
+            case "stream_chat":
+                await self.stream_chat(msg)
             case "chat":
                 await self.chat(msg)
             case "load_context":
@@ -414,8 +416,8 @@ class TrendsChatService:
         )
         self.context.append(new_context)
         msg_content = (
-            f"I've loaded the context for {dataset_id}:{entity_id}!"
-            f" My context now contains {[f'{ctx.dataset_id}:{ctx.entity_id}' for ctx in self.context]}."
+            f"Here is the trend for {entity_id}."
+            f" I'm ready to answer questions about {' and '.join([ctx.entity_id for ctx in self.context])}."
         )
         logger.info(f"{msg_content}")
         chat_response = format_chat_response(
@@ -451,7 +453,7 @@ class TrendsChatService:
             "role": "system",
             "content": (
                 f"You are an AI chatbot called {self.name}."
-                " You are an expert forecast analyst and data communicator."
+                " You are playing the role of an expert forecast analyst and data communicator."
                 " You always speak clearly and concisely."
                 " You use simple percentage and difference calculations to explain trends."
                 " You do not answer questions you do not know the answer to."
@@ -467,8 +469,9 @@ class TrendsChatService:
             f"\n\n```{self._get_context_block()}```"
             "\n\nUse the above data, general knowledge, and expert reasoning ability to respond to the user's message."
             f" Note that it is now {curr_date} - COVID-19 is no longer relevant."
-            " Be specific and respond with non-obvious statistical analysis."
+            " Be specific and respond with non-obvious and interesting statistical analyses and insights."
             " Describe trend, seasonality, and anomalies. Do not provide recommendations. Do not describe or refer to the table."
+            " You should always aim to have an explanation for any trend you describe."
             f"\nUser: {msg.request.content}"
             f"\n\n{self.name}:"
         )
@@ -484,7 +487,7 @@ class TrendsChatService:
     async def chat(
         self, msg: ChatMessage, model: str = "gpt-3.5-turbo", temperature: float = 0.5
     ):
-        logger.info("Chatting")
+        logger.info("Chatting with new AIO")
         # Using modal endpoint that does a raw openai call for maximum flexibility
         get_raw_chat_response = modal.Function.lookup(
             MODAL_APP, "get_raw_chat_response"
@@ -501,6 +504,37 @@ class TrendsChatService:
         await self.websocket.send_json(
             {"response": chat_response.dict(), "channel": msg.request.channel}
         )
+
+    async def stream_chat(
+        self, msg: ChatMessage, model: str = "gpt-3.5-turbo", temperature: float = 0.5
+    ):
+        logger.info("Chatting with streaming")
+        # Using modal endpoint that does a raw openai call for maximum flexibility
+        get_streaming_chat = modal.Function.lookup(
+            MODAL_APP, "get_stream_chat_response"
+        )
+        messages = self._format_messages(msg)
+        part = 0
+        message = []
+        for content in get_streaming_chat.call(
+            messages=messages, model=model, temperature=temperature
+        ):
+            stream_response = Request(
+                role="assistant",
+                action="stream_chat",
+                additional_type="stream_chunk",
+                channel=0,
+                props={
+                    "part": part,
+                },
+                content=content,
+            )
+            message.append(content)
+            await self.websocket.send_json(
+                {"response": stream_response.dict(), "channel": msg.request.channel}
+            )
+            part += 1
+        logger.info(f"Done streaming: {''.join(message)} in {part} parts")
 
 
 @router.websocket("/trends/copilot/ws")

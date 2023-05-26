@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Flex, Input, Button, VStack, UnorderedList, Text } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaperPlane } from "@fortawesome/pro-light-svg-icons";
@@ -75,7 +75,7 @@ const ChatInput = (props: ChatInputProps) => {
                 }}
                 onKeyPress={(e) => {
                     if (e.key === "Enter") {
-                        handleSendMessage("chat");
+                        handleSendMessage("stream_chat");
                     }
                 }}
                 value={inputMessage}
@@ -92,7 +92,7 @@ const ChatInput = (props: ChatInputProps) => {
                 }}
                 ml="5px"
                 disabled={inputMessage.trim().length <= 0}
-                onClick={() => handleSendMessage("chat")}
+                onClick={() => handleSendMessage("stream_chat")}
             >
                 <FontAwesomeIcon icon={faPaperPlane as any} />
             </Button>

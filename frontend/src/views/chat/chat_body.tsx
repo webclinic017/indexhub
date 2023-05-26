@@ -1,10 +1,10 @@
-import React, { useEffect, useReducer, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Flex, Text, VStack, ListItem, UnorderedList } from "@chakra-ui/react";
 import { VegaChart } from "../trends/charts";
 import { useChatContext } from "./chat_context";
 
 export type Role = "user" | "assistant";
-export type Action = "chat" | "load_context" | "loading_response";
+export type Action = "chat" | "load_context" | "loading_response" | "stream_chat";
 export type AdditionalType = "chart" | "metric" | "trend";
 
 
@@ -52,6 +52,8 @@ const ChatMessageView = () => {
 const ChatItem = (props: { msg: ChatMessage }) => {
     const { msg } = props;
     switch (msg.action) {
+        case "stream_chat":
+            return <StreamChatRepsonse msg={msg} />
         case "load_context":
             return <LoadContextResponse msg={msg} />
         case "loading_response":
@@ -62,6 +64,23 @@ const ChatItem = (props: { msg: ChatMessage }) => {
 }
 
 const ChatResponse = (props: { msg: ChatMessage }) => {
+    const { msg } = props;
+    return (
+        <Flex
+            bg={msg.role === "user" ? "black" : "gray.100"}
+            color={msg.role === "user" ? "white" : "black"}
+            minW="100px"
+            maxW="90%"
+            my="1"
+            p="3"
+            borderRadius={8}
+        >
+            <Text>{msg.content}</Text>
+        </Flex>
+    )
+}
+
+const StreamChatRepsonse = (props: { msg: ChatMessage }) => {
     const { msg } = props;
     return (
         <Flex
@@ -116,6 +135,5 @@ const LoadingResponse = (props: { msg: ChatMessage }) => {
         </VStack>
     );
 };
-
 
 export default ChatMessageView;
