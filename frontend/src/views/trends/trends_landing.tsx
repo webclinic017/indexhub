@@ -115,7 +115,7 @@ export interface TrendsListItemProps {
 
 const TrendsListItem = (props: TrendsListItemProps) => {
     const { dataset_id, dataset_name, value } = props;
-    const { label, value } = props;
+    const { setDatasetId } = useTrendsContext();
     return (
         <Box width="100%" bg="cards.background" borderRadius="lg" boxShadow="sm">
             <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
@@ -139,7 +139,7 @@ const TrendsListItem = (props: TrendsListItemProps) => {
             </Box>
             <Divider />
             <Box px={{ base: '4', md: '6' }} py="4">
-                <Button variant="link" colorScheme="blue" size="sm">
+                <Button variant="link" colorScheme="blue" size="sm" onClick={() => setDatasetId(dataset_id)}>
                     View embeddings
                 </Button>
                 <TrendEntitiesSelector {...props} />
