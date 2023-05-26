@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Point3D, Dataset, ScatterGL, ScatterGLParams, PointMetadata } from 'scatter-gl';  // adjust these imports based on your project structure
+import { Point3D, Dataset, ScatterGL, ScatterGLParams, PointMetadata, RenderMode } from 'scatter-gl';  // adjust these imports based on your project structure
 import { Stack, VStack, Button, Box } from '@chakra-ui/react';
 import { useTrendsContext } from './trends_context';
 
@@ -104,7 +104,7 @@ const Projector = () => {
                     messagesRef.current.innerHTML = messageStr;
                 }
             };
-
+            const renderMode = "POINT" as RenderMode.POINT;
             const params: ScatterGLParams = {
                 onClick: (pointIndex: number | null) => {
                     setMessage(`click ${pointIndex}`);
@@ -115,7 +115,7 @@ const Projector = () => {
                 onHover: (point: number | null) => {
                     setMessage(`hover ${point}`);
                 },
-                // renderMode: RenderMode.POINT,
+                renderMode: renderMode,
                 orbitControls: {
                     zoomSpeed: 1.125,
                 },

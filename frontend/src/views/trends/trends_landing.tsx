@@ -119,7 +119,7 @@ const TrendsListItem = (props: TrendsListItemProps) => {
             <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
                 <Stack>
                     <HStack justify="space-between">
-                        <Text fontSize="sm" color="muted">
+                        <Text fontSize="2xl" color="muted">
                             {label}
                         </Text>
                         {/* <Icon as={FiMoreVertical} boxSize="5" color="muted" /> */}
@@ -138,7 +138,7 @@ const TrendsListItem = (props: TrendsListItemProps) => {
             <Divider />
             <Box px={{ base: '4', md: '6' }} py="4">
                 <Button variant="link" colorScheme="blue" size="sm">
-                    Learn more
+                    View embeddings
                 </Button>
                 <TrendEntitiesSelector {...props} />
             </Box>
