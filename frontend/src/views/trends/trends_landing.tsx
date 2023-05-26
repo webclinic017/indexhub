@@ -150,10 +150,14 @@ const TrendsListItem = (props: TrendsListItemProps) => {
 
 
 const TrendEntitiesSelector = (props: TrendsListItemProps) => {
+    const { setCurrentEntityId } = useTrendsContext();
     const { entities } = props;
-    return <Select variant='filled'>
+    const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setCurrentEntityId(event.target.value)
+    }
+    return <Select variant='filled' placeholder={"Select entity"} onChange={handleChange}>
         {entities.map((entity_id, index) => (
-            <option key={index} value={entity_id}>{entity_id}</option>
+            <option key={index} value={entity_id} >{entity_id}</option>
         ))}
     </Select>;
 }

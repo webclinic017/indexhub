@@ -19,6 +19,7 @@ export const TrendsContext = createContext({
     updateProjectorData: (_newData: ProjectorData) => { /* do nothing */ },
     trendsList: [] as TrendsListItemProps[],
     setTrendsList: (_trendsList: TrendsListItemProps[]) => { /* do nothing */ },
+    setCurrentEntityId: (_entityId: string) => { /* do nothing */ },
 });
 
 
@@ -27,6 +28,7 @@ const MAX_CHARTS = 2;
 const TrendsContextProvider = (props: { children: React.ReactNode }) => {
 
     // Hold the shared state here
+    const [currentEntityId, setCurrentEntityId] = useState<string | null>(null);
     const [currentPointContext, setCurrentPointContext] = useState<number | null>(null);
     const [selectedPointIds, setSelectedPointIds] = useState<number[]>([]);
     const [datasetId, setDatasetId] = useState<string>("commodities");
@@ -60,18 +62,30 @@ const TrendsContextProvider = (props: { children: React.ReactNode }) => {
     const updateProjectorData = (newData: ProjectorData) => {
         setProjectorData(newData);
     }
+
     useEffect(() => {
+        console.log(`currentEntityId change: ${currentEntityId}`);
+        if (!currentEntityId || !datasetId) {
+            return;
+        }
+        const props = {
+            "dataset_id": datasetId,
+            "entity_id": currentEntityId,
+        }
+        handleSendMessage("load_context", props);
+        onOpenChatBot()
+        console.log(`currentEntityId change done: ${currentEntityId}`);
+    }, [currentEntityId]);
+
+    useEffect(() => {
+        console.log(`currentPointContext change: ${currentEntityId}`);
+
         if (!currentPointContext || !projectorData) {
             return;
         }
-        console.log(`currentPointContext change: ${projectorData}`);
-        const props = {
-            "dataset_id": datasetId,
-            "entity_id": projectorData.entityIds[currentPointContext],
-        }
-        console.log(`currentPointContext props: ${JSON.stringify(props)}`);
-        handleSendMessage("load_context", props);
-        onOpenChatBot()
+        setCurrentEntityId(projectorData.entityIds[currentPointContext]);
+        console.log(`currentPointContext change done: ${currentEntityId}`);
+
     }, [currentPointContext]);
 
     return (
@@ -88,6 +102,7 @@ const TrendsContextProvider = (props: { children: React.ReactNode }) => {
             updateProjectorData,
             trendsList,
             setTrendsList,
+            setCurrentEntityId
         }}>
             {props.children}
         </TrendsContext.Provider>
