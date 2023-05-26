@@ -5,7 +5,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faChevronDoubleLeft, faChevronLeft } from "@fortawesome/pro-light-svg-icons"
 import Projector from "./projector"
 import { useChatContext } from "../chat/chat_context"
-import { capitalizeFirstLetter } from "../../utilities/helpers"
 import { useTrendsContext } from "./trends_context"
 
 
@@ -47,7 +46,8 @@ const getTrendsList = async (apiToken: string): Promise<TrendsListItemProps[]> =
     const trendsList = Object.entries(data).map(([dataset_id, metadata]) => {
         return (
             {
-                "label": capitalizeFirstLetter(dataset_id),
+                "dataset_id": dataset_id,
+                "dataset_name": metadata["dataset_name"],
                 "value": metadata["entity_count"],
                 "entities": metadata["entities"],
                 "delta": {
@@ -103,7 +103,8 @@ const TrendsLanding = () => {
 }
 
 export interface TrendsListItemProps {
-    label: string
+    dataset_id: string
+    dataset_name: string
     value: string
     entities: string[]
     delta: {
@@ -113,6 +114,7 @@ export interface TrendsListItemProps {
 }
 
 const TrendsListItem = (props: TrendsListItemProps) => {
+    const { dataset_id, dataset_name, value } = props;
     const { label, value } = props;
     return (
         <Box width="100%" bg="cards.background" borderRadius="lg" boxShadow="sm">
@@ -120,7 +122,7 @@ const TrendsListItem = (props: TrendsListItemProps) => {
                 <Stack>
                     <HStack justify="space-between">
                         <Text fontSize="2xl" color="muted">
-                            {label}
+                            {dataset_name}
                         </Text>
                         {/* <Icon as={FiMoreVertical} boxSize="5" color="muted" /> */}
                     </HStack>

@@ -1,6 +1,7 @@
 DEMO_BUCKET = "indexhub-public-trends"
 DEMO_SCHEMAS = {
     "commodities": {
+        "dataset_name": "Commodities",
         "entity_col": "commodity_type",
         "vectors": "vectors/commodities.lance",
         "y": "commodities/artifacts/y.parquet",
@@ -10,6 +11,7 @@ DEMO_SCHEMAS = {
         "metadata": "commodities/metadata.json",
     },
     "commercial_real_estate": {
+        "dataset_name": "Hong Kong Commercial Real Estate",
         "entity_col": "district__grade",
         "vectors": "vectors/commercial_real_estate.lance",
         "y": "commercial_real_estate/artifacts/y.parquet",
@@ -19,6 +21,7 @@ DEMO_SCHEMAS = {
         "metadata": "commercial_real_estate/metadata.json",
     },
     "econdb_cpi": {
+        "dataset_name": "EconDB CPI",
         "entity_col": "iso_country_code",
         "vectors": "vectors/econdb_cpi.lance",
         "y": "econdb_cpi/artifacts/y.parquet",

@@ -37,6 +37,7 @@ def upload_public_trends_metadata():
         entity_count = df[entity_col].n_unique()
         metadata = {
             "dataset_id": dataset_id,
+            "dataset_name": schema["dataset_name"],
             "entities": entities,
             "entity_count": entity_count,
         }
