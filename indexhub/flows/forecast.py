@@ -774,7 +774,7 @@ FREQ_TO_DURATION = {
     memory=5120,
     cpu=8.0,
     timeout=3600,
-    schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
+    # schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
 )
 def flow():
     logger.info("Flow started")

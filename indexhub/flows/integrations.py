@@ -129,7 +129,7 @@ def run_integration_etl(
     memory=5120,
     cpu=4.0,
     timeout=900,
-    schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
+    # schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
 def flow():
     # 1. Get all integrations
