@@ -138,14 +138,6 @@ def create_single_forecast_chart(
         .select(pl.exclude("^target.*$"))
         .sort("time")
     )
-    inventory_path = outputs["inventory"]
-    if inventory_path:
-        inventory_data = (
-            read(object_path=inventory_path)
-            .pipe(lambda df: df.rename({target_col: "inventory"}))
-            .with_columns(pl.col(entity_col).cast(pl.Categorical))
-        )
-        joined = joined.join(inventory_data, on=idx_cols, how="outer")
 
     # Rename entity col
     joined = joined.rename({entity_col: "entity"})
@@ -211,7 +203,7 @@ def create_single_forecast_chart(
     series_plan[-4] = additional_value
     chart_data = chart_data.with_columns(pl.Series(name="plan", values=series_plan))
 
-    line_types = ["actual", "ai", "baseline", "inventory", "plan"]
+    line_types = ["actual", "ai", "baseline", "plan"]
 
     # Generate the chart
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))

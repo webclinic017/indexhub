@@ -547,7 +547,6 @@ def run_forecast(
     objective: Optional[str] = "mae",
     baseline_model: Optional[str] = "snaive",
     baseline_path: Optional[str] = None,
-    inventory_path: Optional[str] = None,
 ):
     try:
         pl.toggle_string_cache(True)
@@ -652,18 +651,6 @@ def run_forecast(
             )
             y_baseline_forecast = pl.from_arrow(outputs["forecasts"][baseline_model])
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
-
-        if inventory_path:
-            inventory = read(
-                bucket_name=bucket_name,
-                object_path=inventory_path,
-                file_ext="parquet",
-                **storage_creds,
-            )
-            outputs["inventory"] = make_path(prefix="inventory")
-            write(inventory, object_path=outputs["inventory"])
-        else:
-            outputs["inventory"] = None
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
@@ -821,12 +808,6 @@ def flow():
                     ].output_path
                 else:
                     baseline_path = None
-                if sources["inventory"]:
-                    inventory_path = get_source(sources["inventory"])[
-                        "source"
-                    ].output_path
-                else:
-                    inventory_path = None
 
                 if fields.get("holiday_regions", None) is not None:
                     holiday_regions = [
@@ -870,7 +851,6 @@ def flow():
                     objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
                     baseline_model=baseline_model,
                     baseline_path=baseline_path,
-                    inventory_path=inventory_path,
                 )
 
         # 5. Get future for each objective
@@ -921,10 +901,6 @@ def test(user_id: str = "indexhub-demo-dev"):
         baseline_path = get_source(sources["baseline"])["source"].output_path
     else:
         baseline_path = None
-    if sources["inventory"]:
-        inventory_path = get_source(sources["inventory"])["source"].output_path
-    else:
-        inventory_path = None
 
     run_forecast.call(
         user_id=user_id,
@@ -946,5 +922,4 @@ def test(user_id: str = "indexhub-demo-dev"):
             fields["baseline_model"]
         ],  # default is snaive
         baseline_path=baseline_path,
-        inventory_path=inventory_path,
     )

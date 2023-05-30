@@ -93,14 +93,9 @@ def create_objective(params: CreateObjectiveParams):
                 entity_cols = [source_fields["product_col"], *entity_cols]
 
             baseline_path = None
-            inventory_path = None
             if objective_sources["baseline"] != "":
                 baseline_source = get_source(objective_sources["baseline"])["source"]
                 baseline_path = baseline_source.output_path
-
-            if objective_sources["inventory"] != "":
-                inventory_source = get_source(objective_sources["inventory"])["source"]
-                inventory_path = inventory_source.output_path
 
             if objective_fields.get("baseline_model", None) is not None:
                 baseline_model = SUPPORTED_BASELINE_MODELS[
@@ -128,7 +123,6 @@ def create_objective(params: CreateObjectiveParams):
                 objective=SUPPORTED_ERROR_TYPE[objective_fields["error_type"]],
                 baseline_model=baseline_model,
                 baseline_path=baseline_path,
-                inventory_path=inventory_path,
             )
         else:
             raise ValueError(f"Objective tag `{objective.tag}` not found")
