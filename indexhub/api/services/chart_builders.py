@@ -1,4 +1,5 @@
 import itertools
+import logging
 from functools import partial, reduce
 from typing import Any, Literal, Mapping
 
@@ -13,6 +14,21 @@ from indexhub.api.schemas import SUPPORTED_ERROR_TYPE
 from indexhub.api.services.io import SOURCE_TAG_TO_READER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.flows.preprocess import _reindex_panel
+
+
+def _logger(name, level=logging.INFO):
+    logger = logging.getLogger(name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(levelname)s: %(asctime)s: %(name)s  %(message)s")
+    )
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    logger.propagate = False  # Prevent the modal client from double-logging.
+    return logger
+
+
+logger = _logger(name=__name__)
 
 
 def create_single_forecast_chart(
@@ -67,6 +83,7 @@ def create_single_forecast_chart(
     except HTTPException:
         # If plan.parquet not found, use best plan as plan
         # This happens if user has not clicked on execute plan
+        logger.warning("`plan.parquet` not found, use best plan as plan.")
         plan = read(object_path=outputs["best_plan"]).rename(
             {entity_col: "entity", "best_plan": "plan"}
         )
@@ -110,12 +127,7 @@ def create_single_forecast_chart(
     )
 
     # Postproc - join data together
-    indexhub = pl.concat(
-        [
-            backtest.rename({target_col: "indexhub"}),
-            forecast.rename({target_col: "indexhub"}),
-        ]
-    )
+    indexhub = pl.concat([backtest, forecast]).rename({target_col: "ai"})
     joined = (
         actual.rename({target_col: "actual"})
         .join(
@@ -126,35 +138,29 @@ def create_single_forecast_chart(
         .join(indexhub, on=idx_cols, how="outer")
         # Join quantiles
         .join(
-            quantiles_lower.rename({target_col: f"indexhub_{quantile_lower}"}),
+            quantiles_lower.rename({target_col: f"ai_{quantile_lower}"}),
             on=idx_cols,
             how="outer",
         )
         .join(
-            quantiles_upper.rename({target_col: f"indexhub_{quantile_upper}"}),
+            quantiles_upper.rename({target_col: f"ai_{quantile_upper}"}),
             on=idx_cols,
             how="outer",
         )
-        .select(pl.exclude("^target.*$"))
-        .sort("time")
-    )
-
-    # Rename entity col
-    joined = joined.rename({entity_col: "entity"})
-
-    joined = (
-        joined.join(
-            best_plan.rename({entity_col: "entity"}), on=["entity", "time"], how="outer"
+        .join(
+            best_plan.select(pl.all().exclude(["^fh.*$", "^use.*$"])),
+            on=idx_cols,
+            how="outer",
         )
-        .sort(["entity", "time"])
-        .select(pl.all().exclude(["^fh.*$", "^use.*$"]))
-    )
-
-    if plan is not None:
-        joined = joined.join(plan, on=["entity", "time"], how="outer").select(
-            pl.all().exclude(["^fh.*$", "^use.*$"])
+        .rename({entity_col: "entity"})
+        .join(
+            plan.select(pl.all().exclude(["^fh.*$", "^use.*$"])),
+            on=["entity", time_col],
+            how="outer",
         )
-    joined = joined.join(rolling_forecasts, on=["entity", "time"], how="outer")
+        .sort(["entity", time_col])
+        .join(rolling_forecasts, on=["entity", time_col], how="outer")
+    )
 
     # Filter by specific columns
     if filter_by:
@@ -177,7 +183,6 @@ def create_single_forecast_chart(
         .agg(agg_exprs)
         .sort(pl.col(time_col))
         .with_columns([pl.col(pl.Float32).round(2), pl.col(pl.Float64).round(2)])
-        .rename({"indexhub": "ai"})
     )
     # Set color scheme based on guidelines
     colors = {
@@ -212,7 +217,7 @@ def create_single_forecast_chart(
     # Quantile range charts
     line_chart.add_yaxis(
         "",
-        chart_data[f"indexhub_{quantile_upper}"].to_list(),
+        chart_data[f"ai_{quantile_upper}"].to_list(),
         color="white",
         symbol=None,
         is_symbol_show=False,
@@ -220,7 +225,7 @@ def create_single_forecast_chart(
     )
     line_chart.add_yaxis(
         "",
-        chart_data[f"indexhub_{quantile_lower}"].to_list(),
+        chart_data[f"ai_{quantile_lower}"].to_list(),
         color="white",
         symbol=None,
         is_symbol_show=False,
