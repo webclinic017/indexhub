@@ -46,3 +46,44 @@ export const exportAIRecommendationTable = async (
     const response_json = await execute_plan_response.json();
     return response_json;
 };
+
+export const getEntitiesAndInventoryTables = async (
+    objective_id: string,
+    access_token_indexhub_api: string,
+) => {
+    const get_entities_and_inventory_table_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/inventory/${objective_id}`;
+
+    const get_entities_and_inventory_table_response = await fetch(get_entities_and_inventory_table_url, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token_indexhub_api}`,
+        },
+    });
+
+    const response_json = await get_entities_and_inventory_table_response.json();
+    return response_json;
+};
+
+export const getCombinedEntitiesAndInventoryTable = async (
+    objective_id: string,
+    entities: Record<string, string[] | string | null>,
+    access_token_indexhub_api: string,
+) => {
+    const get_combined_entities_and_inventory_table_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/inventory/table/${objective_id}`;
+
+    const get_combined_entities_and_inventory_table_response = await fetch(get_combined_entities_and_inventory_table_url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token_indexhub_api}`,
+        },
+        body: JSON.stringify({
+            forecast_entities: entities["forecast_entities"],
+            inventory_entity: entities["inventory_entity"]
+        })
+    });
+
+    const response_json = await get_combined_entities_and_inventory_table_response.json();
+    return response_json;
+};

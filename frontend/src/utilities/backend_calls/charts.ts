@@ -61,3 +61,27 @@ export const getRollingForecastChart = async (
     const response_json = await get_rolling_forecast_chart_response.json();
     return response_json
 };
+
+export const getCombinedEntitiesAndInventoryChart = async (
+    objective_id: string,
+    entities: Record<string, string[] | string | null>,
+    access_token_indexhub_api: string,
+) => {
+    const get_combined_entities_and_inventory_chart_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/inventory/chart/${objective_id}`;
+
+    const get_combined_entities_and_inventory_chart_response = await fetch(get_combined_entities_and_inventory_chart_url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access_token_indexhub_api}`,
+        },
+        body: JSON.stringify({
+            forecast_entities: entities["forecast_entities"],
+            inventory_entity: entities["inventory_entity"]
+        })
+    });
+
+    const response_json = await get_combined_entities_and_inventory_chart_response.json();
+    console.log(JSON.parse(response_json))
+    return JSON.parse(response_json)
+};

@@ -19,7 +19,8 @@ from .routers import (
     tables,
     tests,
     users,
-    trends
+    trends,
+    inventory
 )
 
 
@@ -45,6 +46,7 @@ app.include_router(plans.router)
 app.include_router(copilot.router)
 app.include_router(integrations.router)
 app.include_router(trends.router)
+app.include_router(inventory.router)
 
 
 origins = [

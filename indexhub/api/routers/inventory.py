@@ -4,7 +4,6 @@ import logging
 from functools import partial
 from typing import Any, List, Mapping
 
-import numpy as np
 import polars as pl
 from fastapi import HTTPException
 from pydantic import BaseModel
@@ -40,7 +39,7 @@ logger = _logger(name=__name__)
 @router.get("/inventory/{objective_id}")
 def get_entities(
     objective_id: str,
-) -> Mapping[str, List[str]]:
+) -> Mapping[str, List[Mapping[str, str]]]:
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -76,8 +75,8 @@ def get_entities(
         )
 
         entities = {
-            "forecast_entities": forecast_entities,
-            "inventory_entities": inventory_entities,
+            "forecast_entities": [{'id': index, 'entity': entity} for index, entity in enumerate(forecast_entities)],
+            "inventory_entities":[{'id': index, 'entity': entity} for index, entity in enumerate(inventory_entities)],
         }
 
     return entities
@@ -88,7 +87,7 @@ def _create_inventory_table(
     outputs: Mapping[str, str],
     user: User,
     forecast_entities: List[str],
-    inventory_entities: List[str],
+    inventory_entity: str,
     quantile_lower: int = 10,
     quantile_upper: int = 90,
 ) -> pl.DataFrame:
@@ -179,7 +178,7 @@ def _create_inventory_table(
     inventory_df = read(object_path=inventory_source.output_path)
     inv_entity_col, inv_time_col, inv_target_col = inventory_df.columns
     inventory_df = inventory_df.filter(
-        pl.col(inv_entity_col).is_in(inventory_entities)
+        pl.col(inv_entity_col) == inventory_entity
     ).rename({inv_target_col: "inventory"})
 
     # Join forecast and inventory
@@ -331,34 +330,26 @@ def _create_inventory_chart(
         ],
     )
 
-    for i in range(2, 7):
-        line_chart.options["series"][i]["endLabel"] = {
-            "show": True,
-            "formatter": "{a}",
-            "color": "inherit",
-        }
+    # for i in range(2, 7):
+    #     line_chart.options["series"][i]["endLabel"] = {
+    #         "show": True,
+    #         "formatter": "{a}",
+    #         "color": "inherit",
+    #     }
 
     return line_chart.dump_options()
 
 
-class TableResponse(BaseModel):
-    pagination: Mapping[str, int]
-    results: List[Mapping[Any, Any]]
+class Params(BaseModel):
+    forecast_entities: List[str]
+    inventory_entity: str
 
 
-class TableParams(BaseModel):
-    filter_by: Mapping[str, List[str]] = None
-    page: int
-    display_n: int
-
-
-@router.get("/inventory/table/{objective_id}")
+@router.post("/inventory/table/{objective_id}")
 def get_inventory_table(
     objective_id: str,
-    forecast_entities: List[str],
-    inventory_entities: List[str],
-    params: TableParams,
-) -> TableResponse:
+    params: Params,
+) -> List[Mapping[str, Any]]:
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -367,35 +358,27 @@ def get_inventory_table(
     with Session(engine) as session:
         user = session.get(User, objective.user_id)
 
-    filtered_table = None
+    table = None
     if sources.get("inventory", None):
-        table = _create_inventory_table(
-            sources=sources,
-            outputs=outputs,
-            user=user,
-            forecast_entities=forecast_entities,
-            inventory_entities=inventory_entities,
+        table = (
+            _create_inventory_table(
+                sources=sources,
+                outputs=outputs,
+                user=user,
+                forecast_entities=params.forecast_entities,
+                inventory_entity=params.inventory_entity,
+            )
+            .with_row_count()
+            .rename({"row_nr": "id"})
+            .drop_nulls(subset=["ai"])
+            .to_dicts()
         )
 
-        start = params.display_n * (params.page - 1)
-        end = params.display_n * params.page
-        max_page = int(np.ceil(len(table) / params.display_n))
-        filtered_table = {
-            "pagination": {
-                "current": params.page,
-                "end": max_page,
-            },
-            "results": table[start:end].to_dicts(),
-        }
-    return filtered_table
+    return table
 
 
-@router.get("/inventory/chart/{objective_id}")
-def get_inventory_chart(
-    objective_id: str,
-    forecast_entities: List[str],
-    inventory_entities: List[str],
-) -> List[Mapping[str, Any]]:
+@router.post("/inventory/chart/{objective_id}")
+def get_inventory_chart(objective_id: str, params: Params):
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -410,8 +393,8 @@ def get_inventory_chart(
             sources=sources,
             outputs=outputs,
             user=user,
-            forecast_entities=forecast_entities,
-            inventory_entities=inventory_entities,
+            forecast_entities=params.forecast_entities,
+            inventory_entity=params.inventory_entity,
         )
         chart_json = _create_inventory_chart(table)
 

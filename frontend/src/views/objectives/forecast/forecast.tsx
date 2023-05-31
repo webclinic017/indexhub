@@ -1,4 +1,4 @@
-import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel, Box, Button, CircularProgress, CircularProgressLabel, FormControl, FormLabel, HStack, Heading, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, Spinner, Stack, Tab, TabIndicator, TabList, TableContainer, Tabs, Text, Tooltip, VStack, useDisclosure, useToast } from "@chakra-ui/react"
+import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel, Box, Button, CircularProgress, CircularProgressLabel, FormControl, FormLabel, HStack, Heading, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay, Spinner, Stack, Tab, TabIndicator, TabList, TabPanel, TabPanels, TableContainer, Tabs, Text, Tooltip, VStack, useDisclosure, useToast } from "@chakra-ui/react"
 import { Select } from "chakra-react-select"
 import React, { useEffect, useState } from "react"
 import { useAuth0AccessToken } from "../../../utilities/hooks/auth0";
@@ -20,6 +20,7 @@ import { faArrowUpRightAndArrowDownLeftFromCenter, faCircleInfo, faFileChartColu
 import Toast from "../../../components/toast";
 import AiAnalysisModal from "./_includes/ai_analysis_modal";
 import ExpandedChartModal from "../../../components/expanded_chart_modal";
+import InventoryTable from "./_includes/inventory_table";
 
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
@@ -628,68 +629,84 @@ const ForecastObjective = () => {
               )}
             </Box>
 
-            <VStack width="100%" justify="space-between" mb="1rem" mt="2.5rem" alignItems="flex-start">
 
-              <Heading size="md" fontWeight="bold">Forecast Selection</Heading>
 
-              <HStack width="100%" justify="space-between">
-                <Text fontSize="sm" width="70%">The entities in this table are sorted from highest uplift to lowest and the objective tracker represents the uplift % for each entity.</Text>
-                <HStack>
-                  <Button size="sm" onClick={() => {
-                    getAIRecommendationTableApi(true)
-                  }}>Show all entities</Button>
-                  <Select
-                    // onChange={(value) => {
-                    //   if (value) {
-                    //     setSegmentationFactor(value.value)
-                    //   }
-                    // }}
-                    size="sm"
-                    defaultValue={{
-                      value: "increasing",
-                      label: "High to Low"
-                    }}
-                    useBasicStyles
-                    options={
-                      [
-                        {
-                          "value": "increasing",
-                          "label": "High to Low"
-                        },
-                        {
-                          "value": "decreasing",
-                          "label": "Low to High"
-                        },
-                      ]
-                    }
-                  />
-                </HStack>
-              </HStack>
+            <Tabs mt="1.5rem" position="relative" variant="line" isLazy lazyBehavior="keepMounted">
+              <TabList>
+                <Tab fontWeight="bold">Forecast Selection</Tab>
+                <Tab fontWeight="bold">Inventory Table</Tab>
+              </TabList>
+              <TabIndicator
+                mt="-1.5px"
+                height="2px"
+                bg="blue.500"
+                borderRadius="1px"
+              />
+              <TabPanels>
+                <TabPanel>
+                  <>
+                    <VStack width="100%" justify="space-between" mb="1rem" mt="1rem" alignItems="flex-start">
 
-              <Tooltip label="Execute Plan" placement='left'>
-                <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="colors.primary.brand_colors.black" onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "colors.supplementary.brand_colors.gray" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "colors.primary.brand_colors.black" }} isLoading={isExportingTable} onClick={() => {
-                  exportRecommendationTable()
-                }}>
-                  <HStack>
-                    <FontAwesomeIcon size="lg" color="white" icon={faFileExport as any} />
-                  </HStack>
-                </Button>
-              </Tooltip>
+                      {/* <Heading size="md" fontWeight="bold">Forecast Selection</Heading> */}
 
-            </VStack>
+                      <HStack width="100%" justify="space-between">
+                        <Text fontSize="sm" width="70%">The entities in this table are sorted from highest uplift to lowest and the objective tracker represents the uplift % for each entity.</Text>
+                        <HStack>
+                          <Button size="sm" onClick={() => {
+                            getAIRecommendationTableApi(true)
+                          }}>Show all entities</Button>
+                          <Select
+                            // onChange={(value) => {
+                            //   if (value) {
+                            //     setSegmentationFactor(value.value)
+                            //   }
+                            // }}
+                            size="sm"
+                            defaultValue={{
+                              value: "increasing",
+                              label: "High to Low"
+                            }}
+                            useBasicStyles
+                            options={
+                              [
+                                {
+                                  "value": "increasing",
+                                  "label": "High to Low"
+                                },
+                                {
+                                  "value": "decreasing",
+                                  "label": "Low to High"
+                                },
+                              ]
+                            }
+                          />
+                        </HStack>
+                      </HStack>
 
-            {AIRecommendationTable ? (
-              <Box>
-                <Accordion allowToggle onChange={(expanded_index: number) => { setExpandedEntityIndex(expanded_index) }}>
-                  {AIRecommendationTable["results"].map((entity_data: any, idx: number) => {
-                    return (
-                      <AccordionItem key={idx}>
-                        <h2>
-                          <AccordionButton>
-                            <HStack as="span" flex='1' textAlign='left'>
-                              <VStack width="20%" alignItems="flex-start">
-                                <Text pb="1rem" fontWeight="bold" fontSize="large">{entity_data["entity"]}</Text>
-                                {/* <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
+                      <Tooltip label="Execute Plan" placement='left'>
+                        <Button borderRadius="50px" width="60px" height="60px" position="fixed" bottom="50px" right="40px" zIndex="999" backgroundColor="colors.primary.brand_colors.black" onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "colors.supplementary.brand_colors.gray" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "colors.primary.brand_colors.black" }} isLoading={isExportingTable} onClick={() => {
+                          exportRecommendationTable()
+                        }}>
+                          <HStack>
+                            <FontAwesomeIcon size="lg" color="white" icon={faFileExport as any} />
+                          </HStack>
+                        </Button>
+                      </Tooltip>
+
+                    </VStack>
+
+                    {AIRecommendationTable ? (
+                      <Box>
+                        <Accordion allowToggle onChange={(expanded_index: number) => { setExpandedEntityIndex(expanded_index) }}>
+                          {AIRecommendationTable["results"].map((entity_data: any, idx: number) => {
+                            return (
+                              <AccordionItem key={idx}>
+                                <h2>
+                                  <AccordionButton>
+                                    <HStack as="span" flex='1' textAlign='left'>
+                                      <VStack width="20%" alignItems="flex-start">
+                                        <Text pb="1rem" fontWeight="bold" fontSize="large">{entity_data["entity"]}</Text>
+                                        {/* <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
                                   e.stopPropagation()
                                   chartFilter["entity"] = [entity_data["entity"]]
                                   setChartFilter(chartFilter)
@@ -705,190 +722,200 @@ const ForecastObjective = () => {
                                   </HStack>
 
                                 </Button> */}
-                              </VStack>
+                                      </VStack>
 
-                              <HStack width="80%" alignItems="stretch">
+                                      <HStack width="80%" alignItems="stretch">
 
-                                <Box
-                                  px={{ base: '4', md: '6' }}
-                                  py={{ base: '5', md: '6' }}
-                                  bg="bg-surface"
-                                  width={`${100 / 3}%`}
-                                >
-                                  <Stack>
-                                    <Stack justify="space-between">
-                                      <Text color="muted" fontWeight="bold">
-                                        AI Forecast
-                                      </Text>
-                                      <Text color="muted" mt="unset !important" fontSize="3xs" textTransform="uppercase" fontWeight="bold">
-                                        Over Next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}
-                                      </Text>
-                                    </Stack>
-                                    <HStack justify="space-between">
-                                      <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["current_window__stat"]}</Text>
+                                        <Box
+                                          px={{ base: '4', md: '6' }}
+                                          py={{ base: '5', md: '6' }}
+                                          bg="bg-surface"
+                                          width={`${100 / 3}%`}
+                                        >
+                                          <Stack>
+                                            <Stack justify="space-between">
+                                              <Text color="muted" fontWeight="bold">
+                                                AI Forecast
+                                              </Text>
+                                              <Text color="muted" mt="unset !important" fontSize="3xs" textTransform="uppercase" fontWeight="bold">
+                                                Over Next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}
+                                              </Text>
+                                            </Stack>
+                                            <HStack justify="space-between">
+                                              <Text fontSize="larger" fontWeight="bold">{entity_data["stats"]["current_window__stat"]}</Text>
 
-                                      <HStack color={entity_data["stats"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>
-                                        <Text>(</Text>
-                                        <FontAwesomeIcon
-                                          style={{ marginRight: "3px", marginLeft: "unset" }}
-                                          icon={entity_data["stats"]["pct_change"] > 0 ? faCaretUp as any : faCaretDown as any}
-                                        />
-                                        <Text ml="unset !important" fontSize="xs" fontWeight="bold">
-                                          {Math.abs(entity_data["stats"]["pct_change"])}
-                                        </Text>
-                                        <Text ml="unset !important">)</Text>
+                                              <HStack color={entity_data["stats"]["pct_change"] > 0 ? colors.supplementary.indicators.main_green : colors.supplementary.indicators.main_red}>
+                                                <Text>(</Text>
+                                                <FontAwesomeIcon
+                                                  style={{ marginRight: "3px", marginLeft: "unset" }}
+                                                  icon={entity_data["stats"]["pct_change"] > 0 ? faCaretUp as any : faCaretDown as any}
+                                                />
+                                                <Text ml="unset !important" fontSize="xs" fontWeight="bold">
+                                                  {Math.abs(entity_data["stats"]["pct_change"])}
+                                                </Text>
+                                                <Text ml="unset !important">)</Text>
+                                              </HStack>
+                                            </HStack>
+                                            <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}</Text>
+                                          </Stack>
+                                        </Box>
+                                        <Stack
+                                          bg="bg-surface"
+                                          width={`${100 / 3}%`}
+                                          direction="column"
+                                          justifyContent="space-between"
+                                        >
+                                          <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
+                                            <Stack>
+                                              <HStack justify="space-between" alignItems="flex-start">
+                                                <Stack>
+                                                  <Text color="muted" fontWeight="bold">
+                                                    Objective Tracker
+                                                  </Text>
+                                                  <Text color="muted" fontWeight="bold" mt="unset !important" fontSize="3xs" textTransform="uppercase">
+                                                    % UPLIFT FOR THE ENTITY
+                                                  </Text>
+                                                </Stack>
+                                                <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0} color='indicator.main_green'>
+                                                  <CircularProgressLabel fontSize="xs">{Math.floor(entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0)}%</CircularProgressLabel>
+                                                </CircularProgress>
+                                              </HStack>
+                                              <VStack align="baseline">
+                                                <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[objective["fields"]["freq"]]} months</Text>
+                                              </VStack>
+                                            </Stack>
+                                          </Box>
+                                        </Stack>
+                                        <Stack width={`${100 / 3}%`} justify="center">
+                                          <ReactEcharts
+                                            option={JSON.parse(entity_data["sparklines"])}
+                                            style={{
+                                              height: "100%",
+                                              width: "100%",
+                                            }}
+                                          />
+                                        </Stack>
                                       </HStack>
                                     </HStack>
-                                    <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}</Text>
-                                  </Stack>
-                                </Box>
-                                <Stack
-                                  bg="bg-surface"
-                                  width={`${100 / 3}%`}
-                                  direction="column"
-                                  justifyContent="space-between"
-                                >
-                                  <Box px={{ base: '4', md: '6' }} py={{ base: '5', md: '6' }}>
-                                    <Stack>
-                                      <HStack justify="space-between" alignItems="flex-start">
-                                        <Stack>
-                                          <Text color="muted" fontWeight="bold">
-                                            Objective Tracker
-                                          </Text>
-                                          <Text color="muted" fontWeight="bold" mt="unset !important" fontSize="3xs" textTransform="uppercase">
-                                            % UPLIFT FOR THE ENTITY
-                                          </Text>
-                                        </Stack>
-                                        <CircularProgress capIsRound size="3rem" value={entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0} color='indicator.main_green'>
-                                          <CircularProgressLabel fontSize="xs">{Math.floor(entity_data["stats"]["progress"] > 0 ? entity_data["stats"]["progress"] : 0)}%</CircularProgressLabel>
-                                        </CircularProgress>
-                                      </HStack>
-                                      <VStack align="baseline">
-                                        <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[objective["fields"]["freq"]]} months</Text>
-                                      </VStack>
-                                    </Stack>
-                                  </Box>
-                                </Stack>
-                                <Stack width={`${100 / 3}%`} justify="center">
-                                  <ReactEcharts
-                                    option={JSON.parse(entity_data["sparklines"])}
-                                    style={{
-                                      height: "100%",
-                                      width: "100%",
-                                    }}
-                                  />
-                                </Stack>
-                              </HStack>
-                            </HStack>
-                            <AccordionIcon />
-                          </AccordionButton>
-                        </h2>
-                        <AccordionPanel pb={4}>
-                          <VStack>
-                            <HStack width="100%">
-                              <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
-                                <HStack width="100%" justify="flex-end">
-                                  <Tooltip label="Expand Chart" placement='left'>
-                                    <Button onClick={() => {
-                                      setExpandedChartJSONspec(entityTrendChart)
-                                      setExpandedChartModalHeader(`Trend (${entity_data["entity"]})`)
-                                      onOpenExpandedChartModal()
-                                    }}>
-                                      <HStack>
-                                        <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
-                                      </HStack>
-                                    </Button>
-                                  </Tooltip>
-                                </HStack>
-                                <Box height="20rem">
-                                  {entityTrendChart ? (
-                                    <ReactEcharts
-                                      option={entityTrendChart}
-                                      style={{
-                                        height: "100%",
-                                        width: "100%",
-                                      }}
-                                    />
-                                  ) : (
-                                    <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
-                                      <Spinner />
-                                      <Text>Loading...</Text>
-                                    </Stack>
-                                  )}
-                                </Box>
+                                    <AccordionIcon />
+                                  </AccordionButton>
+                                </h2>
+                                <AccordionPanel pb={4}>
+                                  <VStack>
+                                    <HStack width="100%">
+                                      <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
+                                        <HStack width="100%" justify="flex-end">
+                                          <Tooltip label="Expand Chart" placement='left'>
+                                            <Button onClick={() => {
+                                              setExpandedChartJSONspec(entityTrendChart)
+                                              setExpandedChartModalHeader(`Trend (${entity_data["entity"]})`)
+                                              onOpenExpandedChartModal()
+                                            }}>
+                                              <HStack>
+                                                <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
+                                              </HStack>
+                                            </Button>
+                                          </Tooltip>
+                                        </HStack>
+                                        <Box height="20rem">
+                                          {entityTrendChart ? (
+                                            <ReactEcharts
+                                              option={entityTrendChart}
+                                              style={{
+                                                height: "100%",
+                                                width: "100%",
+                                              }}
+                                            />
+                                          ) : (
+                                            <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
+                                              <Spinner />
+                                              <Text>Loading...</Text>
+                                            </Stack>
+                                          )}
+                                        </Box>
 
-                              </Box>
-                              <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
-                                <HStack width="100%" justify="flex-end">
-                                  <Tooltip label="Expand Chart" placement='left'>
-                                    <Button onClick={() => {
-                                      setExpandedChartJSONspec(rollingForecastChart ? JSON.parse(rollingForecastChart[entity_data["entity"]]) : null)
-                                      setExpandedChartModalHeader(`Rolling Forecast (${entity_data["entity"]})`)
-                                      onOpenExpandedChartModal()
-                                    }}>
-                                      <HStack>
-                                        <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
-                                      </HStack>
-                                    </Button>
-                                  </Tooltip>
-                                </HStack>
-                                <Box height="20rem">
-                                  {rollingForecastChart ? (
-                                    <ReactEcharts
-                                      option={JSON.parse(rollingForecastChart[entity_data["entity"]])}
-                                      style={{
-                                        height: "100%",
-                                        width: "100%",
-                                      }}
-                                    />
-                                  ) : (
-                                    <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
-                                      <Spinner />
-                                      <Text>Loading...</Text>
-                                    </Stack>
-                                  )}
-                                </Box>
-                              </Box>
-                            </HStack>
-                            <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
-                              <DataTable
-                                columns={columns}
-                                data={entity_data["tables"]}
-                                body_height="73px"
-                              ></DataTable>
-                            </TableContainer>
-                          </VStack>
+                                      </Box>
+                                      <Box width="50%" height="100%" borderRadius="10" p="5px" backgroundColor="white">
+                                        <HStack width="100%" justify="flex-end">
+                                          <Tooltip label="Expand Chart" placement='left'>
+                                            <Button onClick={() => {
+                                              setExpandedChartJSONspec(rollingForecastChart ? JSON.parse(rollingForecastChart[entity_data["entity"]]) : null)
+                                              setExpandedChartModalHeader(`Rolling Forecast (${entity_data["entity"]})`)
+                                              onOpenExpandedChartModal()
+                                            }}>
+                                              <HStack>
+                                                <FontAwesomeIcon icon={faArrowUpRightAndArrowDownLeftFromCenter as any} />
+                                              </HStack>
+                                            </Button>
+                                          </Tooltip>
+                                        </HStack>
+                                        <Box height="20rem">
+                                          {rollingForecastChart ? (
+                                            <ReactEcharts
+                                              option={JSON.parse(rollingForecastChart[entity_data["entity"]])}
+                                              style={{
+                                                height: "100%",
+                                                width: "100%",
+                                              }}
+                                            />
+                                          ) : (
+                                            <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
+                                              <Spinner />
+                                              <Text>Loading...</Text>
+                                            </Stack>
+                                          )}
+                                        </Box>
+                                      </Box>
+                                    </HStack>
+                                    <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
+                                      <DataTable
+                                        columns={columns}
+                                        data={entity_data["tables"]}
+                                        body_height="73px"
+                                      ></DataTable>
+                                    </TableContainer>
+                                  </VStack>
 
-                        </AccordionPanel>
-                      </AccordionItem>
-                    )
-                  })}
-                </Accordion>
+                                </AccordionPanel>
+                              </AccordionItem>
+                            )
+                          })}
+                        </Accordion>
 
-                <HStack py="1rem" width="100%" justify="right">
-                  <Button
-                    onClick={() => setCurrentPageAIRecommendationTable(currentPageAIRecommendationTable - 1)}
-                    colorScheme="blackAlpha"
-                    isDisabled={currentPageAIRecommendationTable == 1}
-                  >
-                    <FontAwesomeIcon icon={faChevronLeft as any} />
-                  </Button>
-                  <Text>{currentPageAIRecommendationTable}/{AIRecommendationTable["pagination"]["end"]}</Text>
-                  <Button
-                    onClick={() => setCurrentPageAIRecommendationTable(currentPageAIRecommendationTable + 1)}
-                    colorScheme="blackAlpha"
-                    isDisabled={currentPageAIRecommendationTable == AIRecommendationTable["pagination"]["end"]}
-                  >
-                    <FontAwesomeIcon icon={faChevronRight as any} />
-                  </Button>
-                </HStack>
-              </Box>
-            ) : (
-              <Stack alignItems="center" justifyContent="center" height="full">
-                <Spinner />
-                <Text>Loading...</Text>
-              </Stack>
-            )}
+                        <HStack py="1rem" width="100%" justify="right">
+                          <Button
+                            onClick={() => setCurrentPageAIRecommendationTable(currentPageAIRecommendationTable - 1)}
+                            colorScheme="blackAlpha"
+                            isDisabled={currentPageAIRecommendationTable == 1}
+                          >
+                            <FontAwesomeIcon icon={faChevronLeft as any} />
+                          </Button>
+                          <Text>{currentPageAIRecommendationTable}/{AIRecommendationTable["pagination"]["end"]}</Text>
+                          <Button
+                            onClick={() => setCurrentPageAIRecommendationTable(currentPageAIRecommendationTable + 1)}
+                            colorScheme="blackAlpha"
+                            isDisabled={currentPageAIRecommendationTable == AIRecommendationTable["pagination"]["end"]}
+                          >
+                            <FontAwesomeIcon icon={faChevronRight as any} />
+                          </Button>
+                        </HStack>
+                      </Box>
+                    ) : (
+                      <Stack alignItems="center" justifyContent="center" height="full">
+                        <Spinner />
+                        <Text>Loading...</Text>
+                      </Stack>
+                    )}
+                  </>
+                </TabPanel>
+                <TabPanel>
+                  {objective_id && <InventoryTable objective_id={objective_id} />}
+                </TabPanel>
+              </TabPanels>
+
+            </Tabs>
+
+
           </Box>
 
         </VStack>
