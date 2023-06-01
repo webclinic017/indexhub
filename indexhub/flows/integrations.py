@@ -64,7 +64,7 @@ def _update_integration(
     # Establish connection
     engine = create_sql_engine()
     with Session(engine) as session:
-        # Select rows with specific report_id only
+        # Select rows with specific id only
         query = select(Integration).where(Integration.id == integration_id)
         integration = session.exec(query).one()
         if not integration:
@@ -99,15 +99,14 @@ def run_integration_etl(
         # Write data to data lake storage
         write = STORAGE_TAG_TO_WRITER["s3"]
         outputs = {
-            "object_path": f"{provider}/{ticker.lower()}",
+            "object_path": f"{provider}/{ticker.lower()}.parquet",
             "bucket_name": "indexhub-feature-store",
             "file_ext": "parquet",
         }
-        output_path = f"{outputs['object_path']}.{outputs['file_ext']}"
         write(
             raw_panel,
             bucket_name=outputs["bucket_name"],
-            object_path=output_path,
+            object_path=outputs["object_path"],
         )
     except Exception as exc:
         status = "FAILED"
@@ -129,7 +128,7 @@ def run_integration_etl(
     memory=5120,
     cpu=4.0,
     timeout=900,
-    # schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
+    schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
 def flow():
     # 1. Get all integrations
@@ -156,10 +155,10 @@ def flow():
             else:
                 run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
             logger.info(f"Next run for {integration.id} at: {run_dt}")
-            # 4. Run preprocess flow
+            # 3. Run integrations flow
             current_datetime = datetime.now().replace(microsecond=0)
             if (current_datetime >= run_dt) or integration.status == "FAILED":
-                # Spawn preprocess and embs flow for source
+                # Spawn integrations etl for integrations
                 futures.append(
                     run_integration_etl.spawn(
                         integration_id=integration.id,

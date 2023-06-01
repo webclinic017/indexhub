@@ -42,6 +42,13 @@ def _logger(name, level=logging.INFO):
 
 logger = _logger(name=__name__)
 
+FREQ_TO_DURATION = {
+    "Hourly": "1h",  # Run if current date >= last run + 1h
+    "Daily": "24h",  # Run if current date >= last run + 1d
+    "Weekly": "168h",  # Run if current date >= last run + 7d
+    "Monthly": "1mo",  # Run on first day of every month
+    "Quarterly": "3mo",
+}
 
 IMAGE = modal.Image.from_name("indexhub-image")
 
@@ -67,16 +74,14 @@ else:
     )
 
 
-@stub.function()
-def compute_rolling_forecast(
+def _compute_rolling_forecast(
     output_json: Mapping[str, Any],
     objective_id: int,
     updated_at: datetime,
     read: Callable,
     write: Callable,
 ):
-    logger.info("Running rolling forecast")
-    pl.toggle_string_cache(True)
+    logger.info("Computing rolling forecast...")
     # Get the updated at based on objective_id (sqlmodel)
     dt = updated_at.replace(microsecond=0)
 
@@ -99,19 +104,13 @@ def compute_rolling_forecast(
     forecast = (
         read(object_path=output_json["forecasts"]["best_models"])
         .pipe(
-            # Rename target_col to "forecast"
+            # Rename target_col to "ai"
             lambda df: df.rename({df.columns[-1]: "ai"}).with_columns(
                 [
                     # Assign updated_at column
                     pl.lit(dt).alias("updated_at"),
                     # Assign best_model column
                     pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
-                    # Assign fh column
-                    pl.col("time")
-                    .rank("ordinal")
-                    .over(df.columns[0])
-                    .cast(pl.Int32)
-                    .alias("fh"),
                 ]
             )
         )
@@ -135,7 +134,7 @@ def compute_rolling_forecast(
         read(object_path=output_json["y_baseline"])
         .pipe(
             lambda df: df.rename(
-                # Rename target_col to "actual"
+                # Rename target_col to "baseline"
                 {df.columns[-1]: "baseline"}
             )
         )
@@ -143,15 +142,16 @@ def compute_rolling_forecast(
     )
 
     # Read best plan from best_plan panel in s3 and postproc
-    forecast_best_plan = read(object_path=output_json["best_plan"]).select(
-        pl.all().shrink_dtype()
+    best_plan = read(object_path=output_json["best_plan"]).select(
+        pl.exclude("use").shrink_dtype()
     )
 
     # Combine forecast and actual artifacts
+    idx_cols = forecast.columns[:2]
     latest_forecasts = (
-        forecast.join(actual, on=forecast.columns[:2], how="left")
-        .join(baseline, on=forecast.columns[:2], how="left")
-        .join(forecast_best_plan, on=[*forecast.columns[:2], "fh"], how="left")
+        forecast.join(actual, on=idx_cols, how="left")
+        .join(baseline, on=idx_cols, how="left")
+        .join(best_plan, on=idx_cols, how="left")
         .with_columns(
             [
                 (pl.col("ai") - pl.col("actual")).alias("residual_ai"),
@@ -164,37 +164,28 @@ def compute_rolling_forecast(
             ]
         )
         # Reorder columns
-        .select(
-            [
-                pl.all().exclude(
-                    [
-                        *selected_cols,
-                        "use",
-                    ]
-                ),
-                *selected_cols,
-            ]
-        )
-        .select(pl.all().shrink_dtype())
+        .select([pl.all().exclude(selected_cols), *selected_cols])
     )
 
+    path = f"artifacts/{objective_id}/rolling_forecasts.parquet"
     try:
-        cached_forecasts = read(
-            object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
-        )
+        cached_forecasts = read(object_path=path)
         # Get the latest `updated_at` date from cached rolling forecast
         last_dt = cached_forecasts.get_column("updated_at").unique().max()
         if dt > last_dt:
             # Concat latest forecasts artifacts with cached rolling forecasts
             rolling_forecasts = (
                 pl.concat([cached_forecasts, latest_forecasts])
-                .join(actual, on=cached_forecasts.columns[:2], how="left")
+                .join(
+                    actual.rename({"actual": "updated_actual"}), on=idx_cols, how="left"
+                )
                 # Coalesce actual to get the first non-null value
                 .pipe(
                     lambda df: df.with_columns(
-                        pl.coalesce(df["actual"], df["actual_right"]).alias("actual")
+                        pl.coalesce(df["actual"], df["updated_actual"]).alias("actual")
                     )
                 )
+                .drop("updated_actual")
                 # Calculate residuals
                 .with_columns(
                     [
@@ -205,18 +196,18 @@ def compute_rolling_forecast(
                         (pl.col("best_plan") - pl.col("actual")).alias(
                             "residual_best_plan"
                         ),
+                        (pl.col("plan") - pl.col("actual")).alias("residual_plan"),
                     ]
                 )
                 .select([pl.all().exclude(selected_cols), *selected_cols])
-                # Sort by time_col, entity_col, updated_at
+                # Sort by entity_col, time_col, updated_at
                 .pipe(lambda df: df.sort(df.columns[:3]))
             )
             # Export merged data as rolling forecasts artifact
             write(
                 rolling_forecasts,
-                object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
+                object_path=path,
             )
-            logger.info("Rolling forecast completed")
     except HTTPException as err:
         if (
             err.status_code == 400
@@ -225,11 +216,10 @@ def compute_rolling_forecast(
             # Export latest forecasts as initial rolling forecasts artifact
             write(
                 latest_forecasts,
-                object_path=f"artifacts/{objective_id}/rolling_forecasts.parquet",
+                object_path=path,
             )
-            logger.info("Rolling forecast completed")
     finally:
-        pl.toggle_string_cache(False)
+        logger.info("Rolling forecast exported.")
 
 
 def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
@@ -269,8 +259,7 @@ def _groupby_rolling(data: pl.DataFrame, entity_col: str, sp: int):
     return new_data
 
 
-@stub.function()
-def compute_rolling_uplift(
+def _compute_rolling_uplift(
     output_json: Mapping[str, Any],
     objective_id: int,
     updated_at: datetime,
@@ -278,9 +267,7 @@ def compute_rolling_uplift(
     read: Callable,
     write: Callable,
 ):
-    logger.info("Running rolling uplift")
-    pl.toggle_string_cache(True)
-
+    logger.info("Computing rolling uplift...")
     dt = updated_at.replace(microsecond=0)
 
     # Read latest uplift artifacts from s3
@@ -301,10 +288,9 @@ def compute_rolling_uplift(
         .select([*idx_cols, "window", pl.all().exclude([*idx_cols, "window"])])
     )
 
+    path = f"artifacts/{objective_id}/rolling_uplift.parquet"
     try:
-        cached_uplift = read(
-            object_path=f"artifacts/{objective_id}/rolling_uplift.parquet"
-        )
+        cached_uplift = read(object_path=path)
 
         # Get the latest `updated_at` date from cached rolling forecast
         last_dt = cached_uplift.get_column(time_col).unique().max()
@@ -329,163 +315,141 @@ def compute_rolling_uplift(
             # Export merged data as rolling uplift artifact
             write(
                 rolling_uplift,
-                object_path=f"artifacts/{objective_id}/rolling_uplift.parquet",
+                object_path=path,
             )
-        logger.info("Rolling uplift completed")
     except HTTPException as err:
         if (
             err.status_code == 400
             and err.detail == "Invalid S3 path when reading from source"
         ):
             # Export latest uplift as initial rolling uplift artifact
-            write(
-                latest_uplift,
-                object_path=f"artifacts/{objective_id}/rolling_uplift.parquet",
-            )
-            logger.info("Rolling uplift completed")
+            write(latest_uplift, object_path=path)
     finally:
-        pl.toggle_string_cache(False)
+        logger.info("Rolling uplift exported.")
 
 
-@stub.function()
-def create_best_plan(
+def _create_best_plan(
     output_json: Mapping[str, Any],
     objective: str,
     read: Callable,
-    write: Callable,
-    output_path: str,
-):
-    logger.info("Creating best plan")
-    pl.toggle_string_cache(True)
+) -> pl.DataFrame:
+    logger.info("Creating best plan...")
+    # Read artifacts
+    forecast = read(object_path=output_json["forecasts"]["best_models"])
+    y_baseline = read(object_path=output_json["y_baseline"])
+    uplift = read(object_path=output_json["uplift"])
+    entity_col, time_col, target_col = forecast.columns
+    idx_cols = entity_col, time_col
 
-    try:
-        forecast = read(object_path=output_json["forecasts"]["best_models"])
-        y_baseline = read(object_path=output_json["y_baseline"])
-        uplift = read(object_path=output_json["uplift"])
-        entity_col, time_col, target_col = forecast.columns
-        idx_cols = entity_col, time_col
-
-        # Create best plan
-        best_plan = (
-            forecast.lazy()
-            .rename({target_col: "forecast"})
-            # Join with baseline
-            .join(
-                y_baseline.lazy().rename({target_col: "baseline"}),
-                on=idx_cols,
-                how="left",
-            )
-            # Join with uplift
-            .join(uplift.lazy(), on=entity_col)
-            # Set default `use` and `best_plan`
-            .with_columns(
-                pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
-                .then("ai")
-                .otherwise("baseline")
-                .alias("use"),
-                pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
-                .then(pl.col("forecast"))
-                .otherwise(pl.col("baseline"))
-                .alias("best_plan"),
-            )
-            # Add fh column
-            .groupby(entity_col, maintain_order=True)
-            .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
-            .pipe(lambda df: df.explode(df.columns[1:]))
-            .select([entity_col, "time", "fh", "best_plan", "use"])
-            .collect()
+    # Create best plan
+    best_plan = (
+        forecast.lazy()
+        .rename({target_col: "ai"})
+        # Join with baseline
+        .join(
+            y_baseline.lazy().rename({target_col: "baseline"}),
+            on=idx_cols,
+            how="left",
         )
+        # Join with uplift
+        .join(uplift.lazy(), on=entity_col)
+        # Use AI forecast if positive uplift otherwise baseline as best plan
+        .with_columns(
+            pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
+            .then("ai")
+            .otherwise("baseline")
+            .alias("use"),
+            pl.when(pl.col(f"{objective}__uplift_pct") >= 0)
+            .then(pl.col("ai"))
+            .otherwise(pl.col("baseline"))
+            .alias("best_plan"),
+        )
+        # Add fh column
+        .groupby(entity_col, maintain_order=True)
+        .agg(pl.all(), pl.col(time_col).rank("ordinal").cast(pl.Int64).alias("fh"))
+        .pipe(lambda df: df.explode(df.columns[1:]))
+        .select([entity_col, "time", "fh", "best_plan", "use"])
+        .collect()
+    )
 
-        # Export best_plan artifact
-        write(best_plan, object_path=output_path)
-    except Exception as err:
-        raise err
-    finally:
-        pl.toggle_string_cache(False)
-        logger.info("Best plan created and exported")
+    logger.info("Best plan created.")
+    return best_plan
 
 
-@stub.function(
-    timeout=600,  # 10 mins
-)
-def load_integrations(
+def _load_integrations(
     user_id: str, entity_col: str, entities: List[str], freq: str, read: Callable
 ):
-    try:
-        logger.info("Loading integrations")
-        integrations_df = None
-        # 1. Load user's integrations
-        engine = create_sql_engine()
-        with Session(engine) as session:
-            query = select(User).where(User.id == user_id)
-            user = session.exec(query).first()
-            if user.integration_ids:
-                integration_ids = json.loads(user.integration_ids)
-                query = select(Integration).where(Integration.id.in_(integration_ids))
-                integrations = session.exec(query).all()
-            else:
-                integrations = None
+    logger.info("Loading integrations...")
+    integrations_df = None
+    # 1. Load user's integrations
+    engine = create_sql_engine()
+    with Session(engine) as session:
+        query = select(User).where(User.id == user_id)
+        user = session.exec(query).first()
+        if user.integration_ids:
+            integration_ids = json.loads(user.integration_ids)
+            query = select(Integration).where(Integration.id.in_(integration_ids))
+            integrations = session.exec(query).all()
+        else:
+            integrations = None
 
-        if integrations:
-            futures = []
-            for integration in integrations:
-                # 2. Read integration from feature store
-                fields = json.loads(integration.fields)
-                outputs = json.loads(integration.outputs)
-                bucket_name = outputs["bucket_name"]
-                path = f"{outputs['object_path']}.{outputs['file_ext']}"
-                raw_panel = read(bucket_name=bucket_name, object_path=path).to_arrow()
+    if integrations:
+        futures = []
+        for integration in integrations:
+            # 2. Read integration from feature store
+            fields = json.loads(integration.fields)
+            outputs = json.loads(integration.outputs)
+            bucket_name = outputs["bucket_name"]
+            raw_panel = read(
+                bucket_name=bucket_name, object_path=outputs["object_path"]
+            ).to_arrow()
 
-                # 3. Spawn exogenous flow
-                flow = modal.Function.lookup("tsdata-exogenous", "process_integration")
-                futures.append(
-                    flow.spawn(
-                        raw_panel=raw_panel,
-                        ticker=integration.ticker,
-                        entities=entities,
-                        freq=freq,  # User selected freq
-                        agg_method=fields.get("agg_method", "sum"),
-                        impute_method=fields.get("impute_method", "ffill"),
+            # 3. Spawn exogenous flow
+            flow = modal.Function.lookup("tsdata-exogenous", "process_integration")
+            futures.append(
+                flow.spawn(
+                    raw_panel=raw_panel,
+                    ticker=integration.ticker,
+                    entities=entities,
+                    # Use user selected freq
+                    freq=freq,
+                    # Use default agg_method for integration
+                    agg_method=fields.get("agg_method", "sum"),
+                    # Use default impute_method for integration
+                    impute_method=fields.get("impute_method", "ffill"),
+                )
+            )
+
+        # 4. Gather futures
+        integrations_dfs = []
+        for future in futures:
+            try:
+                integrations_dfs.append(
+                    pl.from_arrow(future.get()).pipe(
+                        lambda df: df.rename({df.columns[0]: entity_col})
                     )
                 )
-
-            # 4. Gather futures
-            integrations_dfs = []
-            for future in futures:
-                try:
-                    integrations_dfs.append(
-                        pl.from_arrow(future.get()).pipe(
-                            lambda df: df.rename(
-                                {
-                                    df.columns[0]: entity_col,
-                                }
-                            )
-                        )
-                    )
-                except Exception as err:
-                    # Skip and log exception if integration failed
-                    logger.exception(
-                        f"Failed to load integration {integration.ticker}: {err}"
-                    )
-
-            # 5. Join integrations by entity and time columns
-            if len(integrations_dfs) > 0:
-                integrations_df = reduce(
-                    lambda x, y: x.join(y, on=x.columns[:2], how="outer"),
-                    integrations_dfs,
-                ).select(
-                    [
-                        entity_col,
-                        "time",
-                        # Add prefix
-                        pl.exclude([entity_col, "time"]).prefix("exog__"),
-                    ]
+            except Exception as err:
+                # Skip and log exception if failed to process integration
+                logger.exception(
+                    f"Failed to load integration {integration.ticker}: {err}"
                 )
-    except Exception as err:
-        # Skip integrations if failed
-        logger.exception(f"Error in loading integrations: {err}")
 
-    logger.info("Integrations loaded")
+        # 5. Join integrations by entity and time columns
+        if len(integrations_dfs) > 0:
+            integrations_df = reduce(
+                lambda x, y: x.join(y, on=x.columns[:2], how="outer"),
+                integrations_dfs,
+            ).select(
+                [
+                    entity_col,
+                    "time",
+                    # Add prefix
+                    pl.exclude([entity_col, "time"]).prefix("exog__"),
+                ]
+            )
+
+    logger.info("Integrations loaded.")
     return integrations_df
 
 
@@ -574,7 +538,7 @@ def run_forecast(
             _make_output_path, objective_id=objective_id, updated_at=updated_at
         )
 
-        # 4. Read y from storage
+        # 4. Read y from storage with selected cols
         # Entity cols are merged into a single column in preprocess
         entity_col = "__".join(entity_cols)
         # Time column is renamed to "time" in preprocess
@@ -587,9 +551,7 @@ def run_forecast(
             columns=select_cols,
         )
 
-        # 5. Run automl flow
-        automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
-
+        # 5. Create X from features
         if feature_cols is not None and len(feature_cols) > 0:
             X = y_panel.select([entity_col, time_col, *feature_cols])
             y = y_panel.select(pl.exclude(feature_cols))
@@ -597,22 +559,24 @@ def run_forecast(
             X = None
             y = y_panel
 
-        # Get integrations and append to X
-        integrations_df = load_integrations(
-            user_id=user_id,
-            entity_col=entity_col,
-            entities=y.get_column(entity_col).unique().to_list(),
-            freq=freq,  # User selected freq
-            read=read,
-        )
+        # 6. Load user subscribed integrations and append integrations to X
+        # NOTE: Temp disable integrations, pending fixes from fuzzy match
+        # integrations_df = _load_integrations(
+        #     user_id=user_id,
+        #     entity_col=entity_col,
+        #     entities=y.get_column(entity_col).unique().to_list(),
+        #     freq=freq,
+        #     read=read,
+        # )
+        integrations_df = None
 
         if integrations_df is not None:
             dtypes = y.select([entity_col, time_col]).dtypes
-            integrations_df = integrations_df.rename(
-                {integrations_df.columns[0]: entity_col}
-            ).with_columns(
+            # Coerce dtypes
+            integrations_df = integrations_df.with_columns(
                 pl.col(entity_col).cast(dtypes[0]), pl.col(time_col).cast(dtypes[1])
             )
+            # Join with X
             if X is not None:
                 X = X.join(integrations_df, on=[entity_col, time_col], how="left")
             else:
@@ -620,6 +584,10 @@ def run_forecast(
                     target_col
                 )
 
+        # 7. Run automl flow
+        automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
+
+        # Convert X to pyarrow
         if X is not None:
             X = X.to_arrow()
 
@@ -635,15 +603,15 @@ def run_forecast(
         )
         y = pl.from_arrow(y)
         outputs["y"] = make_path(prefix="y")
-
         write(y, object_path=make_path(prefix="y"))
 
-        # 6. Compute uplift
+        # 8. Compute uplift
         # NOTE: Only compares against BEST MODEL
         if baseline_path:
             # Read baseline from storage
             y_baseline = read(object_path=baseline_path)
         else:
+            # Read baseline from selected baseline model
             y_baseline_backtest = (
                 pl.from_arrow(outputs["backtests"][baseline_model])
                 .groupby([entity_col, time_col])
@@ -654,56 +622,54 @@ def run_forecast(
 
         # Score baseline compared to best scores
         uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
-        kwargs = {"y": y.to_arrow(), "y_baseline": y_baseline.to_arrow()}
         baseline_scores, baseline_metrics, uplift = uplift_flow.call(
-            outputs["scores"]["best_models"],
-            **kwargs,
+            scores=outputs["scores"]["best_models"],
+            y=y.to_arrow(),
+            y_baseline=y_baseline.to_arrow(),
         )
+        # Append paths to outputs
         outputs["y_baseline"] = make_path(prefix="y_baseline")
         outputs["baseline__scores"] = make_path(prefix="baseline__scores")
         outputs["baseline__metrics"] = baseline_metrics
         outputs["uplift"] = make_path(prefix="uplift")
 
+        # Export to artifacts
         write(y_baseline, object_path=outputs["y_baseline"])
         write(pl.from_arrow(baseline_scores), object_path=outputs["baseline__scores"])
         write(pl.from_arrow(uplift), object_path=make_path(prefix="uplift"))
 
-        # 7. Export artifacts for each model
-        model_artifacts_keys = [
+        # 9. Export artifacts for each model
+        for key in [
             "forecasts",
             "backtests",
             "residuals",
             "scores",
             "quantiles",
-        ]
-
-        for key in model_artifacts_keys:
+        ]:
             model_artifacts = outputs[key]
-
             for model, df in model_artifacts.items():
                 output_path = make_path(prefix=f"{key}__{model}")
                 write(pl.from_arrow(df), object_path=output_path)
                 outputs[key][model] = output_path
 
-        # 8. Export statistics
+        # 10. Export statistics
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(pl.from_arrow(df), object_path=output_path)
             outputs["statistics"][key] = output_path
 
-        # 9. Create and export best plan
-        output_path = make_path(prefix="best_plan")
-        create_best_plan.call(
+        # 11. Create and export best plan
+        best_plan = _create_best_plan(
             output_json=outputs,
             objective=objective,
             read=read,
-            write=write,
-            output_path=output_path,
         )
+        output_path = make_path(prefix="best_plan")
+        write(best_plan, object_path=output_path)
         outputs["best_plan"] = output_path
 
-        # 10. Run rolling forecast
-        compute_rolling_forecast.call(
+        # 12. Run rolling forecast
+        _compute_rolling_forecast(
             output_json=outputs,
             objective_id=objective_id,
             updated_at=updated_at,
@@ -711,8 +677,8 @@ def run_forecast(
             write=write,
         )
 
-        # 11. Run rolling uplift
-        compute_rolling_uplift.call(
+        # 13. Run rolling uplift
+        _compute_rolling_uplift(
             output_json=outputs,
             objective_id=objective_id,
             updated_at=updated_at,
@@ -748,23 +714,13 @@ def get_user(user_id: str) -> User:
         return user
 
 
-FREQ_TO_DURATION = {
-    "Hourly": "1h",  # Run if current date >= last run + 1h
-    "Daily": "24h",  # Run if current date >= last run + 1d
-    "Weekly": "168h",  # Run if current date >= last run + 7d
-    "Monthly": "1mo",  # Run on first day of every month
-    "Quarterly": "3mo",
-}
-
-
 @stub.function(
     memory=5120,
     cpu=8.0,
     timeout=3600,
-    # schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
+    schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
 )
 def flow():
-    logger.info("Flow started")
     # 1. Get all objectives
     engine = create_sql_engine()
     with Session(engine) as session:
@@ -772,7 +728,7 @@ def flow():
         objectives = session.exec(query).all()
 
     if objectives:
-        futures = {}
+        futures = []
         for objective in objectives:
             logger.info(f"Checking objective: {objective.id}")
             fields = json.loads(objective.fields)
@@ -795,8 +751,7 @@ def flow():
                 run_dt = datetime(new_dt.year, new_dt.month, 1)
             else:
                 run_dt = updated_at + pd.Timedelta(hours=int(duration[:-1]))
-            logger.info(f"Next run at: {run_dt}")
-
+            logger.info(f"Next run for {objective.id} at: {run_dt}")
             # 4. Run forecast flow
             current_datetime = datetime.now().replace(microsecond=0)
             if (current_datetime >= run_dt) or objective.status == "FAILED":
@@ -832,34 +787,31 @@ def flow():
                     entity_cols = [source_fields["product_col"], *entity_cols]
 
                 # Spawn forecast flow for objective
-                futures[objective.id] = run_forecast.spawn(
-                    user_id=objective.user_id,
-                    objective_id=objective.id,
-                    panel_path=panel_path,
-                    storage_tag=user.storage_tag,
-                    bucket_name=user.storage_bucket_name,
-                    target_col=target_col,
-                    entity_cols=entity_cols,
-                    min_lags=fields["min_lags"],
-                    max_lags=fields["max_lags"],
-                    fh=fields["fh"],
-                    freq=SUPPORTED_FREQ[freq],
-                    sp=FREQ_TO_SP[freq],
-                    n_splits=fields["n_splits"],
-                    feature_cols=source_fields.get("feature_cols", None),
-                    holiday_regions=holiday_regions,
-                    objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
-                    baseline_model=baseline_model,
-                    baseline_path=baseline_path,
+                futures.append(
+                    run_forecast.spawn(
+                        user_id=objective.user_id,
+                        objective_id=objective.id,
+                        panel_path=panel_path,
+                        storage_tag=user.storage_tag,
+                        bucket_name=user.storage_bucket_name,
+                        target_col=target_col,
+                        entity_cols=entity_cols,
+                        min_lags=fields["min_lags"],
+                        max_lags=fields["max_lags"],
+                        fh=fields["fh"],
+                        freq=SUPPORTED_FREQ[freq],
+                        sp=FREQ_TO_SP[freq],
+                        n_splits=fields["n_splits"],
+                        feature_cols=source_fields.get("feature_cols", None),
+                        holiday_regions=holiday_regions,
+                        objective=SUPPORTED_ERROR_TYPE[fields["error_type"]],
+                        baseline_model=baseline_model,
+                        baseline_path=baseline_path,
+                    )
                 )
 
-        # 5. Get future for each objective
-        for objective_id, future in futures.items():
-            logger.info(f"Running forecast flow for objective: {objective_id}")
+        for future in futures:
             future.get()
-            logger.info(f"Forecast flow completed for objective: {objective_id}")
-
-    logger.info("Flow completed")
 
 
 @stub.local_entrypoint()
