@@ -135,7 +135,7 @@ export default function DataGridDemo(props: {
                         <HStack width="100%">
                             <ChakraBox width="50%">
                                 <Text fontWeight="bold">Entities</Text>
-                                <Text fontSize="sm">Entities subtitle here.</Text>
+                                <Text fontSize="sm">Select entities to be included in the inventory data report.</Text>
                                 <Box sx={{ height: 400, width: '100%' }}>
                                     <ThemeProvider theme={MuiTheme}>
                                         <DataGrid
@@ -166,7 +166,7 @@ export default function DataGridDemo(props: {
 
                             <ChakraBox width="50%">
                                 <Text fontWeight="bold">Inventories</Text>
-                                <Text fontSize="sm">Inventories subtitle here.</Text>
+                                <Text fontSize="sm">Select inventories to be included in the inventory data report.</Text>
                                 <Box sx={{ height: 400, width: '100%' }}>
                                     <ThemeProvider theme={MuiTheme}>
                                         <DataGrid
@@ -213,7 +213,7 @@ export default function DataGridDemo(props: {
                             <VStack width="100%" mt="unset !important">
                                 <ChakraBox width="100%">
                                     <Text fontWeight="bold">Inventory Table</Text>
-                                    <Text fontSize="sm">Inventory table subtitle here.</Text>
+                                    <Text fontSize="sm">The table shows statistics for each entity and is sorted by time (oldest to newest).</Text>
                                     <Box sx={{ height: 400, width: '100%' }}>
                                         <ThemeProvider theme={MuiTheme}>
                                             <DataGrid
@@ -233,8 +233,8 @@ export default function DataGridDemo(props: {
                                     </Box>
                                 </ChakraBox>
                                 <ChakraBox width="100%" mt="2rem !important">
-                                    <Text fontWeight="bold">Chart Title</Text>
-                                    <Text fontSize="sm">Chart subtitle here.</Text>
+                                    <Text fontWeight="bold">Inventory Chart</Text>
+                                    <Text fontSize="sm">The lines represents the latest forecasts and panel trends while the shaded area represents the quantile ranges.</Text>
                                     <ChakraBox height="25rem" py="1rem">
                                         <ReactEcharts
                                             option={forecastAndInventoyEntitiesChartData}
