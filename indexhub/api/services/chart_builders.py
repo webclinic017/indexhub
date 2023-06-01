@@ -727,26 +727,29 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
     rolling_forecasts = rolling_forecasts.select(
         pl.col("updated_at"), pl.col("time"), pl.all().exclude(["updated_at", "time"])
     ).pipe(lambda x: _reindex_panel(X=x.lazy(), freq="1mo"))
+    updated_dates = rolling_forecasts.get_column("updated_at").unique().to_list()
 
     output_json = {}
     for entity in entities:
-        updated_dates = rolling_forecasts.get_column("updated_at").unique().to_list()
-
         line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
         for type, colors in _type_to_colors.items():
             # Create each lines based on the line_type
             colors_cycle = itertools.cycle(colors)
 
-            data_d1 = rolling_forecasts.filter(
+            data_d1 = rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
                 pl.col("updated_at") == updated_dates[-1]
             )
             data_d2 = (
-                rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-2])
+                rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
+                    pl.col("updated_at") == updated_dates[-2]
+                )
                 if len(updated_dates) >= 2
                 else None
             )
             data_d3 = (
-                rolling_forecasts.filter(pl.col("updated_at") == updated_dates[-3])
+                rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
+                    pl.col("updated_at") == updated_dates[-3]
+                )
                 if len(updated_dates) >= 3
                 else None
             )
