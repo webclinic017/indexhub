@@ -75,8 +75,14 @@ def get_entities(
         )
 
         entities = {
-            "forecast_entities": [{'id': index, 'entity': entity} for index, entity in enumerate(forecast_entities)],
-            "inventory_entities":[{'id': index, 'entity': entity} for index, entity in enumerate(inventory_entities)],
+            "forecast_entities": [
+                {"id": index, "entity": entity}
+                for index, entity in enumerate(forecast_entities)
+            ],
+            "inventory_entities": [
+                {"id": index, "entity": entity}
+                for index, entity in enumerate(inventory_entities)
+            ],
         }
 
     return entities
@@ -174,12 +180,23 @@ def _create_inventory_table(
         .filter(pl.col(entity_col).is_in(forecast_entities))
     )
 
+    # Read entity cols
+    forecast_data_fields = json.loads(forecast_source.data_fields)
+    entity_cols = forecast_data_fields["entity_cols"]
+    inventory_data_fields = json.loads(inventory_source.data_fields)
+    inv_entity_cols = inventory_data_fields["entity_cols"]
+    inv_entity_col = "__".join(inv_entity_cols)
+    inv_target_col = inventory_data_fields["target_col"]
+
     # Read inventory and filter by entities
-    inventory_df = read(object_path=inventory_source.output_path)
-    inv_entity_col, inv_time_col, inv_target_col = inventory_df.columns
-    inventory_df = inventory_df.filter(
-        pl.col(inv_entity_col) == inventory_entity
-    ).rename({inv_target_col: "inventory"})
+    inventory_df = (
+        read(
+            object_path=inventory_source.output_path,
+            columns=[inv_entity_col, "time", inv_target_col],
+        )
+        .filter(pl.col(inv_entity_col) == inventory_entity)
+        .rename({inv_target_col: "inventory"})
+    )
 
     # Join forecast and inventory
     agg_expr = {
@@ -188,10 +205,8 @@ def _create_inventory_table(
         "median": pl.exclude("inventory").median(),
     }
 
-    data_fields = json.loads(forecast_source.data_fields)
-    entity_cols = data_fields["entity_cols"]
     # Use agg method from panel source settings
-    forecast_agg_method = data_fields.get("agg_method", "sum")
+    forecast_agg_method = forecast_data_fields.get("agg_method", "sum")
 
     # Use mean for inventory if levels not equal
     # Otherwise use agg method from inventory source settings
@@ -213,18 +228,34 @@ def _create_inventory_table(
             .struct.rename_fields(entity_cols)
             .alias("entities")
         )
+        .drop(entity_col)
         .unnest("entities")
         # Cast entity cols to categorical
         .with_columns([pl.col(col).cast(pl.Categorical) for col in entity_cols])
         # Join with inventory
-        .join(inventory_df, on=[inv_entity_col, time_col], how="left")
-        # Reorder cols
-        .select([entity_col, pl.exclude([entity_col, *entity_cols])])
+        .join(
+            inventory_df
+            # Split entity cols
+            .with_columns(
+                pl.col(inv_entity_col)
+                .cast(pl.Utf8)
+                .str.split_exact(" - ", len(inv_entity_cols))
+                .struct.rename_fields(inv_entity_cols)
+                .alias("entities")
+            )
+            .drop(inv_entity_col)
+            .unnest("entities")
+            .with_columns(
+                [pl.col(col).cast(pl.Categorical) for col in inv_entity_cols]
+            ),
+            on=[*inv_entity_cols, time_col],
+            how="left",
+        )
         # Group by time and agg
         .groupby("time", maintain_order=True)
         .agg(agg_expr[forecast_agg_method], inventory_agg_expr("inventory"))
-        .drop(entity_col)
         .sort("time")
+        .select(pl.exclude([*entity_cols, *inv_entity_cols]))
     )
     return table
 
@@ -269,20 +300,23 @@ def _create_inventory_chart(
         for colname in chart_data.columns
         if colname in ["actual", "ai", "baseline", "plan", "inventory"]
     ]:
-        if col == "plan":
-            line_type = "dashed"
-        else:
-            line_type = "solid"
-        line_chart.add_yaxis(
-            f"{col.title().replace('Ai','AI')}",
-            chart_data[col].to_list(),
-            color=next(colors_base),
-            symbol=None,
-            linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
-            is_symbol_show=False,
-            tooltip_opts=opts.TooltipOpts(is_show=True),
-            markpoint_opts=opts.MarkPointOpts,
-        )
+        # Do not add line for the col if all data are nulls
+        # Otherwise will throw error when labeling the line
+        if len(chart_data.drop_nulls(col)) > 0:
+            if col == "plan":
+                line_type = "dashed"
+            else:
+                line_type = "solid"
+            line_chart.add_yaxis(
+                f"{col.title().replace('Ai','AI')}",
+                chart_data[col].to_list(),
+                color=next(colors_base),
+                symbol=None,
+                linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
+                is_symbol_show=False,
+                tooltip_opts=opts.TooltipOpts(is_show=True),
+                markpoint_opts=opts.MarkPointOpts,
+            )
 
     # Get the range of the x-axis
     x_data = sorted(chart_data[time_col].to_list())
@@ -330,12 +364,13 @@ def _create_inventory_chart(
         ],
     )
 
-    # for i in range(2, 7):
-    #     line_chart.options["series"][i]["endLabel"] = {
-    #         "show": True,
-    #         "formatter": "{a}",
-    #         "color": "inherit",
-    #     }
+    for i in range(len(line_chart.options["series"])):
+        if line_chart.options["series"][i]["name"]:
+            line_chart.options["series"][i]["endLabel"] = {
+                "show": True,
+                "formatter": "{a}",
+                "color": "inherit",
+            }
 
     return line_chart.dump_options()
 

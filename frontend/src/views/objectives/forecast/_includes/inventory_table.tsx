@@ -118,14 +118,6 @@ export default function DataGridDemo(props: {
 
     }, [toggleGenerateInventoryData])
 
-    useEffect(() => {
-        console.log(forecastAndInventoyEntitiesChartData)
-    }, [forecastAndInventoyEntitiesChartData])
-
-    useEffect(() => {
-        console.log(isGeneratingInventoryData)
-    }, [isGeneratingInventoryData])
-
     return (
         <>
             {forecastAndInventoryEntities ? (
@@ -152,10 +144,10 @@ export default function DataGridDemo(props: {
                                             checkboxSelection
                                             disableRowSelectionOnClick
                                             onRowSelectionModelChange={(selectedEntityIds) => {
-                                                const selectedEntities = []
-                                                for (const id in selectedEntityIds) {
+                                                const selectedEntities: string[] = []
+                                                selectedEntityIds.forEach((id) => {
                                                     selectedEntities.push(forecastAndInventoryEntities["forecast_entities"][id]["entity"])
-                                                }
+                                                })
                                                 selectedForecastAndInventoryEntities["forecast_entities"] = selectedEntities
                                                 setSelectedForecastAndInventoryEntities(structuredClone(selectedForecastAndInventoryEntities))
                                             }}

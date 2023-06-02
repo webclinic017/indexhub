@@ -208,8 +208,6 @@ def create_single_forecast_chart(
     series_plan[-4] = additional_value
     chart_data = chart_data.with_columns(pl.Series(name="plan", values=series_plan))
 
-    line_types = ["actual", "ai", "baseline", "plan"]
-
     # Generate the chart
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
     line_chart.add_xaxis(chart_data[time_col].to_list())
@@ -282,21 +280,28 @@ def create_single_forecast_chart(
             )
 
     # Add lines for latest forecasts and panels
-    for col in [colname for colname in chart_data.columns if colname in line_types]:
-        if col == "plan":
-            line_type = "dashed"
-        else:
-            line_type = "solid"
-        line_chart.add_yaxis(
-            f"{col.title().replace('Ai','AI')}",
-            chart_data[col].to_list(),
-            color=next(colors_base),
-            symbol=None,
-            linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
-            is_symbol_show=False,
-            tooltip_opts=opts.TooltipOpts(is_show=True),
-            markpoint_opts=opts.MarkPointOpts,
-        )
+    for col in [
+        colname
+        for colname in chart_data.columns
+        if colname in ["actual", "ai", "baseline", "plan"]
+    ]:
+        # Do not add line for the col if all data are nulls
+        # Otherwise will throw error when labeling the line
+        if len(chart_data.drop_nulls(col)) > 0:
+            if col == "plan":
+                line_type = "dashed"
+            else:
+                line_type = "solid"
+            line_chart.add_yaxis(
+                f"{col.title().replace('Ai','AI')}",
+                chart_data[col].to_list(),
+                color=next(colors_base),
+                symbol=None,
+                linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
+                is_symbol_show=False,
+                tooltip_opts=opts.TooltipOpts(is_show=True),
+                markpoint_opts=opts.MarkPointOpts,
+            )
 
     # Get the range of the x-axis
     x_data = sorted(chart_data[time_col].to_list())
@@ -355,18 +360,13 @@ def create_single_forecast_chart(
     )
 
     # Add endlabels for main lines
-    if len(historical_dates) == 1:
-        range_series = range(2, 6)
-    elif len(historical_dates) == 2:
-        range_series = range(5, 9)
-    else:
-        range_series = range(8, 13)
-    for i in range_series:
-        line_chart.options["series"][i]["endLabel"] = {
-            "show": True,
-            "formatter": "{a}",
-            "color": "inherit",
-        }
+    for i in range(len(line_chart.options["series"])):
+        if line_chart.options["series"][i]["name"]:
+            line_chart.options["series"][i]["endLabel"] = {
+                "show": True,
+                "formatter": "{a}",
+                "color": "inherit",
+            }
     # Export chart options to JSON
     return line_chart.dump_options()
 
