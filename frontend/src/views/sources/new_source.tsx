@@ -58,15 +58,15 @@ export default function NewSource(props: {
   const [datasets_schema, setDatasetsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   const [source_tag, setSourceTag] = useState("");
-  const [source_configs, setSourceConfigs] = useState<Record<string, any>>(
-    {}
-  );
+  const [source_configs, setSourceConfigs] = useState<Record<string, any>>({});
   const [source_columns, setSourceColumns] = useState([""]);
   const [column_options, setColumnOptions] = useState([""]);
-  const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
-    maxStep: steps.length,
-  });
+  const [currentStep, { goToNextStep, goToPrevStep }] = useStep({ maxStep: steps.length });
   const access_token_indexhub_api = useAuth0AccessToken();
+
+  const [isLoadingSourceColumns, setIsLoadingSourceColumns] = useState(false)
+  const [isCreatingSource, setIsCreatingSource] = useState(false)
+
 
   const toast = useToast();
   const navigate = useNavigate();
@@ -138,6 +138,7 @@ export default function NewSource(props: {
       ) &&
       Object.keys(configs).includes("source_name")
     ) {
+      setIsLoadingSourceColumns(true)
       let source_columns: Record<string, any> = []; // eslint-disable-line @typescript-eslint/no-explicit-any
       if (source_tag == "s3") {
         source_columns = await getS3SourceColumns(
@@ -154,6 +155,7 @@ export default function NewSource(props: {
       } else {
         Toast(toast, "Error", source_columns["detail"], "error");
       }
+      setIsLoadingSourceColumns(false)
     } else {
       Toast(
         toast,
@@ -177,6 +179,7 @@ export default function NewSource(props: {
       concatenated_selected_columns = concatenated_selected_columns.concat(datasetConfigs["entity_cols"], datasetConfigs["feature_cols"], [datasetConfigs["target_col"], datasetConfigs["time_col"]], datasetConfigs["invoice_col"], datasetConfigs["price_col"], datasetConfigs["quantity_col"], datasetConfigs["product_col"])
     }
 
+    concatenated_selected_columns = concatenated_selected_columns.filter((e) => e !== "" && e !== undefined)
     const no_duplicate_columns = concatenated_selected_columns.length == new Set(concatenated_selected_columns).size
 
     const new_source_configs = {
@@ -200,6 +203,7 @@ export default function NewSource(props: {
   };
 
   const createSource = async () => {
+    setIsCreatingSource(true)
     const create_source_response = await createSourceApi(
       user_details.id,
       source_tag,
@@ -217,6 +221,7 @@ export default function NewSource(props: {
     } else {
       Toast(toast, "Error", create_source_response["detail"], "error");
     }
+    setIsCreatingSource(false)
   };
 
   const stepScreens: Record<number, JSX.Element> = {
@@ -232,6 +237,7 @@ export default function NewSource(props: {
         conn_schema={conn_schema}
         goToPrevStep={goToPrevStep}
         submitSourcePath={submitSourcePath}
+        isLoadingSourceColumns={isLoadingSourceColumns}
       />
     ),
     2: (
@@ -248,6 +254,7 @@ export default function NewSource(props: {
         source_tag={source_tag}
         createSource={createSource}
         goToPrevStep={goToPrevStep}
+        isCreatingSource={isCreatingSource}
       />
     ),
   };

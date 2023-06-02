@@ -36,6 +36,7 @@ const SourceCredentials = (props: {
                   {props.required_credentials_schema[credential]["title"]}
                 </FormLabel>
                 <Input
+                  type="password"
                   onChange={(e) => {
                     source_credentials[credential] = e.target.value;
                   }}

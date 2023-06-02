@@ -115,8 +115,6 @@ const ConfigureSource = (props: {
           spacing="5"
           px={{ base: "4", md: "6" }}
           py={{ base: "5", md: "6" }}
-          height="20rem"
-          overflowX="scroll"
         >
           {Object.keys(props.datasets_schema[datasetType]["data_fields"]).map(
             (config_field: string, idx: number) => {

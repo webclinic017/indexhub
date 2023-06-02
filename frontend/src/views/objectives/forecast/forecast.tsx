@@ -10,17 +10,13 @@ import { useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import ReactEcharts from "echarts-for-react";
 import { exportAIRecommendationTable, getAIRecommendationTable } from "../../../utilities/backend_calls/tables";
-import { createColumnHelper } from "@tanstack/react-table";
-import { DataTable } from "../../../components/table";
 import { getForecastObjectiveStats } from "../../../utilities/backend_calls/stats";
 import { colors } from "../../../theme/theme";
 import { getRollingForecastChart, getSegmentationChart, getTrendChart } from "../../../utilities/backend_calls/charts";
 import { faCaretDown, faCaretUp, faChevronLeft, faChevronRight } from "@fortawesome/pro-light-svg-icons";
-import { faArrowUpRightAndArrowDownLeftFromCenter, faCircleInfo, faFileChartColumn, faFileExport, faMicrochipAi, faPenToSquare, faWrench } from "@fortawesome/pro-light-svg-icons";
+import { faArrowUpRightAndArrowDownLeftFromCenter, faCircleInfo, faFileExport } from "@fortawesome/pro-light-svg-icons";
 import Toast from "../../../components/toast";
-import AiAnalysisModal from "./_includes/ai_analysis_modal";
 import ExpandedChartModal from "../../../components/expanded_chart_modal";
-import InventoryTable from "./_includes/inventory_table";
 
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
@@ -47,6 +43,7 @@ type mainStats = Record<string, any>[]
 const ForecastObjective = () => {
   const { objective_id } = useParams()
   const [objective, setObjective] = useState<Objective | null>(null)
+  const [panelSourceDataFields, setPanelSourceDataFields] = useState<Record<string, any> | null>(null)
 
   const [mainStats, setMainStats] = useState<mainStats | null>(null)
 
@@ -62,80 +59,23 @@ const ForecastObjective = () => {
   const [AIRecommendationTableCache, setAIRecommendationTableCache] = useState<Record<number, AIRecommendationTable>>({})
   const [currentPageAIRecommendationTable, setCurrentPageAIRecommendationTable] = useState<number>(1)
   const [expandedEntityIndex, setExpandedEntityIndex] = useState<number>(0)
-  const [manualOverrideEntity, setManualOverrideEntity] = useState<string>("")
-  const [manualOverrideVal, setManualOverrideVal] = useState<string>("")
   const [executePlanCustomEntries, setExecutePlanCustomEntries] = useState<Record<string, any>[] | null>(null)
   const [isExportingTable, setIsExportingTable] = useState(false)
 
   const [expandedChartJSONspec, setExpandedChartJSONspec] = useState<Record<any, any> | null>(null)
   const [expandedChartModalHeader, setExpandedChartModalHeader] = useState("")
 
-  const [cutoff, setCutoff] = useState<any[]>([])
-
   const access_token_indexhub_api = useAuth0AccessToken();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
   const toast = useToast();
 
-  const {
-    isOpen: isOpenTrendModal,
-    onOpen: onOpenTrendModal,
-    onClose: onCloseTrendModal
-  } = useDisclosure()
-  const {
-    isOpen: isOpenManualOverrideModal,
-    onOpen: onOpenManualOverrideModal,
-    onClose: onCloseManualOverrideModal
-  } = useDisclosure()
+
   const {
     isOpen: isOpenExpandedChartModal,
     onOpen: onOpenExpandedChartModal,
     onClose: onCloseExpandedChartModal
   } = useDisclosure()
 
-  const insertExcecutePlanCustomEntries = (fh: number, ai: number, baseline: number, override: number, use: string) => {
-    if (AIRecommendationTable) {
-      let internalExecutePlanCustomEntries = executePlanCustomEntries
-      if (!internalExecutePlanCustomEntries) {
-        internalExecutePlanCustomEntries = []
-      }
-      const existing_record_index = internalExecutePlanCustomEntries.findIndex(((obj: any) => (obj["fh"] == fh && obj["entity"] == AIRecommendationTable["results"][expandedEntityIndex]["entity"])))
-      if (existing_record_index > -1) {
-        internalExecutePlanCustomEntries.splice(existing_record_index, 1)
-      }
-      internalExecutePlanCustomEntries.push(
-        {
-          entity: AIRecommendationTable["results"][expandedEntityIndex]["entity"],
-          fh: fh,
-          ai: ai,
-          baseline: baseline,
-          override: override,
-          use: use
-        }
-      )
-      setExecutePlanCustomEntries(structuredClone(internalExecutePlanCustomEntries))
-
-      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_ai"] = false
-      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_baseline"] = false
-      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1]["use_override"] = false
-
-      AIRecommendationTable["results"][expandedEntityIndex]["tables"][fh - 1][`use_${use}`] = true
-      setAIRecommendationTable(structuredClone(AIRecommendationTable))
-    }
-  }
-
-  const manualOverrideAi = (manual_forecast = "", time_col: string) => {
-    if (AIRecommendationTable) {
-      if (expandedEntityIndex >= 0) {
-        const upd_obj_index = AIRecommendationTable["results"][expandedEntityIndex]["tables"].findIndex(((obj: any) => obj["Time"] == time_col));
-        AIRecommendationTable["results"][expandedEntityIndex]["tables"][upd_obj_index]["Override"] = Number(manual_forecast)
-        setAIRecommendationTable(structuredClone(AIRecommendationTable))
-
-        setManualOverrideEntity("")
-        setManualOverrideVal("")
-        onCloseManualOverrideModal()
-      }
-    }
-  }
 
   const getEntityTrendChartApi = async () => {
     if (objective_id) {
@@ -182,137 +122,6 @@ const ForecastObjective = () => {
     }
   }
 
-  const AI_Recommendation_column_helper = createColumnHelper<Record<string, any>>();
-
-  const columns = [
-    AI_Recommendation_column_helper.accessor("Time", {
-      cell: (info) => (
-        new Date(info.getValue()).toLocaleDateString()
-      ),
-      header: "Time",
-    }),
-
-    AI_Recommendation_column_helper.accessor("Forecast Period", {
-      cell: (info) => (
-        info.getValue()
-      ),
-      header: "Forecast Period",
-    }),
-
-    AI_Recommendation_column_helper.accessor("Baseline", {
-      cell: (info) => (
-        info.getValue()
-      ),
-      header: "Baseline",
-    }),
-
-    AI_Recommendation_column_helper.accessor("Forecast", {
-      cell: (info) => (
-        info.getValue()
-      ),
-      header: "Forecast",
-    }),
-
-    AI_Recommendation_column_helper.accessor("Forecast (90% quantile)", {
-      cell: (info) => (
-        info.getValue()
-      ),
-      header: "Forecast (90% quantile)",
-    }),
-
-    AI_Recommendation_column_helper.accessor("Forecast (10% quantile)", {
-      cell: (info) => (
-        info.getValue()
-      ),
-      header: "Forecast (10% quantile)",
-    }),
-
-    AI_Recommendation_column_helper.accessor(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (row: any) => [
-        row["Time"],
-        row["Override"],
-      ],
-      {
-        id: "override",
-        cell: (info) => {
-          return (
-            <HStack width="100%" justify="center">
-              <Text width="60%" overflowX="scroll" color="table.font" fontSize="sm">{info.getValue()[1]}</Text>
-              <Tooltip label="Edit Override Value">
-                <Box width="40%" cursor="pointer">
-                  <FontAwesomeIcon icon={faPenToSquare as any} size="lg" onClick={() => {
-                    setManualOverrideEntity(info.getValue()[0])
-                    onOpenManualOverrideModal()
-                  }} />
-                </Box>
-              </Tooltip>
-            </HStack>
-          );
-        },
-        header: "Override",
-        meta: {
-          isButtons: true,
-        },
-        enableSorting: false,
-      }
-    ),
-
-    AI_Recommendation_column_helper.accessor(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (row: any) => [
-        row["Forecast Period"],
-        row["Forecast"],
-        row["Baseline"],
-        row["Override"],
-        row["use_ai"],
-        row["use_baseline"],
-        row["use_override"]
-      ],
-      {
-        id: "execute_plan",
-        cell: (info) => {
-          return (
-            <HStack width="100%" justify="center">
-              <Tooltip label="Use AI" >
-                <Stack width={7} p={1} borderRadius={8} cursor="pointer" backgroundColor={info.getValue()[4] ? "table.icon_highlight" : ""}>
-                  <FontAwesomeIcon icon={faMicrochipAi as any} size="lg" onClick={() => {
-                    insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "ai")
-                  }} />
-                </Stack>
-              </Tooltip>
-
-              <Tooltip label="Use Baseline">
-                <Stack width={7} p={1} borderRadius={8} cursor="pointer" backgroundColor={info.getValue()[5] ? "table.icon_highlight" : ""}>
-                  <FontAwesomeIcon icon={faFileChartColumn as any} size="lg" onClick={() => {
-                    insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "baseline")
-                  }} />
-                </Stack>
-              </Tooltip>
-
-              <Tooltip label={`Use Override ${info.getValue()[3] ? "" : "(Not Available)"}`}>
-                <Stack width={7} p={1} borderRadius={8} cursor="pointer" backgroundColor={info.getValue()[6] ? "table.icon_highlight" : ""}>
-                  <FontAwesomeIcon icon={faWrench as any} size="lg" onClick={() => {
-                    if (info.getValue()[3]) {
-                      insertExcecutePlanCustomEntries(info.getValue()[0], info.getValue()[1], info.getValue()[2], info.getValue()[3], "override")
-                    }
-                    // Consider adding some sort of notification to indicate
-                  }} />
-                </Stack>
-              </Tooltip>
-
-            </HStack>
-          );
-        },
-        header: "",
-        meta: {
-          isButtons: true,
-        },
-        enableSorting: false,
-      }
-    ),
-  ];
-
   useEffect(() => {
     const getObjectiveApi = async () => {
       const objective = await getObjective(
@@ -322,6 +131,7 @@ const ForecastObjective = () => {
       );
       objective["objective"]["fields"] = JSON.parse(objective["objective"]["fields"])
       setObjective(objective["objective"]);
+      setPanelSourceDataFields(objective["panel_source_data_fields"])
     };
 
     const getMainTrendChartApi = async () => {
@@ -355,7 +165,6 @@ const ForecastObjective = () => {
     setAIRecommendationTable(null)
     const AIRecommendationTable = await getAIRecommendationTable(currentPageAIRecommendationTable, 5, objective_id ? objective_id : "", access_token_indexhub_api, filter_by)
     setAIRecommendationTable(AIRecommendationTable)
-    setCutoff(AIRecommendationTable["results"][0]["tables"])
     AIRecommendationTableCache[currentPageAIRecommendationTable] = AIRecommendationTable
     setAIRecommendationTableCache(AIRecommendationTableCache)
   }
@@ -398,7 +207,7 @@ const ForecastObjective = () => {
     }
   }, [expandedEntityIndex, AIRecommendationTable])
 
-  if (objective) {
+  if (objective && panelSourceDataFields) {
     return (
       <>
         <VStack width="100%" alignItems="flex-start">
@@ -452,7 +261,7 @@ const ForecastObjective = () => {
                               <Heading size="sm" color="muted">
                                 Frequency
                               </Heading>
-                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{objective["fields"]["freq"]}</Text>
+                              <Text mt="2px !important" fontSize="3xs" fontWeight="bold" textTransform="uppercase">{panelSourceDataFields["freq"]}</Text>
                             </VStack>
                           </Stack>
                         </Box>
@@ -629,8 +438,6 @@ const ForecastObjective = () => {
               )}
             </Box>
 
-
-
             <Tabs mt="1.5rem" position="relative" variant="line" isLazy lazyBehavior="keepMounted">
               <TabList>
                 <Tab fontWeight="bold">Forecast Selection</Tab>
@@ -646,41 +453,11 @@ const ForecastObjective = () => {
                 <TabPanel>
                   <>
                     <VStack width="100%" justify="space-between" mb="1rem" mt="1rem" alignItems="flex-start">
-
-                      {/* <Heading size="md" fontWeight="bold">Forecast Selection</Heading> */}
-
                       <HStack width="100%" justify="space-between">
                         <Text fontSize="sm" width="70%">The entities in this table are sorted from highest uplift to lowest and the objective tracker represents the uplift % for each entity.</Text>
-                        <HStack>
-                          <Button size="sm" onClick={() => {
-                            getAIRecommendationTableApi(true)
-                          }}>Show all entities</Button>
-                          <Select
-                            // onChange={(value) => {
-                            //   if (value) {
-                            //     setSegmentationFactor(value.value)
-                            //   }
-                            // }}
-                            size="sm"
-                            defaultValue={{
-                              value: "increasing",
-                              label: "High to Low"
-                            }}
-                            useBasicStyles
-                            options={
-                              [
-                                {
-                                  "value": "increasing",
-                                  "label": "High to Low"
-                                },
-                                {
-                                  "value": "decreasing",
-                                  "label": "Low to High"
-                                },
-                              ]
-                            }
-                          />
-                        </HStack>
+                        <Button size="sm" onClick={() => {
+                          getAIRecommendationTableApi(true)
+                        }}>Show all entities</Button>
                       </HStack>
 
                       <Tooltip label="Execute Plan" placement='left'>
@@ -706,26 +483,8 @@ const ForecastObjective = () => {
                                     <HStack as="span" flex='1' textAlign='left'>
                                       <VStack width="20%" alignItems="flex-start">
                                         <Text pb="1rem" fontWeight="bold" fontSize="large">{entity_data["entity"]}</Text>
-                                        {/* <Button onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#676767" }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "black" }} backgroundColor="black" onClick={(e) => {
-                                  e.stopPropagation()
-                                  chartFilter["entity"] = [entity_data["entity"]]
-                                  setChartFilter(chartFilter)
-                                  setEntityTrendChart(null)
-                                  getEntityTrendChartApi()
-                                  onOpenTrendModal()
-                                }}>
-                                  <HStack>
-                                    <Text color="white">
-                                      AI Analysis
-                                    </Text>
-                                    <FontAwesomeIcon color="white" icon={faMicrochipAi as any} />
-                                  </HStack>
-
-                                </Button> */}
                                       </VStack>
-
                                       <HStack width="80%" alignItems="stretch">
-
                                         <Box
                                           px={{ base: '4', md: '6' }}
                                           py={{ base: '5', md: '6' }}
@@ -738,7 +497,7 @@ const ForecastObjective = () => {
                                                 AI Forecast
                                               </Text>
                                               <Text color="muted" mt="unset !important" fontSize="3xs" textTransform="uppercase" fontWeight="bold">
-                                                Over Next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}
+                                                Over Next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[panelSourceDataFields["freq"]]}
                                               </Text>
                                             </Stack>
                                             <HStack justify="space-between">
@@ -756,7 +515,7 @@ const ForecastObjective = () => {
                                                 <Text ml="unset !important">)</Text>
                                               </HStack>
                                             </HStack>
-                                            <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[objective["fields"]["freq"]]}</Text>
+                                            <Text fontSize="xs">Predicted to {entity_data["stats"]["pct_change"] >= 0 ? "increase" : "decrease"} by <b>{Math.abs(entity_data["stats"]["diff"])}</b> from <b>{entity_data["stats"]["last_window__stat"]}</b> over the next {objective["fields"]["fh"]} {FREQDISPLAYMAPPING[panelSourceDataFields["freq"]]}</Text>
                                           </Stack>
                                         </Box>
                                         <Stack
@@ -781,7 +540,7 @@ const ForecastObjective = () => {
                                                 </CircularProgress>
                                               </HStack>
                                               <VStack align="baseline">
-                                                <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[objective["fields"]["freq"]]} months</Text>
+                                                <Text fontSize="xs">AI has made an <b>overall progress of {entity_data["stats"]["progress"]}%</b> towards its goal of {entity_data["stats"]["goal"]}%, with an <b>average uplift of {entity_data["stats"]["score__uplift_pct__rolling_mean"]}%</b> over the last {FREQ_TO_SP[panelSourceDataFields["freq"]]} {FREQDISPLAYMAPPING[panelSourceDataFields["freq"]]}</Text>
                                               </VStack>
                                             </Stack>
                                           </Box>
@@ -867,13 +626,6 @@ const ForecastObjective = () => {
                                         </Box>
                                       </Box>
                                     </HStack>
-                                    <TableContainer width="100%" backgroundColor="white" borderRadius={8}>
-                                      <DataTable
-                                        columns={columns}
-                                        data={entity_data["tables"]}
-                                        body_height="73px"
-                                      ></DataTable>
-                                    </TableContainer>
                                   </VStack>
 
                                 </AccordionPanel>
@@ -881,7 +633,6 @@ const ForecastObjective = () => {
                             )
                           })}
                         </Accordion>
-
                         <HStack py="1rem" width="100%" justify="right">
                           <Button
                             onClick={() => setCurrentPageAIRecommendationTable(currentPageAIRecommendationTable - 1)}
@@ -909,61 +660,17 @@ const ForecastObjective = () => {
                   </>
                 </TabPanel>
                 <TabPanel>
-                  {objective_id && <InventoryTable objective_id={objective_id} />}
+                  {/* {objective_id && <InventoryTable objective_id={objective_id} />} */}
+                  <Stack width="100%" alignItems="center" height="10rem">
+                    <Text textAlign="center" fontWeight="bold">Coming Soon...</Text>
+                  </Stack>
                 </TabPanel>
               </TabPanels>
 
             </Tabs>
-
-
           </Box>
-
         </VStack>
 
-        <AiAnalysisModal
-          cutoff={cutoff}
-          objective={objective}
-          isOpenTrendModal={isOpenTrendModal}
-          onCloseTrendModal={onCloseTrendModal}
-          chartFilter={chartFilter}
-          entityTrendChart={entityTrendChart}
-        />
-
-        {/* Modal for manual overrides */}
-        <Modal isOpen={isOpenManualOverrideModal} onClose={onCloseManualOverrideModal}>
-          <ModalOverlay />
-          <ModalContent>
-            <ModalHeader>
-              <Text>Manual Override</Text>
-            </ModalHeader>
-            <ModalCloseButton />
-            <ModalBody>
-              <Stack>
-                <FormControl>
-                  {(AIRecommendationTable && expandedEntityIndex > -1) && (
-                    <FormLabel>
-                      {AIRecommendationTable["results"][expandedEntityIndex]["entity"]} ({new Date(manualOverrideEntity).toLocaleDateString()})
-                    </FormLabel>
-                  )}
-                  <Input
-                    onChange={(e) => (setManualOverrideVal(e.currentTarget.value))}
-                  />
-                  <Stack py="1rem" width="100%" alignItems="center">
-                    <Button width="50%" onClick={() => {
-                      if (isNaN(+manualOverrideVal)) {
-                        Toast(toast, "Invalid Value", "Use only numbers as override values", "error");
-                      } else {
-                        manualOverrideAi(manualOverrideVal, manualOverrideEntity)
-                      }
-                    }}>
-                      Override
-                    </Button>
-                  </Stack>
-                </FormControl>
-              </Stack>
-            </ModalBody>
-          </ModalContent>
-        </Modal>
         {expandedChartJSONspec && (
           <ExpandedChartModal isOpenExpandedChartModal={isOpenExpandedChartModal} onCloseExpandedChartModal={onCloseExpandedChartModal} EChartJSONspec={expandedChartJSONspec} header={expandedChartModalHeader} />
         )}

@@ -4,6 +4,7 @@ import {
   Divider,
   Grid,
   HStack,
+  Spinner,
   Stack,
   Text,
   VStack,
@@ -39,64 +40,72 @@ const SourceType = (props: {
         px={{ base: "4", md: "6" }}
         py={{ base: "5", md: "6" }}
       >
-        <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-          {Object.keys(props.conn_schema).map((source_tag, idx) => {
-            return (
-              <Card
-                cursor="pointer"
-                boxShadow="md"
-                borderRadius="lg"
-                key={idx}
-                onClick={() => {
-                  props.submitSourceType(source_tag);
-                }}
-              >
-                <CardBody>
-                  <VStack>
-                    <HStack p="3" width="100%" justify="left">
-                      <FontAwesomeIcon
-                        size="2xs"
-                        icon={faCircleDot as any}
-                        beatFade
-                        style={{
-                          color:
+        {Object.keys(props.conn_schema).length > 0 ? (
+          <Grid templateColumns="repeat(3, 1fr)" gap={6}>
+
+            {Object.keys(props.conn_schema).map((source_tag, idx) => {
+              return (
+                <Card
+                  cursor="pointer"
+                  boxShadow="md"
+                  borderRadius="lg"
+                  key={idx}
+                  onClick={() => {
+                    props.submitSourceType(source_tag);
+                  }}
+                >
+                  <CardBody>
+                    <VStack>
+                      <HStack p="3" width="100%" justify="left">
+                        <FontAwesomeIcon
+                          size="2xs"
+                          icon={faCircleDot as any}
+                          beatFade
+                          style={{
+                            color:
+                              props.conn_schema[source_tag][
+                                "is_authenticated"
+                              ] == true
+                                ? colors.supplementary.indicators.main_green
+                                : colors.supplementary.indicators.main_red,
+                          }}
+                        />
+                        <Text
+                          textAlign="center"
+                          fontSize="2xs"
+                          color={
                             props.conn_schema[source_tag][
                               "is_authenticated"
                             ] == true
                               ? colors.supplementary.indicators.main_green
-                              : colors.supplementary.indicators.main_red,
-                        }}
-                      />
-                      <Text
-                        textAlign="center"
-                        fontSize="2xs"
-                        color={
-                          props.conn_schema[source_tag][
+                              : colors.supplementary.indicators.main_red
+                          }
+                        >
+                          {props.conn_schema[source_tag][
                             "is_authenticated"
                           ] == true
-                            ? colors.supplementary.indicators.main_green
-                            : colors.supplementary.indicators.main_red
-                        }
-                      >
-                        {props.conn_schema[source_tag][
-                          "is_authenticated"
-                        ] == true
-                          ? "HAS CREDENTIALS"
-                          : "NEEDS CREDENTIALS"}
-                      </Text>
-                    </HStack>
-                    <Box p="6">{logos[source_tag]}</Box>
-                    <Box p="4">
-                      <Text textAlign="center" fontWeight="bold">
-                        {capitalizeFirstLetter(source_tag)}
-                      </Text>
-                    </Box>
-                  </VStack>
-                </CardBody>
-              </Card>
-            );
-          })}
-        </Grid>
+                            ? "HAS CREDENTIALS"
+                            : "NEEDS CREDENTIALS"}
+                        </Text>
+                      </HStack>
+                      <Box p="6">{logos[source_tag]}</Box>
+                      <Box p="4">
+                        <Text textAlign="center" fontWeight="bold">
+                          {capitalizeFirstLetter(source_tag)}
+                        </Text>
+                      </Box>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              );
+            })}
+          </Grid>
+        ) : (
+          <Stack alignItems="center" justifyContent="center" height="full">
+            <Spinner />
+            <Text>Loading...</Text>
+          </Stack>
+        )}
       </Stack>
       <Divider />
     </Box>

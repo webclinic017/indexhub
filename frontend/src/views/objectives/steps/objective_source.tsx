@@ -48,8 +48,13 @@ const ObjectiveSource = (props: {
       >
         {Object.keys(schema_dataset_fields).map(
           (dataset_field: string, idx: number) => {
+            const is_required = schema_dataset_fields[dataset_field][
+              "is_required"
+            ]
+              ? true
+              : false;
             return (
-              <FormControl isRequired key={idx}>
+              <FormControl isRequired={is_required} key={idx}>
                 <FormLabel>
                   {schema_dataset_fields[dataset_field]["title"]}
                 </FormLabel>

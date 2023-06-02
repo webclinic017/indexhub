@@ -14,8 +14,13 @@ class Objective(SQLModel, table=True):
     updated_at: datetime
     # Sources
     # panel: int (id from source table)
+    # panel_name: str (provide from FE)
     # baseline: Optional[int] = None (id from source table)
+    # baseline_name: str (provide from FE)
     # inventory: Optional[int] = None (id from source table)
+    # inventory_name: str (provide from FE)
+    # transaction: Optional[int] = None (id from source table)
+    # transaction_name: str (provide from FE)
     sources: str
     # Fields
     # fh: int

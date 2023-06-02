@@ -82,6 +82,5 @@ export const getCombinedEntitiesAndInventoryChart = async (
     });
 
     const response_json = await get_combined_entities_and_inventory_chart_response.json();
-    console.log(JSON.parse(response_json))
     return JSON.parse(response_json)
 };

@@ -27,6 +27,7 @@ const SourcePath = (props: {
   conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   goToPrevStep: () => void;
   submitSourcePath: (configs: Record<string, string>) => Promise<void>;
+  isLoadingSourceColumns: boolean
 }) => {
   // const configs: Record<string, string> = {};
   const [configs, setConfigs] = useState<Record<string, string>>({})
@@ -94,6 +95,7 @@ const SourcePath = (props: {
           onClick={() => props.submitSourcePath(configs)}
           colorScheme="facebook"
           ml="2rem"
+          isLoading={props.isLoadingSourceColumns}
         >
           Next
         </Button>

@@ -49,7 +49,7 @@ const NewIntegration = (props: {
             </Text>
             {(selectedIntegrationIds && allIntegrations) ? (
                 <CheckboxGroup colorScheme='green' value={selectedIntegrationIds} onChange={(e) => { setSelectedIntegrationIds([...(e.map(Number))]) }}>
-                    <Box overflowY="scroll" maxH="30rem" p="5px">
+                    <Box p="5px">
                         <Grid templateColumns="repeat(3, 1fr)" gap={6}>
                             {allIntegrations.map((integration, idx) => {
                                 return (

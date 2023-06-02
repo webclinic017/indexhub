@@ -7,6 +7,7 @@ import {
   Grid,
   Heading,
   HStack,
+  Spinner,
   Stack,
   Text,
   VStack,
@@ -59,6 +60,7 @@ const ObjectivesDashboard = () => {
       );
       objectives["objectives"].map((objective: Objective) => {
         objective["fields"] = JSON.parse(objective["fields"]);
+        objective["sources"] = JSON.parse(objective["sources"]);
       });
       setObjectives(objectives["objectives"]);
 
@@ -167,19 +169,27 @@ const ObjectivesDashboard = () => {
                         </Text>
                       </HStack>
 
-                      <Text py={6} textAlign="left" fontWeight="bold">
+                      <Text py={4} textAlign="left" fontWeight="bold">
                         {capitalizeFirstLetter(objective["fields"]["description"])}
                       </Text>
 
-                      <VStack width="100%" justify="left">
+                      <hr style={{ width: "100%", margin: "0.5rem 0" }}></hr>
+
+                      <VStack width="100%" justify="left" >
                         <Text width="100%" fontSize="xs">
                           SOURCES
                         </Text>
                         <Text width="100%" fontSize="small">
-                          <b>PANEL:</b> Panel Source Name
+                          <b>PANEL:</b> {objective["sources"]["panel_name"]}
                         </Text>
                         <Text width="100%" fontSize="small">
-                          <b>BASELINE:</b> Baseline Source Name
+                          <b>BASELINE:</b> {objective["sources"]["baseline_name"]}
+                        </Text>
+                        <Text width="100%" fontSize="small">
+                          <b>INVENTORY:</b> {objective["sources"]["inventory_name"]}
+                        </Text>
+                        <Text width="100%" fontSize="small">
+                          <b>TRANSACTION:</b> {objective["sources"]["transaction_name"]}
                         </Text>
                       </VStack>
 
@@ -189,25 +199,14 @@ const ObjectivesDashboard = () => {
                 </Card>
               );
             })}
-            <Card
-              cursor="pointer"
-              borderRadius="lg"
-              alignItems="center"
-              justifyContent="center"
-              onClick={() => {
-                navigate("/objectives/new_objective");
-              }}
-            >
-              <CardBody>
-                <VStack>
-                  <FontAwesomeIcon size="2x" icon={faPlusCircle as any} />
-                  <Text>Add a new objective</Text>
-                </VStack>
-              </CardBody>
-            </Card>
           </Grid>
         </>
-      ) : <></>}
+      ) : (
+        <Stack alignItems="center" justifyContent="center" height="full">
+          <Spinner />
+          <Text>Loading...</Text>
+        </Stack>
+      )}
     </VStack>
   );
 };

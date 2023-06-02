@@ -164,15 +164,17 @@ const NewObjective = () => {
       </Text>
       <Container maxWidth="920px" py={{ base: "8", md: "16" }}>
         <Stack direction={{ base: "column", md: "row" }} spacing="4" mb="3rem">
-          {steps.map((step, id) => (
-            <Step
-              key={id}
-              title={step.title}
-              description={step.description}
-              isActive={currentStep === id}
-              isCompleted={currentStep > id}
-            />
-          ))}
+          {steps.map((step, id) => {
+            return (
+              <Step
+                key={id}
+                title={step.title}
+                description={step.description}
+                isActive={currentStep === id}
+                isCompleted={currentStep > id}
+              />
+            )
+          })}
         </Stack>
         {stepScreens[currentStep]}
       </Container>

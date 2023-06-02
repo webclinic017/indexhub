@@ -15,6 +15,7 @@ const ConfirmCreateSource = (props: {
   source_tag: string
   createSource: () => void;
   goToPrevStep: () => void;
+  isCreatingSource: boolean
 }) => {
   return (
     <Box
@@ -85,16 +86,18 @@ const ConfirmCreateSource = (props: {
               </Text>
               <Text width="70%">{props.source_configs["target_col"]}</Text>
             </Stack>
-            <Stack
-              direction={{ base: "column", md: "row" }}
-              spacing={{ base: "1.5", md: "8" }}
-              justifyContent="space-between"
-            >
-              <Text width="30%" fontWeight="bold">
-                Entity column(s)
-              </Text>
-              <Text width="70%">{props.source_configs["entity_cols"].join(", ")}</Text>
-            </Stack>
+            {(props.source_configs["entity_cols"] && props.source_configs["entity_cols"].length > 0) && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Entity column(s)
+                </Text>
+                <Text width="70%">{props.source_configs["entity_cols"].join(", ")}</Text>
+              </Stack>
+            )}
           </Stack>
         </Stack>
       </Container>
@@ -104,6 +107,8 @@ const ConfirmCreateSource = (props: {
           ml="2rem"
           onClick={() => props.createSource()}
           colorScheme="facebook"
+          isLoading={props.isCreatingSource}
+          loadingText="Creating Source"
         >
           Create source
         </Button>

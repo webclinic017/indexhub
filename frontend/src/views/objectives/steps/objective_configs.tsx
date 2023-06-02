@@ -13,7 +13,7 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { MultiValue, Select } from "chakra-react-select";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const getOptionsArray = (options: string[]) => {
   const result_options: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -104,7 +104,7 @@ const ObjectiveConfigs = (props: {
           <VStack pb="2rem">
             <Text>{description}</Text>
           </VStack>
-          <Grid templateColumns="auto auto" gap={6} maxH="20rem" overflowY="scroll">
+          <Grid templateColumns="auto auto" gap={6}>
             <FormControl isRequired>
               <FormLabel>Objective name</FormLabel>
               <Input
@@ -116,20 +116,20 @@ const ObjectiveConfigs = (props: {
             </FormControl>
             {Object.keys(schema_config_fields).map(
               (config_field: string, idx: number) => {
-                let depends_on = "";
-                const has_depends_on = Object.keys(
-                  schema_config_fields[config_field]
-                ).includes("depends_on");
-                if (has_depends_on) {
-                  depends_on = schema_config_fields[config_field]["depends_on"];
-                }
+
                 const is_multiple = schema_config_fields[config_field][
                   "is_multiple"
                 ]
                   ? true
                   : false;
+
+                const is_required = schema_config_fields[config_field][
+                  "is_required"
+                ]
+                  ? true
+                  : false;
                 return (
-                  <FormControl isRequired key={idx}>
+                  <FormControl isRequired={is_required} key={idx}>
                     <FormLabel>
                       {schema_config_fields[config_field]["title"]}
                     </FormLabel>
@@ -145,15 +145,9 @@ const ObjectiveConfigs = (props: {
                       }}
                       useBasicStyles
                       options={
-                        has_depends_on
-                          ? getOptionsArray(
-                            schema_config_fields[config_field]["values"][
-                            objective_configs[depends_on]
-                            ]
-                          )
-                          : getOptionsArray(
-                            schema_config_fields[config_field]["values"]
-                          )
+                        getOptionsArray(
+                          schema_config_fields[config_field]["values"]
+                        )
                       }
                     />
                   </FormControl>

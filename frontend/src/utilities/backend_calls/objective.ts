@@ -35,14 +35,24 @@ export const createObjective = async (
       name: objective_configs["objective_name"],
       sources: JSON.stringify({
         panel: objective_configs["panel"],
+        panel_name: objective_configs["panel_name"],
         baseline: objective_configs["baseline"]
           ? objective_configs["baseline"]
+          : "",
+        baseline_name: objective_configs["baseline_name"]
+          ? objective_configs["baseline_name"]
           : "",
         inventory: objective_configs["inventory"]
           ? objective_configs["inventory"]
           : "",
+        inventory_name: objective_configs["inventory_name"]
+          ? objective_configs["inventory_name"]
+          : "",
         transaction: objective_configs["transaction"]
           ? objective_configs["transaction"]
+          : "",
+        transaction_name: objective_configs["transaction_name"]
+          ? objective_configs["transaction_name"]
           : "",
       }),
       fields: JSON.stringify({

@@ -145,7 +145,10 @@ def get_objective(objective_id: str):
     with Session(engine) as session:
         query = select(Objective).where(Objective.id == objective_id)
         objective = session.exec(query).first()
-        return {"objective": objective}
+        objective_sources = json.loads(objective.sources)
+        panel_source = get_source(objective_sources["panel"])["source"]
+        panel_source_data_fields = json.loads(panel_source.data_fields)
+        return {"objective": objective, "panel_source_data_fields": panel_source_data_fields}
 
 
 @router.delete("/objectives/{objective_id}")
