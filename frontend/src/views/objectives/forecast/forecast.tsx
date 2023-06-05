@@ -610,13 +610,20 @@ const ForecastObjective = () => {
                                         </HStack>
                                         <Box height="20rem">
                                           {rollingForecastChart ? (
-                                            <ReactEcharts
-                                              option={JSON.parse(rollingForecastChart[entity_data["entity"]])}
-                                              style={{
-                                                height: "100%",
-                                                width: "100%",
-                                              }}
-                                            />
+                                            rollingForecastChart[entity_data["entity"]] ? (
+                                              <ReactEcharts
+                                                option={JSON.parse(rollingForecastChart[entity_data["entity"]])}
+                                                style={{
+                                                  height: "100%",
+                                                  width: "100%",
+                                                }}
+                                              />
+                                            ) : (
+                                              <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
+                                                <Text>Rolling data not available for this objective</Text>
+                                              </Stack>
+                                            )
+
                                           ) : (
                                             <Stack alignItems="center" borderRadius="10" justifyContent="center" height="full" backgroundColor="white">
                                               <Spinner />
