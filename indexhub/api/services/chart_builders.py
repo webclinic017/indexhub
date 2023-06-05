@@ -731,93 +731,117 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
 
     output_json = {}
     for entity in entities:
-        line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
-        for type, colors in _type_to_colors.items():
-            # Create each lines based on the line_type
-            colors_cycle = itertools.cycle(colors)
-
-            data_d1 = rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
-                pl.col("updated_at") == updated_dates[-1]
-            )
-            data_d2 = (
-                rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
-                    pl.col("updated_at") == updated_dates[-2]
+        try:
+            # Initial the chart objective
+            line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
+            for type, colors in _type_to_colors.items():
+                # Create each lines based on the line_type
+                colors_cycle = itertools.cycle(colors)
+                # Get the x and y values for each line
+                x_values = (
+                    rolling_forecasts.filter(pl.col(entity_col) == entity)
+                    .with_columns(pl.col("time").cast(pl.Date))
+                    .filter(pl.col("updated_at") == updated_dates[-1])
+                    .get_column("time")
+                    .to_list()
                 )
-                if len(updated_dates) >= 2
-                else None
-            )
-            data_d3 = (
-                rolling_forecasts.filter(pl.col(entity_col) == entity).filter(
-                    pl.col("updated_at") == updated_dates[-3]
+                y1 = (
+                    rolling_forecasts.filter(pl.col(entity_col) == entity)
+                    .filter(pl.col("updated_at") == updated_dates[-1])
+                    .get_column(f"residual_{type}")
+                    .to_list()
                 )
-                if len(updated_dates) >= 3
-                else None
-            )
-            x_values = (
-                data_d1.with_columns(pl.col("time").cast(pl.Date))
-                .get_column("time")
-                .to_list()
-            )
-            y_d1 = data_d1.get_column(f"residual_{type}").to_list()
-            selected_series = {
-                f"{_type_to_name[type]} ({date.strftime('%Y-%m-%d')})": False
-                for type in ["ai", "plan"]
-                for date in updated_dates
-            }
+                y2 = (
+                    rolling_forecasts.filter(pl.col(entity_col) == entity)
+                    .filter(pl.col("updated_at") == updated_dates[-2])
+                    .get_column(f"residual_{type}")
+                    .to_list()
+                    if len(updated_dates) >= 2
+                    else None
+                )
+                y3 = (
+                    rolling_forecasts.filter(pl.col(entity_col) == entity)
+                    .filter(pl.col("updated_at") == updated_dates[-3])
+                    .get_column(f"residual_{type}")
+                    .to_list()
+                    if len(updated_dates) >= 3
+                    else None
+                )
+                # Configure the default visibility option for chart legends
+                selected_series = {
+                    f"{_type_to_name[type]} ({date.strftime('%Y-%m-%d')})": False
+                    for type in ["ai", "plan"]
+                    for date in updated_dates
+                }
 
-            line_chart.add_xaxis(x_values)
-            line_chart.add_yaxis(
-                f"{_type_to_name[type]} ({updated_dates[-1].strftime('%Y-%m-%d')})",
-                y_d1,
-                label_opts=opts.LabelOpts(is_show=False),
-                color=next(colors_cycle),
-                linestyle_opts=opts.LineStyleOpts(width=3),
-                symbol_size=7,
-            )
-            if data_d2 is not None:
-                y_d2 = data_d2.get_column(f"residual_{type}").to_list()
+                line_chart.add_xaxis(x_values)
+                # Initial the check for empty values in line charts
+                check_empty = False
+                if y3 is not None:
+                    check_empty = True if all(value is None for value in y3) else False
+                    line_chart.add_yaxis(
+                        f"{_type_to_name[type]} ({updated_dates[-3].strftime('%Y-%m-%d')})",
+                        y3,
+                        label_opts=opts.LabelOpts(is_show=False),
+                        color=next(colors_cycle),
+                        linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
+                        is_symbol_show=True,
+                        symbol_size=1,
+                    )
+                if y2 is not None:
+                    check_empty = True if all(value is None for value in y2) else False
+                    line_chart.add_yaxis(
+                        f"{_type_to_name[type]} ({updated_dates[-2].strftime('%Y-%m-%d')})",
+                        y2,
+                        label_opts=opts.LabelOpts(is_show=False),
+                        color=next(colors_cycle),
+                        linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
+                        is_symbol_show=True,
+                        symbol_size=1,
+                    )
+                check_empty = True if all(value is None for value in y1) else False
+                if check_empty is True:
+                    raise ValueError(
+                        f"There is no rolling forecasts data for {entity}..."
+                    )
                 line_chart.add_yaxis(
-                    f"{_type_to_name[type]} ({updated_dates[-2].strftime('%Y-%m-%d')})",
-                    y_d2,
+                    f"{_type_to_name[type]} ({updated_dates[-1].strftime('%Y-%m-%d')})",
+                    y1,
                     label_opts=opts.LabelOpts(is_show=False),
                     color=next(colors_cycle),
-                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
-                    is_symbol_show=True,
-                    symbol_size=1,
-                )
-            if data_d3 is not None:
-                y_d3 = data_d3.get_column(f"residual_{type}").to_list()
-
-                line_chart.add_yaxis(
-                    f"{_type_to_name[type]} ({updated_dates[-3].strftime('%Y-%m-%d')})",
-                    y_d3,
-                    label_opts=opts.LabelOpts(is_show=False),
-                    color=next(colors_cycle),
-                    linestyle_opts=opts.LineStyleOpts(width=1, type_="dashed"),
-                    is_symbol_show=True,
-                    symbol_size=1,
+                    linestyle_opts=opts.LineStyleOpts(width=3),
+                    symbol_size=7,
                 )
 
-        line_chart.set_global_opts(
-            legend_opts=opts.LegendOpts(
-                is_show=True,
-                orient="vertical",
-                align="right",
-                border_width=0,
-                pos_right="0%",
-                selected_map=selected_series,
-                textstyle_opts=opts.TextStyleOpts(font_size=10),
-            ),
-            xaxis_opts=opts.AxisOpts(splitline_opts=opts.SplitLineOpts(is_show=False)),
-            yaxis_opts=opts.AxisOpts(
-                name="Residuals",
-                is_show=True,
-                splitline_opts=opts.SplitLineOpts(is_show=False),
-                offset=20,
-                is_scale=True,
-                axispointer_opts=opts.AxisPointerOpts(is_show=True),
-            ),
-        )
-        output_json[entity] = line_chart.dump_options()
-
+                line_chart.set_global_opts(
+                    legend_opts=opts.LegendOpts(
+                        is_show=True,
+                        orient="vertical",
+                        align="right",
+                        border_width=0,
+                        pos_right="0%",
+                        selected_map=selected_series,
+                        textstyle_opts=opts.TextStyleOpts(font_size=10),
+                    ),
+                    xaxis_opts=opts.AxisOpts(
+                        splitline_opts=opts.SplitLineOpts(is_show=False)
+                    ),
+                    yaxis_opts=opts.AxisOpts(
+                        name="Residuals",
+                        is_show=True,
+                        splitline_opts=opts.SplitLineOpts(is_show=False),
+                        offset=20,
+                        is_scale=True,
+                        axispointer_opts=opts.AxisPointerOpts(is_show=True),
+                    ),
+                )
+                output_json[entity] = line_chart.dump_options()
+        except ValueError:
+            logger.warning(
+                f"⚠️ Entity: {entity} does not have rolling forecasts data on residuals"
+            )
+            output_json[entity] = None
+    logger.info(
+        f"✔️ All rolling forecasts charts for {objective_id} are successfully created"
+    )
     return output_json
