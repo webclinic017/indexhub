@@ -1,4 +1,4 @@
-name: Deploy Modal Apps
+name: Deploy Modal Staging
 
 on:
   push:
