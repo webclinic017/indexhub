@@ -16,7 +16,6 @@ export type AppState = ReturnType<typeof rootReducer>;
 const store = createStore(rootReducer, applyMiddleware(sagaMiddleware));
 sagaMiddleware.run(mySaga);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onAuth0RedirectCallback = (appState: any) => {
   window.location.assign(`${window.location.origin}${appState.returnTo}`);
 };

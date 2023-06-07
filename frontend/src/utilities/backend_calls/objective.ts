@@ -19,7 +19,7 @@ export const getObjectivesSchema = async (
 
 export const createObjective = async (
   user_id: string,
-  objective_configs: Record<string, any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+  objective_configs: Record<string, any>,
   access_token_indexhub_api: string
 ) => {
   const create_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives`;
@@ -72,8 +72,12 @@ export const createObjective = async (
         min_lags: objective_configs["min_lags"],
         baseline_model: objective_configs["baseline_model"],
         n_splits: objective_configs["n_splits"],
-        invoice_col: objective_configs["invoice_col"] ? objective_configs["invoice_col"] : "",
-        product_col: objective_configs["product_col"] ? objective_configs["product_col"] : ""
+        invoice_col: objective_configs["invoice_col"]
+          ? objective_configs["invoice_col"]
+          : "",
+        product_col: objective_configs["product_col"]
+          ? objective_configs["product_col"]
+          : "",
       }),
     }),
   });

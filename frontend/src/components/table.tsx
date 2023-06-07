@@ -38,7 +38,7 @@ const getStatusColor = (status: string) => {
 
 export type DataTableProps<Data extends object> = {
   data: Data[];
-  columns: ColumnDef<Data, any>[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  columns: ColumnDef<Data, any>[];
   body_height?: string;
 };
 
@@ -66,7 +66,7 @@ export function DataTable<Data extends object>({
           <Tr backgroundColor="table.header_background" key={headerGroup.id}>
             {headerGroup.headers.map((header) => {
               // see https://tanstack.com/table/v8/docs/api/core/column-def#meta to type this correctly
-              const meta: any = header.column.columnDef.meta; // eslint-disable-line @typescript-eslint/no-explicit-any
+              const meta: any = header.column.columnDef.meta;
               return (
                 <Th
                   key={header.id}
@@ -101,7 +101,7 @@ export function DataTable<Data extends object>({
         {table.getRowModel().rows.map((row) => (
           <Tr height={body_height} key={row.id}>
             {row.getVisibleCells().map((cell) => {
-              const meta: any = cell.column.columnDef.meta; // eslint-disable-line @typescript-eslint/no-explicit-any
+              const meta: any = cell.column.columnDef.meta;
               return (
                 <Td key={cell.id} isNumeric={meta?.isNumeric}>
                   {meta?.isBadge ? (

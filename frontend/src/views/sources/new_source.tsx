@@ -27,7 +27,6 @@ import {
 } from "../../utilities/backend_calls/source";
 import { useSelector } from "react-redux";
 import { AppState } from "../../index";
-import { useNavigate } from "react-router-dom";
 import SourceType from "./steps/source_type";
 import SourceCredentials from "./source_credentials";
 import { createCredentials } from "../../utilities/backend_calls/credentials";
@@ -52,24 +51,24 @@ const steps = [
 ];
 
 export default function NewSource(props: {
-  onCloseNewSourceModal: () => void
+  onCloseNewSourceModal: () => void;
 }) {
-  const [conn_schema, setConnectionsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [datasets_schema, setDatasetsSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [conn_schema, setConnectionsSchema] = useState<Record<any, any>>({});
+  const [datasets_schema, setDatasetsSchema] = useState<Record<any, any>>({});
 
   const [source_tag, setSourceTag] = useState("");
   const [source_configs, setSourceConfigs] = useState<Record<string, any>>({});
   const [source_columns, setSourceColumns] = useState([""]);
   const [column_options, setColumnOptions] = useState([""]);
-  const [currentStep, { goToNextStep, goToPrevStep }] = useStep({ maxStep: steps.length });
+  const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
+    maxStep: steps.length,
+  });
   const access_token_indexhub_api = useAuth0AccessToken();
 
-  const [isLoadingSourceColumns, setIsLoadingSourceColumns] = useState(false)
-  const [isCreatingSource, setIsCreatingSource] = useState(false)
-
+  const [isLoadingSourceColumns, setIsLoadingSourceColumns] = useState(false);
+  const [isCreatingSource, setIsCreatingSource] = useState(false);
 
   const toast = useToast();
-  const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const user_details = useSelector((state: AppState) => state.reducer?.user);
@@ -92,14 +91,13 @@ export default function NewSource(props: {
 
     if (access_token_indexhub_api && user_details.id) {
       getConnectionsSchemaApi();
-      getDatasetsSchemaApi()
+      getDatasetsSchemaApi();
     }
   }, [access_token_indexhub_api, user_details]);
 
   useEffect(() => {
     setColumnOptions(source_columns);
   }, [source_columns]);
-
 
   const submitSourceType = (source_tag: string) => {
     setSourceTag(source_tag);
@@ -138,8 +136,8 @@ export default function NewSource(props: {
       ) &&
       Object.keys(configs).includes("source_name")
     ) {
-      setIsLoadingSourceColumns(true)
-      let source_columns: Record<string, any> = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+      setIsLoadingSourceColumns(true);
+      let source_columns: Record<string, any> = [];
       if (source_tag == "s3") {
         source_columns = await getS3SourceColumns(
           configs["bucket_name"],
@@ -155,7 +153,7 @@ export default function NewSource(props: {
       } else {
         Toast(toast, "Error", source_columns["detail"], "error");
       }
-      setIsLoadingSourceColumns(false)
+      setIsLoadingSourceColumns(false);
     } else {
       Toast(
         toast,
@@ -166,29 +164,59 @@ export default function NewSource(props: {
     }
   };
 
-  const submitSourceConfig = (datasetConfigs: Record<any, any>, datasetType: string) => {
-
-    let required_fields_filled = false
-    let concatenated_selected_columns: string[] = []
+  const submitSourceConfig = (
+    datasetConfigs: Record<any, any>,
+    datasetType: string
+  ) => {
+    let required_fields_filled = false;
+    let concatenated_selected_columns: string[] = [];
 
     if (datasetType == "panel") {
-      required_fields_filled = (datasetConfigs["datetime_fmt"] && datasetConfigs["entity_cols"] && datasetConfigs["freq"] && datasetConfigs["target_col"] && datasetConfigs["time_col"])
-      concatenated_selected_columns = concatenated_selected_columns.concat(datasetConfigs["entity_cols"], datasetConfigs["feature_cols"], [datasetConfigs["target_col"], datasetConfigs["time_col"]])
+      required_fields_filled =
+        datasetConfigs["datetime_fmt"] &&
+        datasetConfigs["entity_cols"] &&
+        datasetConfigs["freq"] &&
+        datasetConfigs["target_col"] &&
+        datasetConfigs["time_col"];
+      concatenated_selected_columns = concatenated_selected_columns.concat(
+        datasetConfigs["entity_cols"],
+        datasetConfigs["feature_cols"],
+        [datasetConfigs["target_col"], datasetConfigs["time_col"]]
+      );
     } else if (datasetType == "transaction") {
-      required_fields_filled = (datasetConfigs["datetime_fmt"] && datasetConfigs["freq"] && datasetConfigs["time_col"] && datasetConfigs["invoice_col"] && datasetConfigs["price_col"] && datasetConfigs["quantity_col"] && datasetConfigs["product_col"])
-      concatenated_selected_columns = concatenated_selected_columns.concat(datasetConfigs["entity_cols"], datasetConfigs["feature_cols"], [datasetConfigs["target_col"], datasetConfigs["time_col"]], datasetConfigs["invoice_col"], datasetConfigs["price_col"], datasetConfigs["quantity_col"], datasetConfigs["product_col"])
+      required_fields_filled =
+        datasetConfigs["datetime_fmt"] &&
+        datasetConfigs["freq"] &&
+        datasetConfigs["time_col"] &&
+        datasetConfigs["invoice_col"] &&
+        datasetConfigs["price_col"] &&
+        datasetConfigs["quantity_col"] &&
+        datasetConfigs["product_col"];
+      concatenated_selected_columns = concatenated_selected_columns.concat(
+        datasetConfigs["entity_cols"],
+        datasetConfigs["feature_cols"],
+        [datasetConfigs["target_col"], datasetConfigs["time_col"]],
+        datasetConfigs["invoice_col"],
+        datasetConfigs["price_col"],
+        datasetConfigs["quantity_col"],
+        datasetConfigs["product_col"]
+      );
     }
 
-    concatenated_selected_columns = concatenated_selected_columns.filter((e) => e !== "" && e !== undefined)
-    const no_duplicate_columns = concatenated_selected_columns.length == new Set(concatenated_selected_columns).size
+    concatenated_selected_columns = concatenated_selected_columns.filter(
+      (e) => e !== "" && e !== undefined
+    );
+    const no_duplicate_columns =
+      concatenated_selected_columns.length ==
+      new Set(concatenated_selected_columns).size;
 
     const new_source_configs = {
       ...source_configs,
       ...datasetConfigs,
-      dataset_type: datasetType
-    }
+      dataset_type: datasetType,
+    };
 
-    setSourceConfigs(new_source_configs)
+    setSourceConfigs(new_source_configs);
 
     if (required_fields_filled && no_duplicate_columns) {
       goToNextStep();
@@ -203,7 +231,7 @@ export default function NewSource(props: {
   };
 
   const createSource = async () => {
-    setIsCreatingSource(true)
+    setIsCreatingSource(true);
     const create_source_response = await createSourceApi(
       user_details.id,
       source_tag,
@@ -221,7 +249,7 @@ export default function NewSource(props: {
     } else {
       Toast(toast, "Error", create_source_response["detail"], "error");
     }
-    setIsCreatingSource(false)
+    setIsCreatingSource(false);
   };
 
   const stepScreens: Record<number, JSX.Element> = {
@@ -258,7 +286,6 @@ export default function NewSource(props: {
       />
     ),
   };
-
 
   return (
     <>

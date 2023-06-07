@@ -6,9 +6,7 @@ import {
   FormControl,
   FormLabel,
   Grid,
-  HStack,
   Input,
-  Spinner,
   Stack,
   Text,
   VStack,
@@ -17,7 +15,7 @@ import { MultiValue, Select } from "chakra-react-select";
 import React, { useEffect, useState } from "react";
 
 const getOptionsArray = (options: string[]) => {
-  const result_options: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const result_options: any[] = [];
   options.forEach((option: string) => {
     result_options.push({
       label: option,
@@ -27,7 +25,6 @@ const getOptionsArray = (options: string[]) => {
   return result_options;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getValuesArray = (values: MultiValue<Record<any, string>>) => {
   const values_array: string[] = [];
   values.map((value) => {
@@ -37,25 +34,26 @@ const getValuesArray = (values: MultiValue<Record<any, string>>) => {
 };
 
 const ObjectiveConfigs = (props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objectives_schema: Record<any, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   objective_configs: Record<string, any>;
   panel_source_data_fields: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   submitObjectiveConfigs: (objective_configs: Record<string, any>) => void;
   goToPrevStep: () => void;
 }) => {
   const objective_configs = props.objective_configs;
   const schema_config_fields =
-    props.objectives_schema[props.objective_configs["objective_type"]]["fields"];
+    props.objectives_schema[props.objective_configs["objective_type"]][
+    "fields"
+    ];
 
   const [description, setDescription] = useState<string>(
     props.objectives_schema[objective_configs["objective_type"]]["objective"]
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateDescription = (internal_objective_configs: Record<string, any>) => {
+  const updateDescription = (
+    internal_objective_configs: Record<string, any>
+  ) => {
     let internal_description: string =
       props.objectives_schema[internal_objective_configs["objective_type"]][
       "objective"
@@ -84,7 +82,7 @@ const ObjectiveConfigs = (props: {
         internal_objective_configs["error_type"]?.length > 0
           ? internal_objective_configs["error_type"]
           : "{error_type}"
-      )
+      );
     objective_configs["objective_description"] = internal_description;
     setDescription(internal_description);
   };
@@ -124,7 +122,6 @@ const ObjectiveConfigs = (props: {
             </FormControl>
             {Object.keys(schema_config_fields).map(
               (config_field: string, idx: number) => {
-
                 const is_multiple = schema_config_fields[config_field][
                   "is_multiple"
                 ]
@@ -152,11 +149,9 @@ const ObjectiveConfigs = (props: {
                         updateDescription(objective_configs);
                       }}
                       useBasicStyles
-                      options={
-                        getOptionsArray(
-                          schema_config_fields[config_field]["values"]
-                        )
-                      }
+                      options={getOptionsArray(
+                        schema_config_fields[config_field]["values"]
+                      )}
                     />
                   </FormControl>
                 );

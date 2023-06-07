@@ -11,7 +11,7 @@ import {
 } from "@chakra-ui/react";
 
 const SourceCredentials = (props: {
-  required_credentials_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  required_credentials_schema: Record<string, any>;
   submitSourceCreds: (source_creds: Record<string, string>) => Promise<void>;
 }) => {
   const source_credentials: Record<string, string> = {};

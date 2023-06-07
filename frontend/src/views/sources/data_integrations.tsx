@@ -20,7 +20,7 @@ import {
   Grid,
   useToast,
   Spinner,
-  Heading
+  Heading,
 } from "@chakra-ui/react";
 import { useSelector } from "react-redux";
 import useWebSocket, { ReadyState } from "react-use-websocket";
@@ -39,7 +39,6 @@ import { useAuth0AccessToken } from "../../utilities/hooks/auth0";
 import { setUserIntegrations as setUserIntegrationsApi } from "../../utilities/backend_calls/integration";
 import Toast from "../../components/toast";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const logos: Record<string, any> = {
   s3: <S3Logo width="100%" />,
   azure: <AzureLogo width="100%" />,
@@ -58,13 +57,13 @@ export type Source = {
   created_at: string;
   updated_at: string;
   datetime_fmt: string;
-  columns: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  columns: Record<string, any>;
   freq: string;
   output_path: string;
   status: string;
   tag: string;
-  variables: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  fields: Record<string, any>
+  variables: Record<string, any>;
+  fields: Record<string, any>;
   msg: string;
   target_cols: string; // to be removed when refactoring objectives
 };
@@ -82,8 +81,10 @@ export default function DataAndIntegrations() {
     `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/sources/ws`
   );
   const [sources, setSources] = useState<Source[] | null>(null);
-  const [userIntegrations, setUserIntegrations] = useState<Record<string, any>[] | null>(null)
-  const [applyingIntegrations, setApplyingIntegrations] = useState(false)
+  const [userIntegrations, setUserIntegrations] = useState<
+    Record<string, any>[] | null
+  >(null);
+  const [applyingIntegrations, setApplyingIntegrations] = useState(false);
 
   const [wsCallStarted, setWsCallStarted] = useState(false);
   const user_details = useSelector((state: AppState) => state.reducer?.user);
@@ -92,31 +93,33 @@ export default function DataAndIntegrations() {
   const {
     isOpen: isOpenNewSourceModal,
     onOpen: onOpenNewSourceModal,
-    onClose: onCloseNewSourceModal
-  } = useDisclosure()
+    onClose: onCloseNewSourceModal,
+  } = useDisclosure();
   const {
     isOpen: isOpenNewIntegrationModal,
     onOpen: onOpenNewIntegrationModal,
-    onClose: onCloseNewIntegrationModal
-  } = useDisclosure()
+    onClose: onCloseNewIntegrationModal,
+  } = useDisclosure();
 
   const getSourcesByUserId = () => {
     sendMessage(JSON.stringify({ user_id: user_details.id }));
   };
 
   const getUserIntegrationsApi = async () => {
-    const userIntegrations = await getUserIntegrations(user_details.id, access_token_indexhub_api)
+    const userIntegrations = await getUserIntegrations(
+      user_details.id,
+      access_token_indexhub_api
+    );
     if (Object.keys(userIntegrations).includes("user_integrations")) {
-      setUserIntegrations(userIntegrations["user_integrations"])
+      setUserIntegrations(userIntegrations["user_integrations"]);
     }
-
-  }
+  };
 
   useEffect(() => {
     if (access_token_indexhub_api && user_details.id) {
-      getUserIntegrationsApi()
+      getUserIntegrationsApi();
     }
-  }, [access_token_indexhub_api, user_details])
+  }, [access_token_indexhub_api, user_details]);
 
   useEffect(() => {
     if (user_details.id && readyState == ReadyState.OPEN && !wsCallStarted) {
@@ -128,7 +131,7 @@ export default function DataAndIntegrations() {
   useEffect(() => {
     if (lastMessage?.data) {
       const sources: Record<"sources", Source[]> = JSON.parse(lastMessage.data);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       sources["sources"].map((source: Record<string, any>) => {
         source["data_fields"] = JSON.parse(source["data_fields"]);
         source["conn_fieldls"] = JSON.parse(source["conn_fields"]);
@@ -149,12 +152,12 @@ export default function DataAndIntegrations() {
   }, [lastMessage]);
 
   const submitUserIntegrations = async (user_integration_ids: number[]) => {
-    setApplyingIntegrations(true)
+    setApplyingIntegrations(true);
     const submit_user_integrations_response = await setUserIntegrationsApi(
       user_details.id,
       user_integration_ids,
       access_token_indexhub_api
-    )
+    );
 
     if (Object.keys(submit_user_integrations_response).includes("ok")) {
       Toast(
@@ -163,12 +166,17 @@ export default function DataAndIntegrations() {
         `Your chosen integrations will be automatically applied in your objectives`,
         "success"
       );
-      getUserIntegrationsApi()
+      getUserIntegrationsApi();
     } else {
-      Toast(toast, "Error", "Something went wrong while applying your integrations. Please contact us for help", "error");
+      Toast(
+        toast,
+        "Error",
+        "Something went wrong while applying your integrations. Please contact us for help",
+        "error"
+      );
     }
-    setApplyingIntegrations(false)
-  }
+    setApplyingIntegrations(false);
+  };
 
   return (
     <>
@@ -176,44 +184,85 @@ export default function DataAndIntegrations() {
         <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
           Data Sources
         </Text>
-        <HStack width="100%" justify="space-between" alignItems="stretch" >
-          <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewSourceModal() }}>
+        <HStack width="100%" justify="space-between" alignItems="stretch">
+          <Card
+            backgroundColor="cards.background"
+            p="1rem"
+            width="49%"
+            cursor="pointer"
+            onClick={() => {
+              onOpenNewSourceModal();
+            }}
+          >
             <HStack height="100%">
-              <VStack height="100%" alignItems="flex-start" justify="space-between">
+              <VStack
+                height="100%"
+                alignItems="flex-start"
+                justify="space-between"
+              >
                 <VStack mb="6" alignItems="flex-start">
-                  <Flex p="1rem" mb="2" border="1px solid" borderColor="cards.border" borderRadius="8">
+                  <Flex
+                    p="1rem"
+                    mb="2"
+                    border="1px solid"
+                    borderColor="cards.border"
+                    borderRadius="8"
+                  >
                     <FontAwesomeIcon icon={faDatabase as any} />
                   </Flex>
                   <Heading fontSize="md">New data source</Heading>
-                  <Text color="text.gray">Connect to your data from multiple sources</Text>
+                  <Text color="text.gray">
+                    Connect to your data from multiple sources
+                  </Text>
                 </VStack>
                 <Button backgroundColor="cards.button">Create new</Button>
               </VStack>
             </HStack>
           </Card>
-          <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => { onOpenNewIntegrationModal() }}>
+          <Card
+            backgroundColor="cards.background"
+            p="1rem"
+            width="49%"
+            cursor="pointer"
+            onClick={() => {
+              onOpenNewIntegrationModal();
+            }}
+          >
             <HStack height="100%">
-              <VStack height="100%" alignItems="flex-start" justify="space-between">
+              <VStack
+                height="100%"
+                alignItems="flex-start"
+                justify="space-between"
+              >
                 <VStack mb="6" alignItems="flex-start">
-                  <Flex p="1rem" border="1px solid" borderColor="cards.border" borderRadius="8">
-                    <FontAwesomeIcon icon={faArrowsToCircle as any}></FontAwesomeIcon>
+                  <Flex
+                    p="1rem"
+                    border="1px solid"
+                    borderColor="cards.border"
+                    borderRadius="8"
+                  >
+                    <FontAwesomeIcon
+                      icon={faArrowsToCircle as any}
+                    ></FontAwesomeIcon>
                   </Flex>
                   <Heading fontSize="md">New integration</Heading>
                   <Text color="text.gray">
                     Integrate external datasets to improve your forecasts
                   </Text>
                 </VStack>
-                <Button backgroundColor="cards.button">
-                  Create new
-                </Button>
+                <Button backgroundColor="cards.button">Create new</Button>
               </VStack>
             </HStack>
           </Card>
         </HStack>
         <Tabs width="100%" mt="6" variant="line">
           <TabList width="100%" justifyContent="left">
-            <Tab><Text>Data Sources</Text></Tab>
-            <Tab><Text>Integrations</Text></Tab>
+            <Tab>
+              <Text>Data Sources</Text>
+            </Tab>
+            <Tab>
+              <Text>Integrations</Text>
+            </Tab>
           </TabList>
           <TabPanels>
             <TabPanel px="unset">
@@ -224,8 +273,18 @@ export default function DataAndIntegrations() {
                       return (
                         <Card key={idx} p="1rem">
                           <Stack>
-                            <HStack width="100%" justify="space-between" alignItems="flex-start">
-                              <Flex width="2.5rem" height="2.5rem" p="5px" border="1px solid #eeeef1" borderRadius="8">
+                            <HStack
+                              width="100%"
+                              justify="space-between"
+                              alignItems="flex-start"
+                            >
+                              <Flex
+                                width="2.5rem"
+                                height="2.5rem"
+                                p="5px"
+                                border="1px solid #eeeef1"
+                                borderRadius="8"
+                              >
                                 {logos[source.tag]}
                               </Flex>
                               <HStack>
@@ -234,7 +293,7 @@ export default function DataAndIntegrations() {
                                   icon={faCircleDot as any}
                                   beatFade
                                   style={{
-                                    color: status_colors[source.status]
+                                    color: status_colors[source.status],
                                   }}
                                 />
                                 <Text
@@ -247,33 +306,60 @@ export default function DataAndIntegrations() {
                               </HStack>
                             </HStack>
                             <VStack alignItems="flex-start">
-                              <Text>
-                                {source.name}
-                              </Text>
-                              <Text fontSize="xs" color="text.gray" mt="unset !important">
-                                Last updated: {new Date(source.updated_at).toLocaleString()}
+                              <Text>{source.name}</Text>
+                              <Text
+                                fontSize="xs"
+                                color="text.gray"
+                                mt="unset !important"
+                              >
+                                Last updated:{" "}
+                                {new Date(source.updated_at).toLocaleString()}
                               </Text>
                             </VStack>
                             <HStack>
-                              <Flex p="5px" border="1px solid #eeeef1" borderRadius="5">
-                                <FontAwesomeIcon size="xs" color="#797986" icon={faDatabase as any} />
+                              <Flex
+                                p="5px"
+                                border="1px solid #eeeef1"
+                                borderRadius="5"
+                              >
+                                <FontAwesomeIcon
+                                  size="xs"
+                                  color="#797986"
+                                  icon={faDatabase as any}
+                                />
                               </Flex>
-                              <Flex p="5px" border="1px solid #eeeef1" borderRadius="5">
-                                <FontAwesomeIcon size="xs" color="#797986" icon={faDatabase as any} />
+                              <Flex
+                                p="5px"
+                                border="1px solid #eeeef1"
+                                borderRadius="5"
+                              >
+                                <FontAwesomeIcon
+                                  size="xs"
+                                  color="#797986"
+                                  icon={faDatabase as any}
+                                />
                               </Flex>
                             </HStack>
                           </Stack>
                         </Card>
-                      )
+                      );
                     })}
                   </Grid>
                 ) : (
-                  <Stack alignItems="center" justifyContent="center" height="full">
+                  <Stack
+                    alignItems="center"
+                    justifyContent="center"
+                    height="full"
+                  >
                     <Text>No sources found</Text>
                   </Stack>
                 )
               ) : (
-                <Stack alignItems="center" justifyContent="center" height="full">
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  height="full"
+                >
                   <Spinner />
                   <Text>Loading...</Text>
                 </Stack>
@@ -288,28 +374,45 @@ export default function DataAndIntegrations() {
                         <Card key={idx} p="1rem">
                           <Stack>
                             <VStack alignItems="flex-start">
-                              <Text>
-                                {integration["name"]}
-                              </Text>
-                              <Text fontSize="xs" color="text.gray" mt="unset !important">
+                              <Text>{integration["name"]}</Text>
+                              <Text
+                                fontSize="xs"
+                                color="text.gray"
+                                mt="unset !important"
+                              >
                                 {integration["description"]}
                               </Text>
-                              <Text fontSize="xs" color="text.gray" mt="unset !important">
-                                Last Updated: {new Date(integration["updated_at"]).toLocaleString()}
+                              <Text
+                                fontSize="xs"
+                                color="text.gray"
+                                mt="unset !important"
+                              >
+                                Last Updated:{" "}
+                                {new Date(
+                                  integration["updated_at"]
+                                ).toLocaleString()}
                               </Text>
                             </VStack>
                           </Stack>
                         </Card>
-                      )
+                      );
                     })}
                   </Grid>
                 ) : (
-                  <Stack alignItems="center" justifyContent="center" height="full">
+                  <Stack
+                    alignItems="center"
+                    justifyContent="center"
+                    height="full"
+                  >
                     <Text>No integrations found</Text>
                   </Stack>
                 )
               ) : (
-                <Stack alignItems="center" justifyContent="center" height="full">
+                <Stack
+                  alignItems="center"
+                  justifyContent="center"
+                  height="full"
+                >
                   <Spinner />
                   <Text>Loading...</Text>
                 </Stack>
@@ -317,9 +420,12 @@ export default function DataAndIntegrations() {
             </TabPanel>
           </TabPanels>
         </Tabs>
-
       </VStack>
-      <Modal size="6xl" isOpen={isOpenNewSourceModal} onClose={onCloseNewSourceModal}>
+      <Modal
+        size="6xl"
+        isOpen={isOpenNewSourceModal}
+        onClose={onCloseNewSourceModal}
+      >
         <ModalOverlay />
         <ModalContent>
           <ModalCloseButton />
@@ -328,12 +434,20 @@ export default function DataAndIntegrations() {
           </ModalBody>
         </ModalContent>
       </Modal>
-      <Modal size="6xl" isOpen={isOpenNewIntegrationModal} onClose={onCloseNewIntegrationModal}>
+      <Modal
+        size="6xl"
+        isOpen={isOpenNewIntegrationModal}
+        onClose={onCloseNewIntegrationModal}
+      >
         <ModalOverlay />
         <ModalContent>
           <ModalCloseButton />
           <ModalBody>
-            <NewIntegration userIntegrations={userIntegrations} submitUserIntegrations={submitUserIntegrations} applyingIntegrations={applyingIntegrations} />
+            <NewIntegration
+              userIntegrations={userIntegrations}
+              submitUserIntegrations={submitUserIntegrations}
+              applyingIntegrations={applyingIntegrations}
+            />
           </ModalBody>
         </ModalContent>
       </Modal>

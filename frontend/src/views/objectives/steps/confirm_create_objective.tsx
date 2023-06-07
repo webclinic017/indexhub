@@ -12,7 +12,6 @@ import {
 import React from "react";
 
 const ConfirmCreateObjective = (props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objective_configs: Record<string, any>;
   createObjective: () => Promise<void>;
   goToPrevStep: () => void;
@@ -42,7 +41,9 @@ const ConfirmCreateObjective = (props: {
               <Text width="30%" fontWeight="bold">
                 Objective name:
               </Text>
-              <Text width="70%">{props.objective_configs["objective_name"]}</Text>
+              <Text width="70%">
+                {props.objective_configs["objective_name"]}
+              </Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -52,7 +53,9 @@ const ConfirmCreateObjective = (props: {
               <Text width="30%" fontWeight="bold">
                 Objective type:
               </Text>
-              <Text width="70%">{props.objective_configs["objective_type"]}</Text>
+              <Text width="70%">
+                {props.objective_configs["objective_type"]}
+              </Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}
@@ -72,7 +75,9 @@ const ConfirmCreateObjective = (props: {
               <Text width="30%" fontWeight="bold">
                 Baseline source:
               </Text>
-              <Text width="70%">{props.objective_configs["baseline_name"]}</Text>
+              <Text width="70%">
+                {props.objective_configs["baseline_name"]}
+              </Text>
             </Stack>
             <Stack
               direction={{ base: "column", md: "row" }}

@@ -11,7 +11,7 @@ import {
 import React from "react";
 
 const StorageConfig = (props: {
-  selected_storage_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  selected_storage_schema: Record<string, any>;
   goToPrevStep: () => void;
   submitStorageConfig: (
     storage_credentials: Record<string, string>,

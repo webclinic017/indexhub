@@ -1,10 +1,17 @@
-import { Box, Divider, Grid, Spinner, Stack, Text, VStack } from "@chakra-ui/react";
+import {
+  Box,
+  Divider,
+  Grid,
+  Spinner,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
 import { Card, CardBody } from "@chakra-ui/card";
 import React from "react";
 import { capitalizeFirstLetter } from "../../../utilities/helpers";
 
 const ObjectiveType = (props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objectives_schema: Record<any, any>;
   submitObjectiveType: (objective_type: string) => void;
 }) => {
@@ -39,12 +46,19 @@ const ObjectiveType = (props: {
                       {/* <Box p="6">{logos[source_type]}</Box> */}
                       <Box p="4">
                         <Text textAlign="center" fontWeight="bold">
-                          {capitalizeFirstLetter(objective_type).replaceAll("_", " ")}
+                          {capitalizeFirstLetter(objective_type).replaceAll(
+                            "_",
+                            " "
+                          )}
                         </Text>
                       </Box>
                       <Box p="1" width="100%" borderBottomRadius="lg">
                         <Text textAlign="center" fontSize="small">
-                          {props.objectives_schema[objective_type]["description"]}
+                          {
+                            props.objectives_schema[objective_type][
+                              "description"
+                            ]
+                          }
                         </Text>
                       </Box>
                     </VStack>

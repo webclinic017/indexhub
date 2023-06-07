@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -12,7 +12,7 @@ import {
 import { Select } from "chakra-react-select";
 
 const getOptions = (options: string[]) => {
-  const result_options: any[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const result_options: any[] = [];
   options.forEach((option: string) => {
     result_options.push({
       label: option,
@@ -24,17 +24,16 @@ const getOptions = (options: string[]) => {
 
 const SourcePath = (props: {
   source_tag: string;
-  conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  conn_schema: Record<string, any>;
   goToPrevStep: () => void;
   submitSourcePath: (configs: Record<string, string>) => Promise<void>;
-  isLoadingSourceColumns: boolean
+  isLoadingSourceColumns: boolean;
 }) => {
   // const configs: Record<string, string> = {};
-  const [configs, setConfigs] = useState<Record<string, string>>({})
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [configs, setConfigs] = useState<Record<string, string>>({});
+
   const schema_variables: Record<string, any> =
     props.conn_schema[props.source_tag]["conn_fields"];
-
 
   return (
     <Box
@@ -53,8 +52,8 @@ const SourcePath = (props: {
           <FormLabel>Source name</FormLabel>
           <Input
             onChange={(e) => {
-              configs["source_name"] = e.currentTarget.value
-              setConfigs(structuredClone(configs))
+              configs["source_name"] = e.currentTarget.value;
+              setConfigs(structuredClone(configs));
             }}
             placeholder="Name for your new source"
           />
@@ -69,18 +68,17 @@ const SourcePath = (props: {
               {!has_values && (
                 <Input
                   onChange={(e) => {
-                    configs[variable] = e.currentTarget.value
-                    setConfigs(structuredClone(configs))
+                    configs[variable] = e.currentTarget.value;
+                    setConfigs(structuredClone(configs));
                   }}
                 />
               )}
               {has_values && (
                 <Select
                   onChange={(value) => {
-                    configs[variable] = value ? value.value : ""
-                    setConfigs(structuredClone(configs))
-                  }
-                  }
+                    configs[variable] = value ? value.value : "";
+                    setConfigs(structuredClone(configs));
+                  }}
                   useBasicStyles
                   options={getOptions(schema_variables[variable]["values"])}
                 />

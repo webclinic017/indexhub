@@ -17,8 +17,8 @@ type ListProps = {
   title: string;
   subtitle: string;
   entity: string;
-  state: Record<string, any[]>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  stateSetter: (entity: string, value: any, is_multiple?: boolean) => void; // eslint-disable-line @typescript-eslint/no-explicit-any
+  state: Record<string, any[]>;
+  stateSetter: (entity: string, value: any, is_multiple?: boolean) => void;
   minWidth?: string;
   maxWidth?: string;
 };

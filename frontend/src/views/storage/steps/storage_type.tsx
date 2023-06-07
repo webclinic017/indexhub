@@ -5,14 +5,12 @@ import { capitalizeFirstLetter } from "../../../utilities/helpers";
 import { ReactComponent as S3Logo } from "../../../assets/images/svg/s3.svg";
 import { ReactComponent as AzureLogo } from "../../../assets/images/svg/azure.svg";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const logos: Record<string, any> = {
   s3: <S3Logo width="7rem" height="7rem" />,
   azure: <AzureLogo width="7rem" height="7rem" />,
 };
 
 const StorageType = (props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   storage_schema: Record<string, any>;
   submitStorageType: (storage_type: string) => void;
 }) => {

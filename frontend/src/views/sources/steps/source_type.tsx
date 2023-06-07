@@ -17,14 +17,13 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleDot } from "@fortawesome/pro-light-svg-icons";
 import { colors } from "../../../theme/theme";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const logos: Record<string, any> = {
   s3: <S3Logo width="7rem" height="7rem" />,
   azure: <AzureLogo width="7rem" height="7rem" />,
 };
 
 const SourceType = (props: {
-  conn_schema: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  conn_schema: Record<string, any>;
   submitSourceType: (source_tag: string) => void;
 }) => {
   return (
@@ -42,7 +41,6 @@ const SourceType = (props: {
       >
         {Object.keys(props.conn_schema).length > 0 ? (
           <Grid templateColumns="repeat(3, 1fr)" gap={6}>
-
             {Object.keys(props.conn_schema).map((source_tag, idx) => {
               return (
                 <Card
@@ -74,16 +72,14 @@ const SourceType = (props: {
                           textAlign="center"
                           fontSize="2xs"
                           color={
-                            props.conn_schema[source_tag][
-                              "is_authenticated"
-                            ] == true
+                            props.conn_schema[source_tag]["is_authenticated"] ==
+                            true
                               ? colors.supplementary.indicators.main_green
                               : colors.supplementary.indicators.main_red
                           }
                         >
-                          {props.conn_schema[source_tag][
-                            "is_authenticated"
-                          ] == true
+                          {props.conn_schema[source_tag]["is_authenticated"] ==
+                          true
                             ? "HAS CREDENTIALS"
                             : "NEEDS CREDENTIALS"}
                         </Text>

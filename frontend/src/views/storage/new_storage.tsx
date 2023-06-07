@@ -26,7 +26,7 @@ const steps = [
 ];
 
 const NewStorage = () => {
-  const [storage_schema, setStorageSchema] = useState<Record<string, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [storage_schema, setStorageSchema] = useState<Record<string, any>>({});
   const [storage_type, setStorageType] = useState("");
   const access_token_indexhub_api = useAuth0AccessToken();
   const [currentStep, { goToNextStep, goToPrevStep }] = useStep({

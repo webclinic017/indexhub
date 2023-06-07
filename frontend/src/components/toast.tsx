@@ -24,7 +24,7 @@ const PrimaryToast = (props: {
   title: string;
   subtitle: string;
   type: string;
-  toast: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  toast: any;
 }) => {
   return (
     <Box as="section">
@@ -69,7 +69,7 @@ const PrimaryToast = (props: {
 };
 
 const Toast = (
-  toast: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  toast: any,
   title = "",
   subtitle = "",
   type: string,

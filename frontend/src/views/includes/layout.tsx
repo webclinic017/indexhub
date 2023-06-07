@@ -1,12 +1,8 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import {
-  Grid,
-  GridItem
-} from "@chakra-ui/react";
+import { Grid, GridItem } from "@chakra-ui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { colors } from "../../theme/theme";
-import { useNavigate } from "react-router-dom";
 import { Sidebar } from "./sidebar";
 import { faPlusCircle } from "@fortawesome/pro-light-svg-icons";
 
@@ -28,7 +24,6 @@ export const PopoverIcon = (props: { isOpen: boolean }) => {
 };
 
 export default function Layout() {
-  const navigate = useNavigate();
   return (
     <>
       <Grid
@@ -36,7 +31,9 @@ export default function Layout() {
         gridTemplateColumns={"12rem 1fr"}
         h="100vh"
       >
-        <GridItem bg="navbar.background" area="nav"><Sidebar /></GridItem>
+        <GridItem bg="navbar.background" area="nav">
+          <Sidebar />
+        </GridItem>
         <GridItem p="8" bg="body.background" area={"main"} overflowY="scroll">
           <Outlet />
         </GridItem>

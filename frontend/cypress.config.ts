@@ -1,6 +1,6 @@
 import { defineConfig } from "cypress";
-declare const require: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-declare const process: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+declare const require: any;
+declare const process: any;
 require("dotenv").config();
 
 export default defineConfig({

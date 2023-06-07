@@ -2,7 +2,6 @@ import React from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ChakraProvider } from "@chakra-ui/react";
-import Home from "./views/home";
 import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import { themes } from "./theme/theme";
@@ -29,11 +28,14 @@ function App() {
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Layout />}>
-                <Route index element={
-                  <TrendsContextProvider>
-                    <TrendsLanding />
-                  </TrendsContextProvider>
-                } />
+                <Route
+                  index
+                  element={
+                    <TrendsContextProvider>
+                      <TrendsLanding />
+                    </TrendsContextProvider>
+                  }
+                />
                 <Route path="data" element={<Data />}>
                   <Route index element={<DataAndIntegrations />} />
                 </Route>
@@ -41,7 +43,10 @@ function App() {
                   <Route index element={<ObjectivesDashboard />} />
                   <Route path="new_objective" element={<NewObjective />} />
                 </Route>
-                <Route path="objectives/forecast/:objective_id" element={<ForecastObjective />} />
+                <Route
+                  path="objectives/forecast/:objective_id"
+                  element={<ForecastObjective />}
+                />
                 <Route path="alerts" element={<Alerts />} />
                 <Route path="new_storage" element={<NewStorage />} />
                 <Route path="settings" element={<Settings />} />

@@ -18,7 +18,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCalendarDays } from "@fortawesome/pro-light-svg-icons";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const logos: Record<string, any> = {
   s3: <S3Logo width="7rem" />,
   azure: <AzureLogo width="7rem" />,

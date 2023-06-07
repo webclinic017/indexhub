@@ -12,7 +12,6 @@ export const useAuth0AccessToken = () => {
           audience: process.env.REACT_APP__AUTH0_M2M__AUDIENCE!, // eslint-disable-line @typescript-eslint/no-non-null-assertion
         });
         setAuth0AccessToken(access_token);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (e: any) {
         console.log(e.message);
       }

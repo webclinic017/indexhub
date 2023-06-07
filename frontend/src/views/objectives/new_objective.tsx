@@ -38,8 +38,8 @@ const steps = [
 ];
 
 const NewObjective = () => {
-  const [objectives_schema, setObjectivesSchema] = useState<Record<any, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [objective_configs, setObjectiveConfigs] = useState<Record<string, any>>({}); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [objectives_schema, setObjectivesSchema] = useState<Record<any, any>>({});
+  const [objective_configs, setObjectiveConfigs] = useState<Record<string, any>>({});
   const [panelSource, setPanelSource] = useState<Record<string, any>>({})
   const access_token_indexhub_api = useAuth0AccessToken();
   const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
@@ -82,7 +82,9 @@ const NewObjective = () => {
       objective_configs["transaction"] = objective_sources["transaction"]
         ? objective_sources["transaction"]
         : "";
-      objective_configs["transaction_name"] = objective_sources["transaction_name"]
+      objective_configs["transaction_name"] = objective_sources[
+        "transaction_name"
+      ]
         ? objective_sources["transaction_name"]
         : "";
       setObjectiveConfigs(objective_configs);
@@ -97,7 +99,6 @@ const NewObjective = () => {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const submitObjectiveConfigs = (objective_configs: Record<string, any>) => {
     setObjectiveConfigs(objective_configs);
     goToNextStep();
@@ -184,7 +185,7 @@ const NewObjective = () => {
                 isActive={currentStep === id}
                 isCompleted={currentStep > id}
               />
-            )
+            );
           })}
         </Stack>
         {stepScreens[currentStep]}

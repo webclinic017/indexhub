@@ -1,8 +1,6 @@
 import { Card, CardBody } from "@chakra-ui/card";
 import {
-  Box,
   Button,
-  Container,
   Flex,
   Grid,
   Heading,
@@ -12,20 +10,19 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
-import { faArrowsToCircle, faChartLine, faCircleDot, faDatabase, faPlusCircle } from "@fortawesome/pro-light-svg-icons";
+import { faChartLine, faCircleDot } from "@fortawesome/pro-light-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ReadyState } from "react-use-websocket";
 import { useWebSocket } from "react-use-websocket/dist/lib/use-websocket";
 import { AppState } from "../..";
 import { colors } from "../../theme/theme";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 
-export type Objective = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+export type Objective = Record<string, any>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const objective_status_to_color: any = {
   RUNNING: colors.supplementary.diverging_color.main_yellow,
   COMPLETED: colors.supplementary.indicators.main_green,
@@ -37,7 +34,7 @@ const ObjectivesDashboard = () => {
   const { sendMessage, lastMessage, readyState } = useWebSocket(
     `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/objectives/ws`
   );
-  const [objectives, setObjectives] = useState<Objective[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const [objectives, setObjectives] = useState<Objective[]>([]);
   const [wsCallStarted, setWsCallStarted] = useState(false);
   const navigate = useNavigate();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
@@ -83,15 +80,33 @@ const ObjectivesDashboard = () => {
         Your Objectives
       </Text>
       <HStack width="100%" justify="space-between">
-        <Card backgroundColor="cards.background" p="1rem" width="49%" cursor="pointer" onClick={() => navigate("/objectives/new_objective")}>
+        <Card
+          backgroundColor="cards.background"
+          p="1rem"
+          width="49%"
+          cursor="pointer"
+          onClick={() => navigate("/objectives/new_objective")}
+        >
           <HStack height="100%">
-            <VStack height="100%" alignItems="flex-start" justify="space-between">
+            <VStack
+              height="100%"
+              alignItems="flex-start"
+              justify="space-between"
+            >
               <VStack mb="6" alignItems="flex-start">
-                <Flex p="1rem" mb="2" border="1px solid" borderColor="cards.border" borderRadius="8">
+                <Flex
+                  p="1rem"
+                  mb="2"
+                  border="1px solid"
+                  borderColor="cards.border"
+                  borderRadius="8"
+                >
                   <FontAwesomeIcon icon={faChartLine as any} />
                 </Flex>
                 <Heading fontSize="md">New Objective</Heading>
-                <Text color="text.gray">Create new objectives from your sources</Text>
+                <Text color="text.gray">
+                  Create new objectives from your sources
+                </Text>
               </VStack>
               <Button backgroundColor="cards.button">Create new</Button>
             </VStack>
@@ -111,7 +126,7 @@ const ObjectivesDashboard = () => {
                   key={idx}
                   bgColor="white"
                   onClick={() => {
-                    navigate(`forecast/${objective["id"]}`)
+                    navigate(`forecast/${objective["id"]}`);
                   }}
                 >
                   <CardBody>
@@ -131,7 +146,9 @@ const ObjectivesDashboard = () => {
                           borderLeft="1px solid"
                           margin="unset !important"
                         >
-                          {new Date(objective["created_at"]).toLocaleDateString()}
+                          {new Date(
+                            objective["created_at"]
+                          ).toLocaleDateString()}
                         </Text>
                       </HStack>
 
@@ -146,13 +163,16 @@ const ObjectivesDashboard = () => {
                             icon={faCircleDot as any}
                             beatFade
                             style={{
-                              color: objective_status_to_color[objective["status"]],
+                              color:
+                                objective_status_to_color[objective["status"]],
                             }}
                           />
                           <Text
                             textAlign="center"
                             fontSize="2xs"
-                            color={objective_status_to_color[objective["status"]]}
+                            color={
+                              objective_status_to_color[objective["status"]]
+                            }
                             pl="1"
                           >
                             {objective["status"]}
@@ -170,12 +190,14 @@ const ObjectivesDashboard = () => {
                       </HStack>
 
                       <Text py={4} textAlign="left" fontWeight="bold">
-                        {capitalizeFirstLetter(objective["fields"]["description"])}
+                        {capitalizeFirstLetter(
+                          objective["fields"]["description"]
+                        )}
                       </Text>
 
                       <hr style={{ width: "100%", margin: "0.5rem 0" }}></hr>
 
-                      <VStack width="100%" justify="left" >
+                      <VStack width="100%" justify="left">
                         <Text width="100%" fontSize="xs">
                           SOURCES
                         </Text>
@@ -183,13 +205,16 @@ const ObjectivesDashboard = () => {
                           <b>PANEL:</b> {objective["sources"]["panel_name"]}
                         </Text>
                         <Text width="100%" fontSize="small">
-                          <b>BASELINE:</b> {objective["sources"]["baseline_name"]}
+                          <b>BASELINE:</b>{" "}
+                          {objective["sources"]["baseline_name"]}
                         </Text>
                         <Text width="100%" fontSize="small">
-                          <b>INVENTORY:</b> {objective["sources"]["inventory_name"]}
+                          <b>INVENTORY:</b>{" "}
+                          {objective["sources"]["inventory_name"]}
                         </Text>
                         <Text width="100%" fontSize="small">
-                          <b>TRANSACTION:</b> {objective["sources"]["transaction_name"]}
+                          <b>TRANSACTION:</b>{" "}
+                          {objective["sources"]["transaction_name"]}
                         </Text>
                       </VStack>
 

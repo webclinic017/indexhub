@@ -11,7 +11,7 @@ import { Select } from "chakra-react-select";
 import React from "react";
 
 const getOptionsSource = (sources: Record<string, string>) => {
-  const result: Record<string, string>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const result: Record<string, string>[] = [];
   Object.keys(sources).forEach((source_name) => {
     result.push({
       value: sources[source_name],
@@ -22,15 +22,16 @@ const getOptionsSource = (sources: Record<string, string>) => {
 };
 
 const ObjectiveSource = (props: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objectives_schema: Record<any, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   objective_configs: Record<string, any>;
   submitObjectiveSources: (objective_sources: Record<string, string>) => void;
   goToPrevStep: () => void;
 }) => {
   const schema_dataset_fields =
-    props.objectives_schema[props.objective_configs["objective_type"]]["sources"];
+    props.objectives_schema[props.objective_configs["objective_type"]][
+      "sources"
+    ];
   const objective_sources: Record<string, string> = {};
 
   return (
