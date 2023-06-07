@@ -19,7 +19,7 @@ from indexhub.api.schemas import SUPPORTED_DATETIME_FMT, SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
-from indexhub.deployment import stub
+from indexhub.modal_stub import stub
 
 
 def _logger(name, level=logging.INFO):
@@ -42,7 +42,6 @@ PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
 env_prefix = os.environ.get("ENV_NAME", "dev")
-IMAGE = modal.Image.from_name(f"{env_prefix}-indexhub-image")
 
 
 def _clean_panel(

@@ -26,7 +26,7 @@ from indexhub.api.schemas import (
 )
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
-from indexhub.deployment import stub
+from indexhub.modal_stub import stub
 
 
 def _logger(name, level=logging.INFO):

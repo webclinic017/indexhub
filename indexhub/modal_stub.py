@@ -23,5 +23,3 @@ stub = modal.Stub(
         modal.Secret.from_name(f"{ENV_PREFIX}-postgres-credentials"),
     ],
 )
-
-stub = modal.Stub(f"{ENV_PREFIX}-indexhub-registry", image=IMAGE)
