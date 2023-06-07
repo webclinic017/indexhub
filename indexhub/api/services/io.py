@@ -64,19 +64,12 @@ def read_data_from_s3(
     )
     try:
         if file_ext == "lance":
-            # Get presigned URI
-            # uri = s3_client.generate_presigned_url(
-            #     "get_object",
-            #     Params={
-            #         "Bucket": bucket_name,
-            #         "Key": object_path,
-            #     },
-            #     ExpiresIn=600,  # Expires in 10 minutes
-            # )
+            import lance
+            import polars as pl
+            ds = lance.dataset(uri)
             uri = f"s3://{bucket_name}/{object_path}"
-            print(f"URI: {uri}")
-            read_lance = modal.Function.lookup("indexhub-io", "read_lance_dataset")
-            obj = read_lance.call(uri, columns=columns)
+            table = ds.to_table(columns=columns)
+            obj = pl.from_arrow(table)
         else:
             obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
                 "Body"
