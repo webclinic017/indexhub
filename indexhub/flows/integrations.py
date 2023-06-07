@@ -150,4 +150,4 @@ def schedule_integrations_etl():
 
 @stub.local_entrypoint()
 def test():
-    flow.call()
+    schedule_integrations_etl.call()
