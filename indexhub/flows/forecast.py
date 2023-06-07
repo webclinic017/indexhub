@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from datetime import datetime
 from functools import partial, reduce
 from typing import Any, Callable, List, Mapping, Optional
@@ -26,6 +25,7 @@ from indexhub.api.schemas import (
 )
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
+from indexhub.deployment import stub
 
 
 def _logger(name, level=logging.INFO):
@@ -51,27 +51,6 @@ FREQ_TO_DURATION = {
 }
 
 IMAGE = modal.Image.from_name("indexhub-image")
-
-if os.environ.get("ENV_NAME", "dev") == "prod":
-    stub = modal.Stub(
-        "indexhub-forecast",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("postgres-credentials"),
-            modal.Secret.from_name("env-name"),
-        ],
-    )
-else:
-    stub = modal.Stub(
-        "dev-indexhub-forecast",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("dev-postgres-credentials"),
-            modal.Secret.from_name("dev-env-name"),
-        ],
-    )
 
 
 def _compute_rolling_forecast(
@@ -720,7 +699,7 @@ def get_user(user_id: str) -> User:
     timeout=3600,
     schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
 )
-def flow():
+def schedule_forecast():
     # 1. Get all objectives
     engine = create_sql_engine()
     with Session(engine) as session:

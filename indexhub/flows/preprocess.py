@@ -19,6 +19,7 @@ from indexhub.api.schemas import SUPPORTED_DATETIME_FMT, SUPPORTED_FREQ
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
+from indexhub.deployment import stub
 
 
 def _logger(name, level=logging.INFO):
@@ -41,27 +42,6 @@ PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
 IMAGE = modal.Image.from_name("indexhub-image")
-
-if os.environ.get("ENV_NAME", "dev") == "prod":
-    stub = modal.Stub(
-        "indexhub-preprocess",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("postgres-credentials"),
-            modal.Secret.from_name("env-name"),
-        ],
-    )
-else:
-    stub = modal.Stub(
-        "dev-indexhub-preprocess",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("dev-postgres-credentials"),
-            modal.Secret.from_name("dev-env-name"),
-        ],
-    )
 
 
 def _clean_panel(
@@ -447,7 +427,7 @@ def run_preprocess(
     timeout=900,
     # schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
 )
-def flow():
+def schedule_preprocess():
     # 1. Get all sources
     engine = create_sql_engine()
     with Session(engine) as session:

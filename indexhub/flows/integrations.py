@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from datetime import datetime
 from typing import Mapping
 
@@ -14,6 +13,7 @@ from indexhub.api.db import create_sql_engine
 from indexhub.api.models.integration import Integration
 from indexhub.api.services.io import STORAGE_TAG_TO_WRITER
 from indexhub.flows.forecast import FREQ_TO_DURATION
+from indexhub.deployment import stub
 
 
 def _logger(name, level=logging.INFO):
@@ -29,29 +29,6 @@ def _logger(name, level=logging.INFO):
 
 
 logger = _logger(name=__name__)
-
-IMAGE = modal.Image.from_name("indexhub-image")
-
-if os.environ.get("ENV_NAME", "dev") == "prod":
-    stub = modal.Stub(
-        "indexhub-integrations",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("postgres-credentials"),
-            modal.Secret.from_name("env-name"),
-        ],
-    )
-else:
-    stub = modal.Stub(
-        "dev-indexhub-integrations",
-        image=IMAGE,
-        secrets=[
-            modal.Secret.from_name("aws-credentials"),
-            modal.Secret.from_name("dev-postgres-credentials"),
-            modal.Secret.from_name("dev-env-name"),
-        ],
-    )
 
 
 def _update_integration(
@@ -130,7 +107,7 @@ def run_integration_etl(
     timeout=900,
     schedule=modal.Cron("0 17 * * *"),  # run at 1am daily (utc 5pm)
 )
-def flow():
+def schedule_integrations_etl():
     # 1. Get all integrations
     engine = create_sql_engine()
     with Session(engine) as session:
