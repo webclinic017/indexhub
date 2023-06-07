@@ -70,11 +70,8 @@ def create_objective(params: CreateObjectiveParams):
         # Run flow after the insert statement committed
         # Otherwise will hit error in the flow when updating the record
         if objective.tag == "reduce_errors":
-            if os.environ.get("ENV_NAME", "dev") == "prod":
-                flow = modal.Function.lookup("indexhub-forecast", "run_forecast")
-            else:
-                flow = modal.Function.lookup("dev-indexhub-forecast", "run_forecast")
-
+            env_prefix = os.environ.get("ENV_NAME", "dev")
+            flow = modal.Function.lookup(f"{env_prefix}-indexhub-flows", "run_forecast")
             if objective_fields.get("holiday_regions", None) is not None:
                 holiday_regions = [
                     SUPPORTED_COUNTRIES[country]

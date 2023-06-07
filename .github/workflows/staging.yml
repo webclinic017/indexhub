@@ -1,7 +1,8 @@
 name: Deploy Modal Apps
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   modal:
@@ -28,5 +29,5 @@ jobs:
           modal deploy indexhub/flows/forecast.py
           modal deploy indexhub/flows/preprocess.py
         env:
-          ENV_NAME: prod
+          ENV_NAME: staging
           AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}

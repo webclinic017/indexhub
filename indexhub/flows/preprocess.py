@@ -41,7 +41,8 @@ PL_INT_DTYPES = [pl.Int8, pl.Int16, pl.Int32, pl.Int64]
 PL_NUMERIC_COLS = pl.col([*PL_FLOAT_DTYPES, *PL_INT_DTYPES])
 
 
-IMAGE = modal.Image.from_name("indexhub-image")
+env_prefix = os.environ.get("ENV_NAME", "dev")
+IMAGE = modal.Image.from_name(f"{env_prefix}-indexhub-image")
 
 
 def _clean_panel(

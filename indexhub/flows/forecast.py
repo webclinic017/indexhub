@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 from functools import partial, reduce
+import os
 from typing import Any, Callable, List, Mapping, Optional
 
 import modal
@@ -50,7 +51,8 @@ FREQ_TO_DURATION = {
     "Quarterly": "3mo",
 }
 
-IMAGE = modal.Image.from_name("indexhub-image")
+env_prefix = os.environ.get("ENV_NAME", "dev")
+IMAGE = modal.Image.from_name(f"{env_prefix}-indexhub-image")
 
 
 def _compute_rolling_forecast(
@@ -355,81 +357,82 @@ def _create_best_plan(
     return best_plan
 
 
-def _load_integrations(
-    user_id: str, entity_col: str, entities: List[str], freq: str, read: Callable
-):
-    logger.info("Loading integrations...")
-    integrations_df = None
-    # 1. Load user's integrations
-    engine = create_sql_engine()
-    with Session(engine) as session:
-        query = select(User).where(User.id == user_id)
-        user = session.exec(query).first()
-        if user.integration_ids:
-            integration_ids = json.loads(user.integration_ids)
-            query = select(Integration).where(Integration.id.in_(integration_ids))
-            integrations = session.exec(query).all()
-        else:
-            integrations = None
+# def _load_integrations(
+#     user_id: str, entity_col: str, entities: List[str], freq: str, read: Callable
+# ):
+#     logger.info("Loading integrations...")
+#     integrations_df = None
+#     # 1. Load user's integrations
+#     engine = create_sql_engine()
+#     with Session(engine) as session:
+#         query = select(User).where(User.id == user_id)
+#         user = session.exec(query).first()
+#         if user.integration_ids:
+#             integration_ids = json.loads(user.integration_ids)
+#             query = select(Integration).where(Integration.id.in_(integration_ids))
+#             integrations = session.exec(query).all()
+#         else:
+#             integrations = None
 
-    if integrations:
-        futures = []
-        for integration in integrations:
-            # 2. Read integration from feature store
-            fields = json.loads(integration.fields)
-            outputs = json.loads(integration.outputs)
-            bucket_name = outputs["bucket_name"]
-            raw_panel = read(
-                bucket_name=bucket_name, object_path=outputs["object_path"]
-            ).to_arrow()
+#     if integrations:
+#         futures = []
+#         for integration in integrations:
+#             # 2. Read integration from feature store
+#             fields = json.loads(integration.fields)
+#             outputs = json.loads(integration.outputs)
+#             bucket_name = outputs["bucket_name"]
+#             raw_panel = read(
+#                 bucket_name=bucket_name, object_path=outputs["object_path"]
+#             ).to_arrow()
 
-            # 3. Spawn exogenous flow
-            flow = modal.Function.lookup("tsdata-exogenous", "process_integration")
-            futures.append(
-                flow.spawn(
-                    raw_panel=raw_panel,
-                    ticker=integration.ticker,
-                    entities=entities,
-                    # Use user selected freq
-                    freq=freq,
-                    # Use default agg_method for integration
-                    agg_method=fields.get("agg_method", "sum"),
-                    # Use default impute_method for integration
-                    impute_method=fields.get("impute_method", "ffill"),
-                )
-            )
+#             # 3. Spawn exogenous flow
+#             # flow = modal.Function.lookup("tsdata-exogenous", "process_integration")
+#             # TODO: Will come from functime instead
+#             futures.append(
+#                 flow.spawn(
+#                     raw_panel=raw_panel,
+#                     ticker=integration.ticker,
+#                     entities=entities,
+#                     # Use user selected freq
+#                     freq=freq,
+#                     # Use default agg_method for integration
+#                     agg_method=fields.get("agg_method", "sum"),
+#                     # Use default impute_method for integration
+#                     impute_method=fields.get("impute_method", "ffill"),
+#                 )
+#             )
 
-        # 4. Gather futures
-        integrations_dfs = []
-        for future in futures:
-            try:
-                integrations_dfs.append(
-                    pl.from_arrow(future.get()).pipe(
-                        lambda df: df.rename({df.columns[0]: entity_col})
-                    )
-                )
-            except Exception as err:
-                # Skip and log exception if failed to process integration
-                logger.exception(
-                    f"Failed to load integration {integration.ticker}: {err}"
-                )
+#         # 4. Gather futures
+#         integrations_dfs = []
+#         for future in futures:
+#             try:
+#                 integrations_dfs.append(
+#                     pl.from_arrow(future.get()).pipe(
+#                         lambda df: df.rename({df.columns[0]: entity_col})
+#                     )
+#                 )
+#             except Exception as err:
+#                 # Skip and log exception if failed to process integration
+#                 logger.exception(
+#                     f"Failed to load integration {integration.ticker}: {err}"
+#                 )
 
-        # 5. Join integrations by entity and time columns
-        if len(integrations_dfs) > 0:
-            integrations_df = reduce(
-                lambda x, y: x.join(y, on=x.columns[:2], how="outer"),
-                integrations_dfs,
-            ).select(
-                [
-                    entity_col,
-                    "time",
-                    # Add prefix
-                    pl.exclude([entity_col, "time"]).prefix("exog__"),
-                ]
-            )
+#         # 5. Join integrations by entity and time columns
+#         if len(integrations_dfs) > 0:
+#             integrations_df = reduce(
+#                 lambda x, y: x.join(y, on=x.columns[:2], how="outer"),
+#                 integrations_dfs,
+#             ).select(
+#                 [
+#                     entity_col,
+#                     "time",
+#                     # Add prefix
+#                     pl.exclude([entity_col, "time"]).prefix("exog__"),
+#                 ]
+#             )
 
-    logger.info("Integrations loaded.")
-    return integrations_df
+#     logger.info("Integrations loaded.")
+#     return integrations_df
 
 
 def _make_output_path(objective_id: int, updated_at: datetime, prefix: str) -> str:
@@ -564,7 +567,8 @@ def run_forecast(
                 )
 
         # 7. Run automl flow
-        automl_flow = modal.Function.lookup("functime-forecast-automl", "flow")
+        env_prefix = os.environ.get("ENV_NAME", "dev")
+        automl_flow = modal.Function.lookup(f"{env_prefix}-functime-flows", "run_automl_flow")
 
         # Convert X to pyarrow
         if X is not None:
@@ -600,7 +604,8 @@ def run_forecast(
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         # Score baseline compared to best scores
-        uplift_flow = modal.Function.lookup("functime-forecast-uplift", "flow")
+        env_prefix = os.environ.get("ENV_NAME", "dev")
+        uplift_flow = modal.Function.lookup(f"{env_prefix}-functime-flows", "compute_uplift")
         baseline_scores, baseline_metrics, uplift = uplift_flow.call(
             scores=outputs["scores"]["best_models"],
             y=y.to_arrow(),

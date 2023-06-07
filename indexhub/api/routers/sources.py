@@ -57,10 +57,8 @@ def create_source(params: CreateSourceParams):
         user = session.exec(query).first()
         # Run flow after the insert statement committed
         # Otherwise will hit error in the flow when updating the record
-        if os.environ.get("ENV_NAME", "dev") == "prod":
-            flow = modal.Function.lookup("indexhub-preprocess", "run_preprocess")
-        else:
-            flow = modal.Function.lookup("dev-indexhub-preprocess", "run_preprocess")
+        env_prefix = os.environ.get("ENV_NAME", "dev")
+        flow = modal.Function.lookup(f"{env_prefix}-indexhub-flows", "run_preprocess")
         flow.call(
             user_id=source.user_id,
             source_id=source.id,
