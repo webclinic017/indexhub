@@ -8,6 +8,7 @@ import {
   Grid,
   HStack,
   Input,
+  Spinner,
   Stack,
   Text,
   VStack,
@@ -40,6 +41,7 @@ const ObjectiveConfigs = (props: {
   objectives_schema: Record<any, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   objective_configs: Record<string, any>;
+  panel_source_data_fields: Record<string, any>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   submitObjectiveConfigs: (objective_configs: Record<string, any>) => void;
   goToPrevStep: () => void;
@@ -67,15 +69,15 @@ const ObjectiveConfigs = (props: {
       )
       .replace(
         "{target_col}",
-        internal_objective_configs["target_col"]
-          ? internal_objective_configs["target_col"].replaceAll("_", " ")
+        props.panel_source_data_fields["target_col"]
+          ? props.panel_source_data_fields["target_col"].replaceAll("_", " ")
           : "{target_col}"
       )
       .replace(
-        "{level_cols}",
-        internal_objective_configs["level_cols"]?.length > 0
-          ? internal_objective_configs["level_cols"].join(" and ")
-          : "{level_cols}"
+        "{entity_cols}",
+        props.panel_source_data_fields["entity_cols"]?.length > 0
+          ? props.panel_source_data_fields["entity_cols"].join(" and ")
+          : "{entity_cols}"
       )
       .replace(
         "{error_type}",
@@ -86,6 +88,12 @@ const ObjectiveConfigs = (props: {
     objective_configs["objective_description"] = internal_description;
     setDescription(internal_description);
   };
+
+  useEffect(() => {
+    if (props.panel_source_data_fields) {
+      updateDescription(objective_configs)
+    }
+  }, [props.panel_source_data_fields])
 
   return (
     <Box

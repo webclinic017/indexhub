@@ -67,7 +67,7 @@ export const getSource = async (
   let get_source_url = "";
 
   if (source_id) {
-    get_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources?source_id=${source_id}`;
+    get_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/${source_id}`;
   } else {
     get_source_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources?user_id=${user_id}`;
   }
