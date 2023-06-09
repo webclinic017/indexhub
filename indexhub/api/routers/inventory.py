@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 from functools import partial
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Optional, Tuple
 
 import polars as pl
 from fastapi import HTTPException
@@ -63,29 +63,53 @@ def get_entities(
 
         # Get forecast entities
         forecasts = read(object_path=outputs["forecasts"]["best_models"])
+        entity_cols = forecasts.columns[0].split("__")
         forecast_entities = (
-            forecasts.get_column(forecasts.columns[0]).unique().to_list()
+            forecasts.select(
+                pl.col(forecasts.columns[0])
+                .cast(pl.Utf8)
+                .str.split_exact(" - ", len(entity_cols))
+                .struct.rename_fields(entity_cols)
+                .alias("entities")
+            )
+            .unnest("entities")
+            .unique()
+            .sort(entity_cols)
+            .with_row_count("id")
+            .to_dicts()
         )
 
         # Get inventory entities
         inventory_source = get_source(sources["inventory"])["source"]
         inventory = read(object_path=inventory_source.output_path)
+        inv_entity_cols = inventory.columns[0].split("__")
         inventory_entities = (
-            inventory.get_column(inventory.columns[0]).unique().to_list()
+            inventory.select(
+                pl.col(inventory.columns[0])
+                .cast(pl.Utf8)
+                .str.split_exact(" - ", len(inv_entity_cols))
+                .struct.rename_fields(inv_entity_cols)
+                .alias("entities")
+            )
+            .unnest("entities")
+            .unique()
+            .sort(inv_entity_cols)
+            .with_row_count("id")
+            .to_dicts()
         )
 
         entities = {
-            "forecast_entities": [
-                {"id": index, "entity": entity}
-                for index, entity in enumerate(forecast_entities)
-            ],
-            "inventory_entities": [
-                {"id": index, "entity": entity}
-                for index, entity in enumerate(inventory_entities)
-            ],
+            "forecast_entities": forecast_entities,
+            "inventory_entities": inventory_entities,
         }
 
     return entities
+
+
+class Columns(BaseModel):
+    field: str
+    headerName: str
+    aggregation: Optional[str] = None
 
 
 def _create_inventory_table(
@@ -93,10 +117,10 @@ def _create_inventory_table(
     outputs: Mapping[str, str],
     user: User,
     forecast_entities: List[str],
-    inventory_entity: str,
+    inventory_entities: List[str],
     quantile_lower: int = 10,
     quantile_upper: int = 90,
-) -> pl.DataFrame:
+) -> Tuple[pl.DataFrame, List[Mapping[str, str]]]:
     forecast_source = get_source(sources["panel"])["source"]
     inventory_source = get_source(sources["inventory"])["source"]
 
@@ -134,17 +158,14 @@ def _create_inventory_table(
             object_path=outputs["best_plan"].replace(
                 "best_plan.parquet", "plan.parquet"
             )
-        )
+        ).rename({"entity": entity_col})
     except HTTPException:
         # If plan.parquet not found, use best plan as plan
         # This happens if user has not clicked on execute plan
         logger.warning("`plan.parquet` not found, use best plan as plan.")
-        plan = read(object_path=outputs["best_plan"]).rename(
-            {entity_col: "entity", "best_plan": "plan"}
-        )
+        plan = read(object_path=outputs["best_plan"]).rename({"best_plan": "plan"})
 
     # Join dfs and filter by entities
-    indexhub = pl.concat([backtest, forecast]).rename({target_col: "ai"})
     forecast_df = (
         actual.rename({target_col: "actual"})
         .join(
@@ -152,7 +173,11 @@ def _create_inventory_table(
             on=idx_cols,
             how="outer",
         )
-        .join(indexhub, on=idx_cols, how="outer")
+        .join(
+            pl.concat([backtest, forecast]).rename({target_col: "ai"}),
+            on=idx_cols,
+            how="outer",
+        )
         # Join quantiles
         .join(
             quantiles_lower.rename({target_col: f"ai_{quantile_lower}"}),
@@ -170,9 +195,7 @@ def _create_inventory_table(
             how="outer",
         )
         .join(
-            plan.select(pl.all().exclude(["^fh.*$", "^use.*$"])).rename(
-                {"entity": entity_col}
-            ),
+            plan.select(pl.all().exclude(["^fh.*$", "^use.*$"])),
             on=idx_cols,
             how="outer",
         )
@@ -181,8 +204,7 @@ def _create_inventory_table(
     )
 
     # Read entity cols
-    forecast_data_fields = json.loads(forecast_source.data_fields)
-    entity_cols = forecast_data_fields["entity_cols"]
+    entity_cols = forecast_df.columns[0].split("__")
     inventory_data_fields = json.loads(inventory_source.data_fields)
     inv_entity_cols = inventory_data_fields["entity_cols"]
     inv_entity_col = "__".join(inv_entity_cols)
@@ -194,31 +216,13 @@ def _create_inventory_table(
             object_path=inventory_source.output_path,
             columns=[inv_entity_col, "time", inv_target_col],
         )
-        .filter(pl.col(inv_entity_col) == inventory_entity)
+        .filter(pl.col(inv_entity_col).is_in(inventory_entities))
         .rename({inv_target_col: "inventory"})
     )
 
     # Join forecast and inventory
-    agg_expr = {
-        "sum": pl.exclude("inventory").sum(),
-        "mean": pl.exclude("inventory").mean(),
-        "median": pl.exclude("inventory").median(),
-    }
-
-    # Use agg method from panel source settings
-    forecast_agg_method = forecast_data_fields.get("agg_method", "sum")
-
-    # Use mean for inventory if levels not equal
-    # Otherwise use agg method from inventory source settings
-    inventory_agg_method = json.loads(inventory_source.data_fields).get(
-        "agg_method", "sum"
-    )
-    if entity_col == inv_entity_col:
-        inventory_agg_expr = AGG_METHODS[inventory_agg_method]
-    else:
-        inventory_agg_expr = pl.mean
-
-    table = (
+    unique_entity_cols = [col for col in entity_cols if col not in inv_entity_cols]
+    rows = (
         forecast_df
         # Split entity cols
         .with_columns(
@@ -245,27 +249,92 @@ def _create_inventory_table(
             )
             .drop(inv_entity_col)
             .unnest("entities")
+            # Cast entity cols to categorical
             .with_columns(
                 [pl.col(col).cast(pl.Categorical) for col in inv_entity_cols]
             ),
             on=[*inv_entity_cols, time_col],
             how="left",
         )
-        # Group by time and agg
-        .groupby("time", maintain_order=True)
-        .agg(agg_expr[forecast_agg_method], inventory_agg_expr("inventory"))
-        .sort("time")
-        .select(pl.exclude([*entity_cols, *inv_entity_cols]))
+        .sort(["time", *inv_entity_cols, *unique_entity_cols])
+        # Reorder cols
+        .select(
+            [
+                "time",
+                *inv_entity_cols,
+                "inventory",
+                *unique_entity_cols,
+                pl.exclude(
+                    ["time", *inv_entity_cols, "inventory", *unique_entity_cols]
+                ),
+            ]
+        )
     )
-    return table
+
+    # Use agg method from panel source settings
+    forecast_data_fields = json.loads(forecast_source.data_fields)
+    forecast_agg_method = forecast_data_fields.get("agg_method", "sum")
+
+    # Use mean for inventory if levels not equal
+    # Otherwise use agg method from inventory source settings
+    if entity_col == inv_entity_col:
+        inventory_agg_method = inventory_data_fields.get("agg_method", "sum")
+    else:
+        inventory_agg_method = "mean"
+
+    # Create columns for MUI column properties
+    agg_methods = {
+        col: forecast_agg_method
+        for col in rows.columns
+        if col not in ["time", *entity_cols, *inv_entity_cols, "inventory"]
+    }
+    agg_methods["inventory"] = inventory_agg_method
+    columns = [
+        Columns(
+            field=col,
+            headerName=col.replace("_", " ").title(),
+            aggregation=agg_methods.get(col, None),
+        ).__dict__
+        for col in rows.columns
+    ]
+    return rows, columns
 
 
 def _create_inventory_chart(
     chart_data: pl.DataFrame,
+    sources: Mapping[str, str],
     quantile_lower: int = 10,
     quantile_upper: int = 90,
 ):
     time_col = chart_data.columns[0]
+
+    # If forecast and inventory have different entity cols
+    # Group by time + inventory entity cols and agg inventory by mean
+    # Then group by time and agg using user selected agg method
+    forecast_source = get_source(sources["panel"])["source"]
+    forecast_data_fields = json.loads(forecast_source.data_fields)
+    forecast_entity_cols = forecast_data_fields["entity_cols"]
+    forecast_agg_method = forecast_data_fields.get("agg_method", "sum")
+
+    inventory_source = get_source(sources["inventory"])["source"]
+    inventory_data_fields = json.loads(inventory_source.data_fields)
+    inventory_entity_cols = inventory_data_fields["entity_cols"]
+    inventory_agg_method = inventory_data_fields.get("agg_method", "sum")
+
+    agg_expr = {
+        "sum": pl.exclude("inventory").sum(),
+        "mean": pl.exclude("inventory").mean(),
+        "median": pl.exclude("inventory").median(),
+    }
+
+    if forecast_entity_cols != inventory_entity_cols:
+        chart_data = chart_data.groupby(
+            [time_col, *inventory_entity_cols], maintain_order=True
+        ).agg(pl.col("inventory").mean(), agg_expr[forecast_agg_method])
+
+    chart_data = chart_data.groupby(time_col, maintain_order=True).agg(
+        AGG_METHODS[inventory_agg_method]("inventory"), agg_expr[forecast_agg_method]
+    )
 
     # Generate the chart
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
@@ -377,14 +446,14 @@ def _create_inventory_chart(
 
 class Params(BaseModel):
     forecast_entities: List[str]
-    inventory_entity: str
+    inventory_entities: List[str]
 
 
 @router.post("/inventory/table/{objective_id}")
 def get_inventory_table(
     objective_id: str,
     params: Params,
-) -> List[Mapping[str, Any]]:
+) -> Mapping[str, List[Mapping[str, Any]]]:
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -393,23 +462,21 @@ def get_inventory_table(
     with Session(engine) as session:
         user = session.get(User, objective.user_id)
 
-    table = None
+    response = None
     if sources.get("inventory", None):
-        table = (
-            _create_inventory_table(
-                sources=sources,
-                outputs=outputs,
-                user=user,
-                forecast_entities=params.forecast_entities,
-                inventory_entity=params.inventory_entity,
-            )
-            .with_row_count()
-            .rename({"row_nr": "id"})
-            .drop_nulls(subset=["ai"])
-            .to_dicts()
+        rows, columns = _create_inventory_table(
+            sources=sources,
+            outputs=outputs,
+            user=user,
+            forecast_entities=params.forecast_entities,
+            inventory_entities=params.inventory_entities,
         )
 
-    return table
+        rows = rows.drop_nulls(subset=["inventory"]).with_row_count("id").to_dicts()
+
+        response = {"columns": columns, "rows": rows}
+
+    return response
 
 
 @router.post("/inventory/chart/{objective_id}")
@@ -424,13 +491,13 @@ def get_inventory_chart(objective_id: str, params: Params):
 
     chart_json = None
     if sources.get("inventory", None):
-        table = _create_inventory_table(
+        chart_data, _ = _create_inventory_table(
             sources=sources,
             outputs=outputs,
             user=user,
             forecast_entities=params.forecast_entities,
-            inventory_entity=params.inventory_entity,
+            inventory_entities=params.inventory_entities,
         )
-        chart_json = _create_inventory_chart(table)
+        chart_json = _create_inventory_chart(chart_data=chart_data, sources=sources)
 
     return chart_json
