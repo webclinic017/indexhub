@@ -574,7 +574,7 @@ def run_forecast(
         if X is not None:
             X = X.to_arrow()
 
-        y, outputs = automl_flow.call(
+        outputs = automl_flow.call(
             y=y.to_arrow(),
             min_lags=min_lags,
             max_lags=max_lags,
