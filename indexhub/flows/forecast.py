@@ -4,6 +4,7 @@ from datetime import datetime
 from functools import partial, reduce
 import os
 from typing import Any, Callable, List, Mapping, Optional
+from dataclasses import asdict
 
 import modal
 import pandas as pd
@@ -607,7 +608,7 @@ def run_forecast(
 
         # Score baseline compared to best scores
         baseline_scores = score_forecast(y, y_baseline)
-        baseline_metrics = summarize_scores(baseline_scores)
+        baseline_metrics = asdict(summarize_scores(baseline_scores))
         uplift = compare_scores(baseline_scores, outputs["scores"]["best_models"])
         # Append paths to outputs
         outputs["y_baseline"] = make_path(prefix="y_baseline")
