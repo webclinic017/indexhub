@@ -27,6 +27,8 @@ from indexhub.api.schemas import (
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.modal_stub import stub
+from functime.metrics.multi_objective import score_forecast, summarize_scores
+from functime.metrics.uplift import compare_scores
 
 
 def _logger(name, level=logging.INFO):
@@ -604,13 +606,9 @@ def run_forecast(
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         # Score baseline compared to best scores
-        env_prefix = os.environ.get("ENV_NAME", "dev")
-        uplift_flow = modal.Function.lookup(f"{env_prefix}-functime-flows", "compute_uplift")
-        baseline_scores, baseline_metrics, uplift = uplift_flow.call(
-            scores=outputs["scores"]["best_models"],
-            y=y.to_arrow(),
-            y_baseline=y_baseline.to_arrow(),
-        )
+        baseline_scores = score_forecast(y, y_baseline)
+        baseline_metrics = summarize_scores(baseline_scores)
+        uplift = compare_scores(baseline_scores, outputs["scores"]["best_models"])
         # Append paths to outputs
         outputs["y_baseline"] = make_path(prefix="y_baseline")
         outputs["baseline__scores"] = make_path(prefix="baseline__scores")
