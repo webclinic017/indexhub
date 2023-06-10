@@ -25,6 +25,7 @@ dev = [
     "coverage[toml]",
     "fastapi-cache2",
     "flake8",
+    "functime",
     "pre-commit",
     "pytest-postgresql",
     "pytest",
