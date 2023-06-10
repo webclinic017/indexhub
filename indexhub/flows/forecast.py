@@ -29,7 +29,6 @@ from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.modal_stub import stub
 from functime.metrics.multi_objective import score_forecast, summarize_scores
-from functime.metrics.uplift import compare_scores
 
 
 def _logger(name, level=logging.INFO):
@@ -472,6 +471,32 @@ def _update_objective(
         return objective
 
 
+def _compare_scores(
+    scores: pl.DataFrame,
+    scores_baseline: pl.DataFrame,
+) -> pl.DataFrame:
+    """Given two DataFrame of metrics (columns) across entities,
+    return DataFrame with difference in levels and percent between scores and baseline scores.
+    """
+    # Select metrics column
+    entity_col = scores.columns[0]
+    score_cols = scores.columns[1:]
+    # Defensive sort
+    scores = scores.sort(entity_col)
+    scores_baseline = scores_baseline.sort(entity_col)
+    scores_values = scores.select(score_cols).lazy()
+    scores_baseline_values = scores_baseline.select(score_cols).lazy()
+    # Uplift
+    scores_diff = scores_values - scores_baseline_values
+    scores_diff_pct = (scores_diff) / scores_baseline
+    scores_diff, scores_diff_pct = pl.collect_all([
+        scores_diff.select(pl.all().suffix("__uplift")),
+        scores_diff_pct.select(pl.all().suffix("__uplift_pct"))
+    ])
+    uplift = pl.concat([scores.get_column(entity_col), scores_diff, scores_diff_pct])
+    return uplift
+
+
 @stub.function(
     memory=5120,
     cpu=8.0,
@@ -609,7 +634,7 @@ def run_forecast(
         # Score baseline compared to best scores
         baseline_scores = score_forecast(y, y_baseline)
         baseline_metrics = asdict(summarize_scores(baseline_scores))
-        uplift = compare_scores(baseline_scores, outputs["scores"]["best_models"])
+        uplift = _compare_scores(baseline_scores, outputs["scores"]["best_models"])
         # Append paths to outputs
         outputs["y_baseline"] = make_path(prefix="y_baseline")
         outputs["baseline__scores"] = make_path(prefix="baseline__scores")
