@@ -39,7 +39,7 @@ logger = _logger(name=__name__)
 @router.get("/inventory/{objective_id}")
 def get_entities(
     objective_id: str,
-) -> Mapping[str, List[Mapping[str, str]]]:
+) -> Mapping[str, List[str | Mapping[str, str]]]:
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -101,6 +101,8 @@ def get_entities(
         entities = {
             "forecast_entities": forecast_entities,
             "inventory_entities": inventory_entities,
+            "forecast_entity_cols": entity_cols,
+            "inventory_entity_cols": inv_entity_cols
         }
 
     return entities

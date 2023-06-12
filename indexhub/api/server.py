@@ -9,7 +9,6 @@ from indexhub.api.routers import trends
 from .db import create_db_tables
 from .routers import (
     charts,
-    copilot,
     integrations,
     objectives,
     plans,
@@ -43,7 +42,6 @@ app.include_router(tables.router)
 app.include_router(stats.router)
 app.include_router(tests.router)
 app.include_router(plans.router)
-app.include_router(copilot.router)
 app.include_router(integrations.router)
 app.include_router(trends.router)
 app.include_router(inventory.router)

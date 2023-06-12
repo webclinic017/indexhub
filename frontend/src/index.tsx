@@ -9,6 +9,7 @@ import { Provider } from "react-redux";
 import reducer from "./store/reducer";
 import mySaga from "./sagas/saga";
 import { Auth0Provider } from "@auth0/auth0-react";
+import { LicenseInfo } from '@mui/x-license-pro';
 
 const sagaMiddleware = createSagaMiddleware();
 const rootReducer = combineReducers({ reducer });
@@ -16,6 +17,9 @@ export type AppState = ReturnType<typeof rootReducer>;
 const store = createStore(rootReducer, applyMiddleware(sagaMiddleware));
 sagaMiddleware.run(mySaga);
 
+LicenseInfo.setLicenseKey(process.env.REACT_APP__MUI_X_LICENSE_KEY!);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const onAuth0RedirectCallback = (appState: any) => {
   window.location.assign(`${window.location.origin}${appState.returnTo}`);
 };

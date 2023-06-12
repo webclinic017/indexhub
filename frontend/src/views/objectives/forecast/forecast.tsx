@@ -57,6 +57,7 @@ import {
 } from "@fortawesome/pro-light-svg-icons";
 import Toast from "../../../components/toast";
 import ExpandedChartModal from "../../../components/expanded_chart_modal";
+import InventoryTable from "./_includes/inventory_table";
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
   Hourly: "hourly",
@@ -767,14 +768,12 @@ const ForecastObjective = () => {
                           bottom="50px"
                           right="40px"
                           zIndex="999"
-                          backgroundColor="colors.primary.brand_colors.black"
+                          backgroundColor="black"
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "colors.supplementary.brand_colors.gray";
+                            e.currentTarget.style.backgroundColor = "gray";
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "colors.primary.brand_colors.black";
+                            e.currentTarget.style.backgroundColor = "black";
                           }}
                           isLoading={isExportingTable}
                           onClick={() => {
@@ -1275,12 +1274,9 @@ const ForecastObjective = () => {
                   </>
                 </TabPanel>
                 <TabPanel>
-                  {/* {objective_id && <InventoryTable objective_id={objective_id} />} */}
-                  <Stack width="100%" alignItems="center" height="10rem">
-                    <Text textAlign="center" fontWeight="bold">
-                      Coming Soon...
-                    </Text>
-                  </Stack>
+                  {objective_id && (
+                    <InventoryTable objective_id={objective_id} />
+                  )}
                 </TabPanel>
               </TabPanels>
             </Tabs>

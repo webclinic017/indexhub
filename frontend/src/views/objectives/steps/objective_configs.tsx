@@ -44,7 +44,7 @@ const ObjectiveConfigs = (props: {
   const objective_configs = props.objective_configs;
   const schema_config_fields =
     props.objectives_schema[props.objective_configs["objective_type"]][
-    "fields"
+      "fields"
     ];
 
   const [description, setDescription] = useState<string>(
@@ -56,7 +56,7 @@ const ObjectiveConfigs = (props: {
   ) => {
     let internal_description: string =
       props.objectives_schema[internal_objective_configs["objective_type"]][
-      "objective"
+        "objective"
       ];
     internal_description = internal_description
       .replace(
@@ -89,9 +89,9 @@ const ObjectiveConfigs = (props: {
 
   useEffect(() => {
     if (props.panel_source_data_fields) {
-      updateDescription(objective_configs)
+      updateDescription(objective_configs);
     }
-  }, [props.panel_source_data_fields])
+  }, [props.panel_source_data_fields]);
 
   return (
     <Box

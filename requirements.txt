@@ -3,6 +3,7 @@ boto3==1.24.59
 botocore
 cacheout
 fastapi
+functime
 holidays
 httpx
 modal-client
@@ -19,5 +20,5 @@ uvicorn==0.20.0
 pyecharts
 xlsx2csv
 websockets
-pylance==0.4.13
+# pylance==0.4.13
 tabulate

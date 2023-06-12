@@ -38,9 +38,13 @@ const steps = [
 ];
 
 const NewObjective = () => {
-  const [objectives_schema, setObjectivesSchema] = useState<Record<any, any>>({});
-  const [objective_configs, setObjectiveConfigs] = useState<Record<string, any>>({});
-  const [panelSource, setPanelSource] = useState<Record<string, any>>({})
+  const [objectives_schema, setObjectivesSchema] = useState<Record<any, any>>(
+    {}
+  );
+  const [objective_configs, setObjectiveConfigs] = useState<
+    Record<string, any>
+  >({});
+  const [panelSource, setPanelSource] = useState<Record<string, any>>({});
   const access_token_indexhub_api = useAuth0AccessToken();
   const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
     maxStep: steps.length,
@@ -55,17 +59,22 @@ const NewObjective = () => {
     goToNextStep();
   };
 
-  const submitObjectiveSources = async (objective_sources: Record<string, string>) => {
-
+  const submitObjectiveSources = async (
+    objective_sources: Record<string, string>
+  ) => {
     if (Object.keys(objective_sources).includes("panel")) {
       objective_configs["panel"] = objective_sources["panel"];
       objective_configs["panel_name"] = objective_sources["panel_name"];
 
       const panel_source = await getSource(
-        "", objective_sources["panel"], access_token_indexhub_api
-      )
-      panel_source["source"]["data_fields"] = JSON.parse(panel_source["source"]["data_fields"])
-      setPanelSource(panel_source["source"])
+        "",
+        objective_sources["panel"],
+        access_token_indexhub_api
+      );
+      panel_source["source"]["data_fields"] = JSON.parse(
+        panel_source["source"]["data_fields"]
+      );
+      setPanelSource(panel_source["source"]);
 
       objective_configs["baseline"] = objective_sources["baseline"]
         ? objective_sources["baseline"]

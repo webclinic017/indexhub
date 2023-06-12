@@ -19,7 +19,7 @@ export const createSource = async (
       conn_fields: JSON.stringify({
         object_path: source_configs["object_path"],
         bucket_name: source_configs["bucket_name"],
-        file_ext: source_configs["file_ext"]
+        file_ext: source_configs["file_ext"],
       }),
       data_fields: JSON.stringify({
         entity_cols: source_configs["entity_cols"],
@@ -34,7 +34,7 @@ export const createSource = async (
         price_col: source_configs["price_col"],
         quantity_col: source_configs["quantity_col"],
         product_col: source_configs["product_col"],
-      })
+      }),
     }),
   });
 
@@ -102,9 +102,7 @@ export const getConnectionsSchema = async (
   return response_json;
 };
 
-export const getDatasetsSchema = async (
-  access_token_indexhub_api: string
-) => {
+export const getDatasetsSchema = async (access_token_indexhub_api: string) => {
   const get_dataset_schema_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/sources/dataset-schema`;
 
   const get_dataset_schema_response = await fetch(get_dataset_schema_url, {
@@ -120,15 +118,13 @@ export const getDatasetsSchema = async (
   return response_json;
 };
 
-
 export const getS3SourceColumns = async (
   bucket_name: string,
   object_path: string,
   file_ext: string,
   access_token_indexhub_api: string
 ) => {
-  const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN
-    }/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list`;
+  const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list`;
 
   const get_source_columns_response = await fetch(get_source_columns_url, {
     method: "GET",

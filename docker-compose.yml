@@ -43,6 +43,8 @@ services:
       # FastAPI server domains
       REACT_APP__FASTAPI__DOMAIN: ${REACT_APP__FASTAPI__DOMAIN}
       REACT_APP__FASTAPI__WEBSOCKET_DOMAIN: ${REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}
+      # MUI X
+      REACT_APP__MUI_X_LICENSE_KEY: ${REACT_APP__MUI_X_LICENSE_KEY}
     stdin_open: true
     tty: true
     volumes:

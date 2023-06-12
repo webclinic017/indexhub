@@ -1,17 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import Box from "@mui/material/Box";
-import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import {
-  HStack,
-  Box as ChakraBox,
-  VStack,
-  Text,
-  Stack,
-  Spinner,
-  Button,
-} from "@chakra-ui/react";
+  DataGridPremium,
+  GridColDef,
+  useGridApiRef,
+  GridRowParams,
+} from "@mui/x-data-grid-premium";
 import ReactEcharts from "echarts-for-react";
+import {
+  Box,
+  Button,
+  HStack,
+  Spinner,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { useAuth0AccessToken } from "../../../../utilities/hooks/auth0";
 import { useSelector } from "react-redux";
 import { AppState } from "../../../..";
@@ -19,88 +23,34 @@ import {
   getCombinedEntitiesAndInventoryTable,
   getEntitiesAndInventoryTables,
 } from "../../../../utilities/backend_calls/tables";
-import { getCombinedEntitiesAndInventoryChart } from "../../../../utilities/backend_calls/charts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faNotebook } from "@fortawesome/pro-light-svg-icons";
+import { getCombinedEntitiesAndInventoryChart } from "../../../../utilities/backend_calls/charts";
 
 const MuiTheme = createTheme({});
 
-const entity_inventory_options_table_columns: GridColDef[] = [
-  {
-    field: "entity",
-    headerName: "Entity",
-    width: 300,
-  },
-];
-
-const entity_inventory_table_columns: GridColDef[] = [
-  {
-    field: "time",
-    headerName: "Time",
-    width: 150,
-    valueGetter: (params) => {
-      if (!params.value) {
-        return params.value;
-      }
-      return new Date(params.value).toLocaleDateString();
-    },
-  },
-  {
-    field: "inventory",
-    headerName: "Inventory",
-    width: 150,
-  },
-  {
-    field: "actual",
-    headerName: "Actual",
-    width: 150,
-  },
-  {
-    field: "baseline",
-    headerName: "Baseline",
-    width: 150,
-  },
-  {
-    field: "ai",
-    headerName: "AI",
-    width: 150,
-  },
-  {
-    field: "ai_10",
-    headerName: "AI 10%",
-    width: 150,
-  },
-  {
-    field: "ai_90",
-    headerName: "AI 90%",
-    width: 150,
-  },
-  {
-    field: "best_plan",
-    headerName: "Best Plan",
-    width: 150,
-  },
-  {
-    field: "plan",
-    headerName: "Plan",
-    width: 150,
-  },
-];
-
-export default function DataGridDemo(props: { objective_id: string }) {
+export default function InventoryTable(props: { objective_id: string }) {
   const [forecastAndInventoryEntities, setForecastAndInventoryEntities] =
     useState<Record<string, any> | null>(null);
+  const [
+    forecastAndInventoryEntitiesGridCols,
+    setForecastAndInventoryEntitiesGridCols,
+  ] = useState<Record<string, GridColDef[]>>({ forecast: [], inventory: [] });
   const [
     selectedForecastAndInventoryEntities,
     setSelectedForecastAndInventoryEntities,
   ] = useState<Record<string, string[] | string | null>>({
     forecast_entities: null,
-    inventory_entity: null,
+    inventory_entities: null,
   });
   const [
     forecastAndInventoyEntitiesTableData,
     setForecastAndInventoyEntitiesTableData,
-  ] = useState<Record<string, any>[] | null>(null);
+  ] = useState<Record<string, any> | null>(null);
+  const [
+    forecastAndInventoryEntitiesTableGridCols,
+    setForecastAndInventoryEntitiesTableGridCols,
+  ] = useState<GridColDef[]>([]);
   const [
     forecastAndInventoyEntitiesChartData,
     setForecastAndInventoyEntitiesChartData,
@@ -111,6 +61,8 @@ export default function DataGridDemo(props: { objective_id: string }) {
     useState(false);
   const access_token_indexhub_api = useAuth0AccessToken();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
+
+  const apiRef = useGridApiRef();
 
   useEffect(() => {
     const getEntitiesAndInventoryTablesApi = async () => {
@@ -127,24 +79,59 @@ export default function DataGridDemo(props: { objective_id: string }) {
   }, [user_details, access_token_indexhub_api, props.objective_id]);
 
   useEffect(() => {
-    const getInventoryDataApi = async () => {
-      setIsGeneratingInventoryData(true);
-      const forecast_inventory_table_data =
-        await getCombinedEntitiesAndInventoryTable(
-          props.objective_id,
-          selectedForecastAndInventoryEntities,
-          access_token_indexhub_api
+    if (forecastAndInventoryEntities) {
+      ["forecast", "inventory"].forEach((table_type: string) => {
+        forecastAndInventoryEntitiesGridCols[table_type] = [];
+        forecastAndInventoryEntities[`${table_type}_entity_cols`].forEach(
+          (col: string) => {
+            forecastAndInventoryEntitiesGridCols[table_type].push({
+              field: col,
+              headerName: col.replaceAll("_", " ").toUpperCase(),
+              width: 200,
+            } as GridColDef);
+            setForecastAndInventoryEntitiesGridCols(
+              structuredClone(forecastAndInventoryEntitiesGridCols)
+            );
+          }
         );
-      setForecastAndInventoyEntitiesTableData(forecast_inventory_table_data);
+      });
+    }
+  }, [forecastAndInventoryEntities]);
 
-      const forecast_inventory_chart_data =
-        await getCombinedEntitiesAndInventoryChart(
-          props.objective_id,
-          selectedForecastAndInventoryEntities,
-          access_token_indexhub_api
+  useEffect(() => {
+    const getInventoryDataApi = async () => {
+      if (forecastAndInventoryEntities) {
+        setIsGeneratingInventoryData(true);
+        const forecast_inventory_table_data =
+          await getCombinedEntitiesAndInventoryTable(
+            props.objective_id,
+            selectedForecastAndInventoryEntities,
+            access_token_indexhub_api
+          );
+        setForecastAndInventoyEntitiesTableData(forecast_inventory_table_data);
+        forecastAndInventoryEntitiesTableGridCols.length = 0;
+        forecast_inventory_table_data["columns"].forEach(
+          (col_data: Record<string, any>) => {
+            forecastAndInventoryEntitiesTableGridCols.push({
+              field: col_data["field"],
+              headerName: col_data["headerName"].toUpperCase(),
+              width: 200,
+            } as GridColDef);
+            setForecastAndInventoryEntitiesTableGridCols(
+              structuredClone(forecastAndInventoryEntitiesTableGridCols)
+            );
+          }
         );
-      setForecastAndInventoyEntitiesChartData(forecast_inventory_chart_data);
-      setIsGeneratingInventoryData(false);
+
+        const forecast_inventory_chart_data =
+          await getCombinedEntitiesAndInventoryChart(
+            props.objective_id,
+            selectedForecastAndInventoryEntities,
+            access_token_indexhub_api
+          );
+        setForecastAndInventoyEntitiesChartData(forecast_inventory_chart_data);
+        setIsGeneratingInventoryData(false);
+      }
     };
 
     if (toggleGenerateInventoryData) {
@@ -154,7 +141,7 @@ export default function DataGridDemo(props: { objective_id: string }) {
   }, [toggleGenerateInventoryData]);
 
   return (
-    <>
+    <Stack>
       {forecastAndInventoryEntities ? (
         <VStack
           width="100%"
@@ -169,34 +156,40 @@ export default function DataGridDemo(props: { objective_id: string }) {
               the entity-inventory table below.
             </Text>
             <HStack width="100%">
-              <ChakraBox width="50%">
+              <Box width="50%">
                 <Text fontWeight="bold">Entities</Text>
                 <Text fontSize="sm">
                   Select entities to be included in the inventory data report.
                 </Text>
-                <Box sx={{ height: 400, width: "100%" }}>
+                <Box height="25rem">
                   <ThemeProvider theme={MuiTheme}>
-                    <DataGrid
+                    <DataGridPremium
                       rows={forecastAndInventoryEntities["forecast_entities"]}
-                      columns={entity_inventory_options_table_columns}
-                      initialState={{
-                        pagination: {
-                          paginationModel: {
-                            pageSize: 5,
-                          },
-                        },
-                      }}
-                      pageSizeOptions={[5]}
                       checkboxSelection
+                      apiRef={apiRef}
+                      columns={forecastAndInventoryEntitiesGridCols["forecast"]}
                       disableRowSelectionOnClick
+                      isRowSelectable={(params: GridRowParams) =>
+                        params.row.id > -1
+                      }
+                      rowGroupingColumnMode="multiple"
+                      rowGroupingModel={forecastAndInventoryEntities[
+                        "forecast_entity_cols"
+                      ].slice(0, -1)}
                       onRowSelectionModelChange={(selectedEntityIds) => {
                         const selectedEntities: string[] = [];
                         selectedEntityIds.forEach((id) => {
-                          selectedEntities.push(
-                            forecastAndInventoryEntities["forecast_entities"][
-                              id
-                            ]["entity"]
-                          );
+                          const col_vals: string[] = [];
+                          forecastAndInventoryEntities[
+                            "forecast_entity_cols"
+                          ].forEach((col: string) => {
+                            col_vals.push(
+                              forecastAndInventoryEntities["forecast_entities"][
+                                id
+                              ][col]
+                            );
+                          });
+                          selectedEntities.push(col_vals.join(" - "));
                         });
                         selectedForecastAndInventoryEntities[
                           "forecast_entities"
@@ -208,34 +201,49 @@ export default function DataGridDemo(props: { objective_id: string }) {
                     />
                   </ThemeProvider>
                 </Box>
-              </ChakraBox>
+              </Box>
 
-              <ChakraBox width="50%">
+              <Box width="50%">
                 <Text fontWeight="bold">Inventories</Text>
                 <Text fontSize="sm">
                   Select inventories to be included in the inventory data
                   report.
                 </Text>
-                <Box sx={{ height: 400, width: "100%" }}>
+                <Box height="25rem">
                   <ThemeProvider theme={MuiTheme}>
-                    <DataGrid
+                    <DataGridPremium
                       rows={forecastAndInventoryEntities["inventory_entities"]}
-                      columns={entity_inventory_options_table_columns}
-                      initialState={{
-                        pagination: {
-                          paginationModel: {
-                            pageSize: 5,
-                          },
-                        },
-                      }}
-                      pageSizeOptions={[5]}
+                      checkboxSelection
+                      apiRef={apiRef}
+                      columns={
+                        forecastAndInventoryEntitiesGridCols["inventory"]
+                      }
+                      disableRowSelectionOnClick
+                      isRowSelectable={(params: GridRowParams) =>
+                        params.row.id > -1
+                      }
+                      rowGroupingColumnMode="multiple"
+                      rowGroupingModel={forecastAndInventoryEntities[
+                        "inventory_entity_cols"
+                      ].slice(0, -1)}
                       onRowSelectionModelChange={(selectedEntityIds) => {
+                        const selectedEntities: string[] = [];
+                        selectedEntityIds.forEach((id) => {
+                          const col_vals: string[] = [];
+                          forecastAndInventoryEntities[
+                            "inventory_entity_cols"
+                          ].forEach((col: string) => {
+                            col_vals.push(
+                              forecastAndInventoryEntities[
+                                "inventory_entities"
+                              ][id][col]
+                            );
+                          });
+                          selectedEntities.push(col_vals.join(" - "));
+                        });
                         selectedForecastAndInventoryEntities[
-                          "inventory_entity"
-                        ] =
-                          forecastAndInventoryEntities["inventory_entities"][
-                            selectedEntityIds[0]
-                          ]["entity"];
+                          "inventory_entities"
+                        ] = selectedEntities;
                         setSelectedForecastAndInventoryEntities(
                           structuredClone(selectedForecastAndInventoryEntities)
                         );
@@ -243,7 +251,7 @@ export default function DataGridDemo(props: { objective_id: string }) {
                     />
                   </ThemeProvider>
                 </Box>
-              </ChakraBox>
+              </Box>
             </HStack>
             <Button
               isDisabled={
@@ -251,7 +259,9 @@ export default function DataGridDemo(props: { objective_id: string }) {
                   selectedForecastAndInventoryEntities["forecast_entities"] &&
                   selectedForecastAndInventoryEntities["forecast_entities"]
                     .length > 0 &&
-                  selectedForecastAndInventoryEntities["inventory_entity"]
+                  selectedForecastAndInventoryEntities["inventory_entities"] &&
+                  selectedForecastAndInventoryEntities["inventory_entities"]
+                    .length > 0
                 )
               }
               onClick={() => setToggleGenerateInventoryData(true)}
@@ -275,7 +285,7 @@ export default function DataGridDemo(props: { objective_id: string }) {
             {forecastAndInventoyEntitiesTableData &&
             forecastAndInventoyEntitiesChartData ? (
               <VStack width="100%" mt="unset !important">
-                <ChakraBox width="100%">
+                <Box width="100%">
                   <Text fontWeight="bold">Inventory Table</Text>
                   <Text fontSize="sm">
                     The table shows statistics for each entity and is sorted by
@@ -283,29 +293,34 @@ export default function DataGridDemo(props: { objective_id: string }) {
                   </Text>
                   <Box sx={{ height: 400, width: "100%" }}>
                     <ThemeProvider theme={MuiTheme}>
-                      <DataGrid
-                        rows={forecastAndInventoyEntitiesTableData}
-                        columns={entity_inventory_table_columns}
-                        initialState={{
-                          pagination: {
-                            paginationModel: {
-                              pageSize: 5,
-                            },
-                          },
-                        }}
-                        pageSizeOptions={[5]}
+                      <DataGridPremium
+                        rows={forecastAndInventoyEntitiesTableData["rows"]}
+                        apiRef={apiRef}
+                        columns={forecastAndInventoryEntitiesTableGridCols}
                         disableRowSelectionOnClick
+                        // rowGroupingColumnMode="multiple"
+                        rowGroupingModel={[
+                          "time",
+                          ...new Set([
+                            ...forecastAndInventoryEntities[
+                              "forecast_entity_cols"
+                            ],
+                            ...forecastAndInventoryEntities[
+                              "inventory_entity_cols"
+                            ],
+                          ]),
+                        ].slice(0, -1)}
                       />
                     </ThemeProvider>
                   </Box>
-                </ChakraBox>
-                <ChakraBox width="100%" mt="2rem !important">
+                </Box>
+                <Box width="100%" mt="2rem !important">
                   <Text fontWeight="bold">Inventory Chart</Text>
                   <Text fontSize="sm">
                     The lines represents the latest forecasts and panel trends
                     while the shaded area represents the quantile ranges.
                   </Text>
-                  <ChakraBox height="25rem" py="1rem">
+                  <Box height="25rem" py="1rem">
                     <ReactEcharts
                       option={forecastAndInventoyEntitiesChartData}
                       style={{
@@ -313,8 +328,8 @@ export default function DataGridDemo(props: { objective_id: string }) {
                         width: "100%",
                       }}
                     />
-                  </ChakraBox>
-                </ChakraBox>
+                  </Box>
+                </Box>
               </VStack>
             ) : (
               <Stack
@@ -345,6 +360,6 @@ export default function DataGridDemo(props: { objective_id: string }) {
           <Text>Loading...</Text>
         </Stack>
       )}
-    </>
+    </Stack>
   );
 }
