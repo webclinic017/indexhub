@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 from functools import partial
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, List, Mapping, Optional, Tuple, Union
 
 import polars as pl
 from fastapi import HTTPException
@@ -39,7 +39,7 @@ logger = _logger(name=__name__)
 @router.get("/inventory/{objective_id}")
 def get_entities(
     objective_id: str,
-) -> Mapping[str, List[str | Mapping[str, str]]]:
+) -> Mapping[str, List[Union[str, Mapping[str, str]]]]:
     objective = get_objective(objective_id)["objective"]
     sources = json.loads(objective.sources)
     outputs = json.loads(objective.outputs)
@@ -102,7 +102,7 @@ def get_entities(
             "forecast_entities": forecast_entities,
             "inventory_entities": inventory_entities,
             "forecast_entity_cols": entity_cols,
-            "inventory_entity_cols": inv_entity_cols
+            "inventory_entity_cols": inv_entity_cols,
         }
 
     return entities
@@ -112,6 +112,7 @@ class Columns(BaseModel):
     field: str
     headerName: str
     aggregation: Optional[str] = None
+    type: str  # string or number
 
 
 def _create_inventory_table(
@@ -296,8 +297,9 @@ def _create_inventory_table(
             field=col,
             headerName=col.replace("_", " ").title(),
             aggregation=agg_methods.get(col, None),
+            type="number" if dtype in pl.NUMERIC_DTYPES else "string",
         ).__dict__
-        for col in rows.columns
+        for col, dtype in rows.schema.items()
     ]
     return rows, columns
 
