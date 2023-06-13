@@ -331,20 +331,6 @@ def _get_forecast_table_view(
         )
     )
 
-    # Set default `use_ai`, `use_baseline`, and `use_override`
-    plans = rolling_uplift.select(
-        entity_col,
-        pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
-        .then(True)
-        .otherwise(False)
-        .alias("use_ai"),
-        pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
-        .then(True)
-        .otherwise(False)
-        .alias("use_baseline"),
-        pl.lit(False).alias("use_override"),
-    )
-
     # Pivot quantiles
     quantiles = (
         quantiles.lazy()
@@ -363,11 +349,20 @@ def _get_forecast_table_view(
             y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
         )
         .join(quantiles, on=idx_cols, how="left")
-        .join(plans, on=entity_col, how="left")
+        .join(rolling_uplift, on=entity_col, how="left")
         .with_columns(
             [
                 pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
-                pl.lit(None).alias("override"),  # for FE
+                # Assign use according to uplift
+                pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
+                .then("ai")
+                .otherwise("baseline")
+                .alias("use"),
+                # Assign plan according to uplift
+                pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
+                .then(pl.col("forecast"))
+                .otherwise(pl.col("baseline"))
+                .alias("plan"),
             ]
         )
         .rename({entity_col: "entity"})
@@ -392,6 +387,7 @@ def _get_forecast_table_view(
             .struct.rename_fields(entity_cols)
             .alias("entities")
         )
+        .drop(entity_col)
         .unnest("entities")
         .sort([*entity_cols, time_col])
         .select(
@@ -403,10 +399,8 @@ def _get_forecast_table_view(
                 "forecast",
                 "forecast_10",
                 "forecast_90",
-                "use_ai",
-                "use_baseline",
-                "use_override",
-                "override",
+                "plan",
+                "use",
             ]
         )
         # Round all floats to 2 decimal places
@@ -429,9 +423,7 @@ def _get_forecast_table_view(
             aggregation=agg_method
             if dtype in pl.NUMERIC_DTYPES and col != "fh"
             else None,
-            type="number"
-            if dtype in pl.NUMERIC_DTYPES or col == "override"
-            else "string",
+            type="number" if dtype in pl.NUMERIC_DTYPES else "string",
         ).__dict__
         for col, dtype in rows.schema.items()
     ]
