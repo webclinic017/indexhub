@@ -30,7 +30,7 @@ const ChatContextProvider = (props: { children: React.ReactNode }) => {
     useWebSocket(
       `${process.env.REACT_APP__FASTAPI__WEBSOCKET_DOMAIN}/trends/copilot/ws`,
       {
-        shouldReconnect: (_closeEvent) => true, // eslint-disable-line @typescript-eslint/no-unused-vars
+        shouldReconnect: (_closeEvent) => false, // eslint-disable-line @typescript-eslint/no-unused-vars
       }
     );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
