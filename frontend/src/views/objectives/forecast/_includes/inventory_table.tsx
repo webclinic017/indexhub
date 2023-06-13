@@ -115,6 +115,7 @@ export default function InventoryTable(props: { objective_id: string }) {
             forecastAndInventoryEntitiesTableGridCols.push({
               field: col_data["field"],
               headerName: col_data["headerName"].toUpperCase(),
+              type: col_data["type"],
               width: 200,
             } as GridColDef);
             setForecastAndInventoryEntitiesTableGridCols(
@@ -310,6 +311,20 @@ export default function InventoryTable(props: { objective_id: string }) {
                             ],
                           ]),
                         ].slice(0, -1)}
+                        initialState={{
+                          aggregation: {
+                            model: {
+                              actual: "sum",
+                              inventory: "avg",
+                              baseline: "sum",
+                              ai: "sum",
+                              ai_10: "sum",
+                              ai_90: "sum",
+                              best_plan: "sum",
+                              plan: "sum",
+                            },
+                          },
+                        }}
                       />
                     </ThemeProvider>
                   </Box>
