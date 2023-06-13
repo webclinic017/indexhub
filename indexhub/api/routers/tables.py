@@ -1,7 +1,7 @@
 import json
 from enum import Enum
 from functools import partial, reduce
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -128,16 +128,11 @@ def _get_forecast_table(
         **storage_creds,
     )
 
-    # Read artifacts
+    # Read forecast
     forecast = read(object_path=outputs["forecasts"]["best_models"])
-    quantiles = read(object_path=outputs["quantiles"]["best_models"])
-    y_baseline = read(object_path=outputs["y_baseline"])
-    y = read(object_path=outputs["y"])
-
     best_models = outputs["best_models"]
     agg_method = source_fields.get("agg_method", "sum")
     entity_col, time_col, target_col = forecast.columns
-    idx_cols = entity_col, time_col
 
     # Read rolling uplift and take the latest stats
     metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
@@ -214,32 +209,9 @@ def _get_forecast_table(
         )
     )
 
-    # Set default `use_ai`, `use_baseline`, and `use_override`
-    plans = stats.select(
-        entity_col,
-        pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
-        .then(True)
-        .otherwise(False)
-        .alias("use_ai"),
-        pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
-        .then(True)
-        .otherwise(False)
-        .alias("use_baseline"),
-        pl.lit(False).alias("use_override"),
-    )
-
-    # Pivot quantiles
-    quantiles = (
-        quantiles.lazy()
-        .filter(pl.col("quantile").is_in([10, 90]))
-        .collect(streaming=True)
-        .pivot(values=target_col, index=idx_cols, columns="quantile")
-        .select([*idx_cols, pl.all().exclude(idx_cols).prefix("forecast_")])
-        .lazy()
-    )
-
     # Create sparklines
     # Filter y to last 12 datetimes
+    y = read(object_path=outputs["y"])
     y_last12 = (
         y.with_columns(
             [
@@ -266,57 +238,9 @@ def _get_forecast_table(
         y_data = df.get_column(target_col).round(1).to_list()
         sparklines[entity] = _create_sparkline(y_data)
 
-    # Concat forecasts
+    # Return entity, stats, best_model, and sparklines
     table = (
-        forecast.lazy()
-        .rename({target_col: "forecast"})
-        .join(
-            y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
-        )
-        .join(quantiles, on=idx_cols, how="left")
-        .join(plans, on=entity_col, how="left")
-        .with_columns(
-            [
-                pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
-                pl.lit(None).alias("override"),  # for FE
-            ]
-        )
-        # Reorder
-        .select(
-            [
-                entity_col,
-                time_col,
-                "fh",
-                "baseline",
-                "forecast",
-                "forecast_10",
-                "forecast_90",
-                "use_ai",
-                "use_baseline",
-                "use_override",
-                "override",
-            ]
-        )
-        # Rename to label for FE
-        .rename(
-            {
-                time_col: "Time",  # Empty string
-                "fh": "Forecast Period",
-                "forecast": "Forecast",
-                "baseline": "Baseline",
-                "forecast_10": "Forecast (10% quantile)",
-                "forecast_90": "Forecast (90% quantile)",
-                "override": "Override",
-            }
-        )
-        # Round all floats to 2 decimal places
-        # NOTE: Rounding not working for Float32
-        .with_columns(pl.col([pl.Float64, pl.Float32]).cast(pl.Float64).round(2))
-        .groupby(entity_col, maintain_order=True)
-        .agg(pl.struct(pl.all().exclude(entity_col)).alias("tables"))
-        # Sort table by rolling uplift
-        .join(stats, on=entity_col)
-        .sort("score__uplift_pct__rolling_mean", descending=True)
+        stats.sort("score__uplift_pct__rolling_mean", descending=True)
         .rename({entity_col: "entity"})
         # Round all floats to 2 decimal places
         # NOTE: Rounding not working for Float32
@@ -324,8 +248,7 @@ def _get_forecast_table(
         .select(
             [
                 pl.col("entity"),
-                pl.col("tables"),
-                pl.struct(pl.all().exclude(["entity", "tables"])).alias("stats"),
+                pl.struct(pl.all().exclude("entity")).alias("stats"),
                 # Add best model by entity
                 pl.col("entity")
                 .map_dict(best_models)
@@ -357,10 +280,175 @@ def _get_uplift_table():
     pass
 
 
+class Columns(BaseModel):
+    field: str
+    headerName: str
+    aggregation: Optional[str] = None
+    type: str  # string or number
+
+
+def _get_forecast_table_view(
+    fields: Mapping[str, str],
+    outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
+    user: User,
+    objective_id: str,
+    filter_by: Mapping[str, List[str]],
+) -> Tuple[pl.DataFrame, List[Mapping[str, str]]]:
+    # Get credentials
+    storage_creds = get_aws_secret(
+        tag=user.storage_tag, secret_type="storage", user_id=user.id
+    )
+    read = partial(
+        SOURCE_TAG_TO_READER[user.storage_tag],
+        bucket_name=user.storage_bucket_name,
+        file_ext="parquet",
+        **storage_creds,
+    )
+
+    # Read artifacts
+    forecast = read(object_path=outputs["forecasts"]["best_models"])
+    quantiles = read(object_path=outputs["quantiles"]["best_models"])
+    y_baseline = read(object_path=outputs["y_baseline"])
+
+    agg_method = source_fields.get("agg_method", "sum")
+    entity_col, time_col, target_col = forecast.columns
+    idx_cols = entity_col, time_col
+
+    # Read rolling uplift and take the latest stats
+    metric = SUPPORTED_ERROR_TYPE[fields["error_type"]]
+    rolling_uplift = (
+        read(object_path=f"artifacts/{objective_id}/rolling_uplift.parquet")
+        .lazy()
+        .sort(entity_col, "updated_at")
+        .groupby(entity_col)
+        .tail(1)
+        .select(
+            entity_col,
+            (pl.col(f"{metric}__uplift_pct__rolling_mean").fill_nan(None) * 100).alias(
+                "score__uplift_pct__rolling_mean"
+            ),
+        )
+    )
+
+    # Set default `use_ai`, `use_baseline`, and `use_override`
+    plans = rolling_uplift.select(
+        entity_col,
+        pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
+        .then(True)
+        .otherwise(False)
+        .alias("use_ai"),
+        pl.when(pl.col("score__uplift_pct__rolling_mean") < 0)
+        .then(True)
+        .otherwise(False)
+        .alias("use_baseline"),
+        pl.lit(False).alias("use_override"),
+    )
+
+    # Pivot quantiles
+    quantiles = (
+        quantiles.lazy()
+        .filter(pl.col("quantile").is_in([10, 90]))
+        .collect(streaming=True)
+        .pivot(values=target_col, index=idx_cols, columns="quantile")
+        .select([*idx_cols, pl.all().exclude(idx_cols).prefix("forecast_")])
+        .lazy()
+    )
+
+    # Concat forecasts
+    rows = (
+        forecast.lazy()
+        .rename({target_col: "forecast"})
+        .join(
+            y_baseline.lazy().rename({target_col: "baseline"}), on=idx_cols, how="left"
+        )
+        .join(quantiles, on=idx_cols, how="left")
+        .join(plans, on=entity_col, how="left")
+        .with_columns(
+            [
+                pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
+                pl.lit(None).alias("override"),  # for FE
+            ]
+        )
+        .rename({entity_col: "entity"})
+    )
+
+    # Filter by specific columns
+    if filter_by:
+        expr = [pl.col(col).is_in(values) for col, values in filter_by.items()]
+        # Combine expressions with 'and'
+        filter_expr = reduce(lambda x, y: x & y, expr)
+        rows = rows.filter(filter_expr)
+
+    # Split entity cols and process data after filter
+    entity_cols = entity_col.split("__")
+    rows = (
+        rows.rename({"entity": entity_col})
+        # Split entity cols
+        .with_columns(
+            pl.col(entity_col)
+            .cast(pl.Utf8)
+            .str.split_exact(" - ", len(entity_cols))
+            .struct.rename_fields(entity_cols)
+            .alias("entities")
+        )
+        .unnest("entities")
+        .sort([*entity_cols, time_col])
+        .select(
+            [
+                *entity_cols,
+                time_col,
+                "fh",
+                "baseline",
+                "forecast",
+                "forecast_10",
+                "forecast_90",
+                "use_ai",
+                "use_baseline",
+                "use_override",
+                "override",
+            ]
+        )
+        # Round all floats to 2 decimal places
+        # NOTE: Rounding not working for Float32
+        .with_columns(pl.col([pl.Float64, pl.Float32]).cast(pl.Float64).round(2))
+    )
+
+    # Create columns for MUI column properties
+    cols_to_headers = {
+        "fh": "Forecast Period",
+        "forecast_10": "Forecast (10% quantile)",
+        "forecast_90": "Forecast (90% quantile)",
+    }
+    columns = [
+        Columns(
+            field=col,
+            headerName=cols_to_headers[col]
+            if col in cols_to_headers.keys()
+            else col.replace("_", " ").title(),
+            aggregation=agg_method
+            if dtype in pl.NUMERIC_DTYPES and col != "fh"
+            else None,
+            type="number"
+            if dtype in pl.NUMERIC_DTYPES or col == "override"
+            else "string",
+        ).__dict__
+        for col, dtype in rows.schema.items()
+    ]
+    return rows.collect(), columns
+
+
 TAGS_TO_GETTER = {
     "reduce_errors": {
         "forecast": _get_forecast_table,
         "uplift": _get_uplift_table,
+    }
+}
+
+TAGS_TO_TABLE_VIEW = {
+    "reduce_errors": {
+        "forecast": _get_forecast_table_view,
+        "uplift": None,
     }
 }
 
@@ -376,29 +464,35 @@ class TableParams(BaseModel):
     display_n: int
 
 
+class TableViewParams(BaseModel):
+    filter_by: Mapping[str, List[str]] = None
+
+
 @router.post("/tables/{objective_id}/{table_tag}")
 def get_objective_table(
     params: TableParams, objective_id: str, table_tag: TableTag
 ) -> TableResponse:
     if params.page < 1:
         raise ValueError("`page` must be an integer greater than 0")
+
+    objective = get_objective(objective_id)["objective"]
+    getter = TAGS_TO_GETTER[objective.tag][table_tag]
     engine = create_sql_engine()
     with Session(engine) as session:
-        objective = get_objective(objective_id)["objective"]
-        getter = TAGS_TO_GETTER[objective.tag][table_tag]
         user = session.get(User, objective.user_id)
-        source = get_source(json.loads(objective.sources)["panel"])["source"]
-        # TODO: Cache using an in memory key-value store
-        pl.toggle_string_cache(True)
-        table = getter(
-            json.loads(objective.fields),
-            json.loads(objective.outputs),
-            json.loads(source.data_fields),
-            user,
-            objective_id,
-            params.filter_by,
-        ).collect(streaming=True)
-        pl.toggle_string_cache(False)
+
+    source = get_source(json.loads(objective.sources)["panel"])["source"]
+    # TODO: Cache using an in memory key-value store
+    pl.toggle_string_cache(True)
+    table = getter(
+        fields=json.loads(objective.fields),
+        outputs=json.loads(objective.outputs),
+        source_fields=json.loads(source.data_fields),
+        user=user,
+        objective_id=objective_id,
+        filter_by=params.filter_by,
+    ).collect(streaming=True)
+    pl.toggle_string_cache(False)
 
     start = params.display_n * (params.page - 1)
     end = params.display_n * params.page
@@ -412,3 +506,31 @@ def get_objective_table(
     }
 
     return filtered_table
+
+
+@router.post("/tables/{objective_id}/{table_tag}/table_view")
+def get_objective_table_view(
+    params: TableViewParams, objective_id: str, table_tag: TableTag
+) -> Mapping[str, List[Mapping[str, Any]]]:
+    objective = get_objective(objective_id)["objective"]
+    table_view = TAGS_TO_TABLE_VIEW[objective.tag][table_tag]
+
+    engine = create_sql_engine()
+    with Session(engine) as session:
+        user = session.get(User, objective.user_id)
+
+    source = get_source(json.loads(objective.sources)["panel"])["source"]
+    rows, columns = table_view(
+        fields=json.loads(objective.fields),
+        outputs=json.loads(objective.outputs),
+        source_fields=json.loads(source.data_fields),
+        user=user,
+        objective_id=objective_id,
+        filter_by=params.filter_by,
+    )
+
+    rows = rows.with_row_count("id").to_dicts()
+
+    response = {"columns": columns, "rows": rows}
+
+    return response
