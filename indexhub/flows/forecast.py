@@ -1,25 +1,26 @@
 import json
 import logging
-from datetime import datetime
-from functools import partial, reduce
 import os
-from typing import Any, Callable, List, Mapping, Optional
 from dataclasses import asdict
+from datetime import datetime
+from functools import partial
+from typing import Any, Callable, List, Mapping, Optional
 
 import modal
 import pandas as pd
 import polars as pl
 from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
+from functime.metrics.multi_objective import score_forecast, summarize_scores
 from sqlmodel import Session, select
 
 from indexhub.api.db import create_sql_engine
-from indexhub.api.models.integration import Integration
 from indexhub.api.models.objective import Objective
-from indexhub.api.models.user import User
 from indexhub.api.routers.sources import get_source
 from indexhub.api.routers.stats import FREQ_TO_SP
+from indexhub.api.routers.users import get_user_by_id
 from indexhub.api.schemas import (
+    FREQ_TO_DURATION,
     SUPPORTED_BASELINE_MODELS,
     SUPPORTED_COUNTRIES,
     SUPPORTED_ERROR_TYPE,
@@ -28,7 +29,6 @@ from indexhub.api.schemas import (
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.modal_stub import stub
-from functime.metrics.multi_objective import score_forecast, summarize_scores
 
 
 def _logger(name, level=logging.INFO):
@@ -45,13 +45,6 @@ def _logger(name, level=logging.INFO):
 
 logger = _logger(name=__name__)
 
-FREQ_TO_DURATION = {
-    "Hourly": "1h",  # Run if current date >= last run + 1h
-    "Daily": "24h",  # Run if current date >= last run + 1d
-    "Weekly": "168h",  # Run if current date >= last run + 7d
-    "Monthly": "1mo",  # Run on first day of every month
-    "Quarterly": "3mo",
-}
 
 env_prefix = os.environ.get("ENV_NAME", "dev")
 IMAGE = modal.Image.from_name(f"{env_prefix}-indexhub-image")
@@ -84,44 +77,32 @@ def _compute_rolling_forecast(
 
     # Read forecast artifacts from s3 and postproc
     best_models = output_json["best_models"]
-    forecast = (
-        read(object_path=output_json["forecasts"]["best_models"])
-        .pipe(
-            # Rename target_col to "ai"
-            lambda df: df.rename({df.columns[-1]: "ai"}).with_columns(
-                [
-                    # Assign updated_at column
-                    pl.lit(dt).alias("updated_at"),
-                    # Assign best_model column
-                    pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
-                ]
-            )
+    forecast = read(object_path=output_json["forecasts"]["best_models"]).pipe(
+        # Rename target_col to "ai"
+        lambda df: df.rename({df.columns[-1]: "ai"}).with_columns(
+            [
+                # Assign updated_at column
+                pl.lit(dt).alias("updated_at"),
+                # Assign best_model column
+                pl.col(df.columns[0]).map_dict(best_models).alias("best_model"),
+            ]
         )
-        .select(pl.all().shrink_dtype())
     )
 
     # Read actual from y panel in s3 and postproc
-    actual = (
-        read(object_path=output_json["y"])
-        .pipe(
-            lambda df: df.rename(
-                # Rename target_col to "actual"
-                {df.columns[-1]: "actual"}
-            )
+    actual = read(object_path=output_json["y"]).pipe(
+        lambda df: df.rename(
+            # Rename target_col to "actual"
+            {df.columns[-1]: "actual"}
         )
-        .select(pl.all().shrink_dtype())
     )
 
     # Read baseline from y_baseline panel in s3 and postproc
-    baseline = (
-        read(object_path=output_json["y_baseline"])
-        .pipe(
-            lambda df: df.rename(
-                # Rename target_col to "baseline"
-                {df.columns[-1]: "baseline"}
-            )
+    baseline = read(object_path=output_json["y_baseline"]).pipe(
+        lambda df: df.rename(
+            # Rename target_col to "baseline"
+            {df.columns[-1]: "baseline"}
         )
-        .select(pl.all().shrink_dtype())
     )
 
     # Read best plan from best_plan panel in s3 and postproc
@@ -133,7 +114,11 @@ def _compute_rolling_forecast(
     idx_cols = forecast.columns[:2]
     latest_forecasts = (
         forecast.join(actual, on=idx_cols, how="left")
-        .join(baseline, on=idx_cols, how="left")
+        .join(
+            baseline,
+            on=idx_cols,
+            how="left",
+        )
         .join(best_plan, on=idx_cols, how="left")
         .with_columns(
             [
@@ -484,16 +469,19 @@ def _compare_scores(
     # Defensive sort
     scores = scores.sort(entity_col)
     scores_baseline = scores_baseline.sort(entity_col)
-    scores_values = scores.select(score_cols).lazy()
-    scores_baseline_values = scores_baseline.select(score_cols).lazy()
+    scores_values = scores.select(score_cols)
+    scores_baseline_values = scores_baseline.select(score_cols)
     # Uplift
     scores_diff = scores_values - scores_baseline_values
-    scores_diff_pct = (scores_diff) / scores_baseline
-    scores_diff, scores_diff_pct = pl.collect_all([
-        scores_diff.select(pl.all().suffix("__uplift")),
-        scores_diff_pct.select(pl.all().suffix("__uplift_pct"))
-    ])
-    uplift = pl.concat([scores.get_column(entity_col), scores_diff, scores_diff_pct])
+    scores_diff_pct = (scores_diff) / scores_baseline_values
+    uplift = pl.concat(
+        [
+            scores.select(entity_col),
+            scores_diff.select(pl.all().suffix("__uplift")),
+            scores_diff_pct.select(pl.all().suffix("__uplift_pct")),
+        ],
+        how="horizontal",
+    )
     return uplift
 
 
@@ -596,7 +584,9 @@ def run_forecast(
 
         # 7. Run automl flow
         env_prefix = os.environ.get("ENV_NAME", "dev")
-        automl_flow = modal.Function.lookup(f"{env_prefix}-functime-flows", "run_automl_flow")
+        automl_flow = modal.Function.lookup(
+            f"{env_prefix}-functime-flows", "run_automl_flow"
+        )
 
         # Convert X to pyarrow
         if X is not None:
@@ -612,7 +602,6 @@ def run_forecast(
             holiday_regions=holiday_regions,
             X=X,
         )
-        y = pl.from_arrow(y)
         outputs["y"] = make_path(prefix="y")
         write(y, object_path=make_path(prefix="y"))
 
@@ -632,9 +621,12 @@ def run_forecast(
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         # Score baseline compared to best scores
-        baseline_scores = score_forecast(y, y_baseline)
+        baseline_scores = score_forecast(y, y_baseline, y_train=y)
         baseline_metrics = asdict(summarize_scores(baseline_scores))
-        uplift = _compare_scores(baseline_scores, outputs["scores"]["best_models"])
+        uplift = _compare_scores(
+            baseline_scores, pl.from_arrow(outputs["scores"]["best_models"])
+        )
+
         # Append paths to outputs
         outputs["y_baseline"] = make_path(prefix="y_baseline")
         outputs["baseline__scores"] = make_path(prefix="baseline__scores")
@@ -642,9 +634,16 @@ def run_forecast(
         outputs["uplift"] = make_path(prefix="uplift")
 
         # Export to artifacts
-        write(y_baseline, object_path=outputs["y_baseline"])
-        write(pl.from_arrow(baseline_scores), object_path=outputs["baseline__scores"])
-        write(pl.from_arrow(uplift), object_path=make_path(prefix="uplift"))
+        write(
+            y_baseline
+            # Cast entity col to categorical
+            .pipe(
+                lambda df: df.with_columns(pl.col(df.columns[0]).cast(pl.Categorical))
+            ),
+            object_path=outputs["y_baseline"],
+        )
+        write(baseline_scores, object_path=outputs["baseline__scores"])
+        write(uplift, object_path=make_path(prefix="uplift"))
 
         # 9. Export artifacts for each model
         for key in [
@@ -657,13 +656,31 @@ def run_forecast(
             model_artifacts = outputs[key]
             for model, df in model_artifacts.items():
                 output_path = make_path(prefix=f"{key}__{model}")
-                write(pl.from_arrow(df), object_path=output_path)
+                write(
+                    pl.from_arrow(df)
+                    # Cast entity col to categorical
+                    .pipe(
+                        lambda df: df.with_columns(
+                            pl.col(df.columns[0]).cast(pl.Categorical)
+                        )
+                    ),
+                    object_path=output_path,
+                )
                 outputs[key][model] = output_path
 
         # 10. Export statistics
         for key, df in outputs["statistics"].items():
             output_path = make_path(prefix=f"statistics__{key}")
-            write(pl.from_arrow(df), object_path=output_path)
+            write(
+                pl.from_arrow(df)
+                # Cast entity col to categorical
+                .pipe(
+                    lambda df: df.with_columns(
+                        pl.col(df.columns[0]).cast(pl.Categorical)
+                    )
+                ),
+                object_path=output_path,
+            )
             outputs["statistics"][key] = output_path
 
         # 11. Create and export best plan
@@ -712,21 +729,11 @@ def run_forecast(
         )
 
 
-def get_user(user_id: str) -> User:
-    engine = create_sql_engine()
-    with Session(engine) as session:
-        query = select(User).where(User.id == user_id)
-        user = session.exec(query).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        return user
-
-
 @stub.function(
     memory=5120,
     cpu=8.0,
     timeout=3600,
-    schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
+    # schedule=modal.Cron("0 18 * * *"),  # run at 2am daily (utc 6pm)
 )
 def schedule_forecast():
     # 1. Get all objectives
@@ -743,7 +750,7 @@ def schedule_forecast():
             sources = json.loads(objective.sources)
 
             # 2. Get user and source
-            user = get_user(objective.user_id)
+            user = get_user_by_id(objective.user_id)
             panel_source = get_source(sources["panel"])["source"]
             source_fields = json.loads(panel_source.data_fields)
             freq = source_fields["freq"]

@@ -25,8 +25,7 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
       - name: Deploy
         run: |
-          modal deploy indexhub/flows/forecast.py
-          modal deploy indexhub/flows/preprocess.py
+          modal deploy indexhub/modal_stub.py
         env:
           ENV_NAME: prod
           AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}

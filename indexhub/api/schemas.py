@@ -144,10 +144,20 @@ SUPPORTED_FREQ = {
     "Monthly": "1mo",
 }
 
+FREQ_TO_DURATION = {
+    "Hourly": "1h",  # Run if current date >= last run + 1h
+    "Daily": "24h",  # Run if current date >= last run + 1d
+    "Weekly": "168h",  # Run if current date >= last run + 7d
+    "Monthly": "1mo",  # Run on first day of every month
+    "Quarterly": "3mo",
+}
+
 SUPPORTED_DATETIME_FMT = {
     "Year-Month-Day Hour:Minute": "%Y-%m-%d %H:%M",
     "Year-Month-Day": "%Y-%m-%d",
     "Year-Month": "%Y-%m",
+    "YearMonthDay": "%Y%m%d",
+    "YearMonth": "%Y%m",
 }
 
 SUPPORTED_DIRECTION = {

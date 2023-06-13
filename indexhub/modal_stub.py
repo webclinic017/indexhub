@@ -1,5 +1,6 @@
-import modal
 import os
+
+import modal
 
 ENV_PREFIX = os.environ.get("ENV_NAME", "dev")
 
@@ -23,3 +24,6 @@ stub = modal.Stub(
         modal.Secret.from_name(f"{ENV_PREFIX}-postgres-credentials"),
     ],
 )
+
+import indexhub.flows.preprocess  # noqa
+import indexhub.flows.forecast  # noqa

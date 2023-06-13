@@ -5,7 +5,6 @@ from typing import List, Optional
 
 import boto3
 import botocore
-import modal
 import polars as pl
 from fastapi import HTTPException
 
@@ -56,48 +55,50 @@ def read_data_from_s3(
     data = CACHE.get(key)
     if data is not None:
         return data
-    s3_client = boto3.client(
-        "s3",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_KEY_ID,
-        region_name=os.environ["AWS_DEFAULT_REGION"],
-    )
-    try:
-        if file_ext == "lance":
-            import lance
-            import polars as pl
-            ds = lance.dataset(uri)
-            uri = f"s3://{bucket_name}/{object_path}"
-            table = ds.to_table(columns=columns)
-            obj = pl.from_arrow(table)
-        else:
+
+    if file_ext == "lance":
+        import lance
+        import polars as pl
+
+        uri = f"s3://{bucket_name}/{object_path}"
+        ds = lance.dataset(uri)
+        table = ds.to_table(columns=columns)
+        obj = pl.from_arrow(table)
+    else:
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=AWS_SECRET_KEY_ID,
+                region_name=os.environ["AWS_DEFAULT_REGION"],
+            )
             obj = s3_client.get_object(Bucket=bucket_name, Key=object_path)[
                 "Body"
             ].read()
-    except botocore.exceptions.ClientError as err:
-        logger.exception("❌ Error occured when reading from s3 storage.")
-        error_code = err.response["Error"]["Code"]
-        if error_code == "NoSuchBucket":
-            raise HTTPException(
-                status_code=400, detail="Invalid S3 bucket when reading from source"
-            ) from err
-        elif error_code == "NoSuchKey":
-            raise HTTPException(
-                status_code=400, detail="Invalid S3 path when reading from source"
-            ) from err
-        elif error_code == "InvalidAccessKeyId":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid S3 access key when reading from source",
-            ) from err
-        elif error_code == "SignatureDoesNotMatch":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid S3 access secret when reading from source",
-            ) from err
-        else:
-            raise err
-    s3_client.close()
+        except botocore.exceptions.ClientError as err:
+            logger.exception("❌ Error occured when reading from s3 storage.")
+            error_code = err.response["Error"]["Code"]
+            if error_code == "NoSuchBucket":
+                raise HTTPException(
+                    status_code=400, detail="Invalid S3 bucket when reading from source"
+                ) from err
+            elif error_code == "NoSuchKey":
+                raise HTTPException(
+                    status_code=400, detail="Invalid S3 path when reading from source"
+                ) from err
+            elif error_code == "InvalidAccessKeyId":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid S3 access key when reading from source",
+                ) from err
+            elif error_code == "SignatureDoesNotMatch":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid S3 access secret when reading from source",
+                ) from err
+            else:
+                raise err
+        s3_client.close()
     parser = FILE_EXT_TO_PARSER.get(file_ext)
     if parser is not None:
         data = parser(obj=obj, columns=columns, dateformat=dateformat)

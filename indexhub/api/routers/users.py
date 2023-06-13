@@ -74,6 +74,16 @@ def get_user(response: Response, user_id: str):
             return {"message": "User id not found"}
 
 
+def get_user_by_id(user_id: str) -> User:
+    engine = create_sql_engine()
+    with Session(engine) as session:
+        query = select(User).where(User.id == user_id)
+        user = session.exec(query).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return user
+
+
 class UserPatch(BaseModel):
     name: Optional[str] = None
     nickname: Optional[str] = None

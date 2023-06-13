@@ -15,10 +15,14 @@ from sqlmodel import Session, select
 
 from indexhub.api.db import create_sql_engine
 from indexhub.api.models.source import Source
-from indexhub.api.schemas import SUPPORTED_DATETIME_FMT, SUPPORTED_FREQ
+from indexhub.api.routers.users import get_user_by_id
+from indexhub.api.schemas import (
+    FREQ_TO_DURATION,
+    SUPPORTED_DATETIME_FMT,
+    SUPPORTED_FREQ,
+)
 from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
 from indexhub.api.services.secrets_manager import get_aws_secret
-from indexhub.flows.forecast import FREQ_TO_DURATION, get_user
 from indexhub.modal_stub import stub
 
 
@@ -256,7 +260,10 @@ def _update_source(
 
 
 def _embed_ts(panel_data: pl.DataFrame) -> pl.DataFrame:
-    ts_emb_flow = modal.Function.lookup("functime-embeddings", "flow")
+    env_prefix = os.environ.get("ENV_NAME", "dev")
+    ts_emb_flow = modal.Function.lookup(
+        f"{env_prefix}-functime-flows", "embed_cluster_time_series"
+    )
     # Unpack panel data cols based on source type
     entity_col = panel_data.columns[0]
     target_col = panel_data.columns[-1]
@@ -440,7 +447,7 @@ def schedule_preprocess():
             logger.info(f"Checking source: {source.id}")
             data_fields = json.loads(source.data_fields)
             # 2. Get user
-            user = get_user(source.user_id)
+            user = get_user_by_id(source.user_id)
             # 3. Check freq from source for schedule
             duration = FREQ_TO_DURATION[data_fields["freq"]]
             updated_at = source.updated_at.replace(microsecond=0)

@@ -20,5 +20,5 @@ uvicorn==0.20.0
 pyecharts
 xlsx2csv
 websockets
-# pylance==0.4.13
+pylance==0.4.13
 tabulate

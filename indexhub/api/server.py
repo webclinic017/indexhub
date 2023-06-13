@@ -10,6 +10,7 @@ from .db import create_db_tables
 from .routers import (
     charts,
     integrations,
+    inventory,
     objectives,
     plans,
     readers,
@@ -17,9 +18,8 @@ from .routers import (
     stats,
     tables,
     tests,
-    users,
     trends,
-    inventory
+    users,
 )
 
 
