@@ -355,8 +355,8 @@ def _get_forecast_table_view(
                 pl.col(time_col).rank("ordinal").over(entity_col).alias("fh"),
                 # Assign use according to uplift
                 pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)
-                .then("ai")
-                .otherwise("baseline")
+                .then("AI")
+                .otherwise("Baseline")
                 .alias("use"),
                 # Assign plan according to uplift
                 pl.when(pl.col("score__uplift_pct__rolling_mean") >= 0)

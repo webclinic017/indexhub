@@ -201,9 +201,11 @@ def create_single_forecast_chart(
     # Postproc
     # Hack: Append last value from actual to plan to connect the line
     last_dt = chart_data.filter(pl.col("plan").is_null()).get_column(time_col).max()
-    additional_value = round(
-        chart_data.filter(pl.col(time_col) == last_dt).get_column("actual")[0], 2
-    )
+    additional_value = chart_data.filter(pl.col(time_col) == last_dt).get_column(
+        "actual"
+    )[0]
+    if additional_value:
+        additional_value = round(additional_value, 2)
     series_plan = chart_data.get_column("plan").to_list()
     series_plan[-4] = additional_value
     chart_data = chart_data.with_columns(pl.Series(name="plan", values=series_plan))
@@ -837,9 +839,6 @@ def create_rolling_forecasts_chart(user: User, objective_id: str, **kwargs):
                 )
                 output_json[entity] = line_chart.dump_options()
         except ValueError:
-            logger.warning(
-                f"⚠️ Entity: {entity} does not have rolling forecasts data on residuals"
-            )
             output_json[entity] = None
     logger.info(
         f"✔️ All rolling forecasts charts for {objective_id} are successfully created"

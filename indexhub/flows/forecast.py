@@ -609,7 +609,16 @@ def run_forecast(
         # NOTE: Only compares against BEST MODEL
         if baseline_path:
             # Read baseline from storage
-            y_baseline = read(object_path=baseline_path)
+            dates = (
+                pl.from_arrow(outputs["backtests"]["best_models"])
+                .get_column(time_col)
+                .unique()
+            )
+            y_baseline = (
+                read(object_path=baseline_path)
+                # Filter backtest period
+                .filter(pl.col(time_col).is_in(dates))
+            )
         else:
             # Read baseline from selected baseline model
             y_baseline_backtest = (
