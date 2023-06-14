@@ -126,7 +126,7 @@ const ObjectivesDashboard = () => {
                   key={idx}
                   bgColor="white"
                   onClick={() => {
-                    navigate(`forecast/${objective["id"]}`);
+                    navigate(`objectives/forecast/${objective["id"]}`);
                   }}
                 >
                   <CardBody>
