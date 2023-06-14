@@ -1,7 +1,7 @@
 import json
 from enum import Enum
 from functools import partial, reduce
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -294,7 +294,7 @@ def _get_forecast_table_view(
     user: User,
     objective_id: str,
     filter_by: Mapping[str, List[str]],
-) -> Tuple[pl.DataFrame, List[Mapping[str, str]]]:
+) -> Mapping[str, Any]:
     # Get credentials
     storage_creds = get_aws_secret(
         tag=user.storage_tag, secret_type="storage", user_id=user.id
@@ -406,6 +406,7 @@ def _get_forecast_table_view(
         # Round all floats to 2 decimal places
         # NOTE: Rounding not working for Float32
         .with_columns(pl.col([pl.Float64, pl.Float32]).cast(pl.Float64).round(2))
+        .collect()
     )
 
     # Create columns for MUI column properties
@@ -427,7 +428,13 @@ def _get_forecast_table_view(
         ).__dict__
         for col, dtype in rows.schema.items()
     ]
-    return rows.collect(), columns
+
+    response = {
+        "columns": columns,
+        "rows": rows.with_row_count("id").to_dicts(),
+        "group_by": entity_cols,
+    }
+    return response
 
 
 TAGS_TO_GETTER = {
@@ -512,7 +519,7 @@ def get_objective_table_view(
         user = session.get(User, objective.user_id)
 
     source = get_source(json.loads(objective.sources)["panel"])["source"]
-    rows, columns = table_view(
+    response = table_view(
         fields=json.loads(objective.fields),
         outputs=json.loads(objective.outputs),
         source_fields=json.loads(source.data_fields),
@@ -520,9 +527,4 @@ def get_objective_table_view(
         objective_id=objective_id,
         filter_by=params.filter_by,
     )
-
-    rows = rows.with_row_count("id").to_dicts()
-
-    response = {"columns": columns, "rows": rows}
-
     return response
