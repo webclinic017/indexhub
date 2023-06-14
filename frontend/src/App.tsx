@@ -12,12 +12,12 @@ import Profile from "./views/profile";
 import DataAndIntegrations from "./views/sources/data_integrations";
 import NewStorage from "./views/storage/new_storage";
 import NewObjective from "./views/objectives/new_objective";
-import Objectives from "./views/objectives/objectives";
+// import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
 import ChatContextProvider from "./views/chat/chat_context";
-import TrendsContextProvider from "./views/trends/trends_context";
-import TrendsLanding from "./views/trends/trends_landing";
+// import TrendsContextProvider from "./views/trends/trends_context";
+// import TrendsLanding from "./views/trends/trends_landing";
 
 function App() {
   return (
@@ -28,21 +28,30 @@ function App() {
             {/* All protected pages will go inside this parent route */}
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Layout />}>
-                <Route
+                {/* <Route
                   index
                   element={
                     <TrendsContextProvider>
                       <TrendsLanding />
                     </TrendsContextProvider>
                   }
-                />
+                /> */}
+
+                <Route index element={<ObjectivesDashboard />} />
+                <Route path="new_objective" element={<NewObjective />} />
+
                 <Route path="data" element={<Data />}>
                   <Route index element={<DataAndIntegrations />} />
                 </Route>
-                <Route path="objectives" element={<Objectives />}>
+
+                {/* <Route path="objectives" element={<Objectives />}>
                   <Route index element={<ObjectivesDashboard />} />
                   <Route path="new_objective" element={<NewObjective />} />
-                </Route>
+                </Route> */}
+                <Route
+                  path="objectives/new_objective"
+                  element={<NewObjective />}
+                />
                 <Route
                   path="objectives/forecast/:objective_id"
                   element={<ForecastObjective />}

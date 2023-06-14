@@ -126,7 +126,7 @@ const NewObjective = () => {
         `Your new objective (${objective_configs["objective_name"]}) was successfuly created`,
         "success"
       );
-      navigate("/objectives");
+      navigate("/");
     } else {
       Toast(toast, "Error", create_objective_response["detail"], "error");
     }

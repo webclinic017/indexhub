@@ -18,11 +18,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { AppState } from "../..";
 import { useAuth0 } from "@auth0/auth0-react";
-import {
-  faBullseyeArrow,
-  faDatabase,
-  faChartLineUp,
-} from "@fortawesome/pro-light-svg-icons";
+import { faBullseyeArrow, faDatabase } from "@fortawesome/pro-light-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface NavButtonProps extends ButtonProps {
@@ -83,17 +79,18 @@ export const Sidebar = () => {
           <Logo width="48" height="100%" />
         </HStack>
         <Stack>
-          <NavButton
+          {/* Temporarily disabled */}
+          {/* <NavButton
             isActive={current_path.split("/")[1] == "trends"}
             label="Trends"
             icon={faChartLineUp}
             onClick={() => navigate("/")}
-          />
+          /> */}
           <NavButton
-            isActive={current_path.split("/")[1] == "objectives"}
+            isActive={current_path == "/"}
             label="Objectives"
             icon={faBullseyeArrow}
-            onClick={() => navigate("/objectives")}
+            onClick={() => navigate("/")}
           />
           <NavButton
             isActive={current_path.split("/")[1] == "data"}
