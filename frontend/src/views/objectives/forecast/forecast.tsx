@@ -22,7 +22,6 @@ import {
   Tooltip,
   VStack,
   useDisclosure,
-  useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
 import { useAuth0AccessToken } from "../../../utilities/hooks/auth0";
@@ -33,10 +32,7 @@ import { Objective } from "../objectives_dashboard";
 import { useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import ReactEcharts from "echarts-for-react";
-import {
-  exportAIRecommendationTable,
-  getAIRecommendationTable,
-} from "../../../utilities/backend_calls/tables";
+import { getAIRecommendationTable } from "../../../utilities/backend_calls/tables";
 import { getForecastObjectiveStats } from "../../../utilities/backend_calls/stats";
 import { colors } from "../../../theme/theme";
 import {
@@ -53,11 +49,11 @@ import {
 import {
   faArrowUpRightAndArrowDownLeftFromCenter,
   faCircleInfo,
-  faFileExport,
 } from "@fortawesome/pro-light-svg-icons";
-import Toast from "../../../components/toast";
+// import Toast from "../../../components/toast";
 import ExpandedChartModal from "../../../components/expanded_chart_modal";
 import InventoryTable from "./_includes/inventory_table";
+import TableView from "./_includes/table_view";
 
 const FREQDISPLAYMAPPING: Record<string, string> = {
   Hourly: "hourly",
@@ -126,7 +122,7 @@ const ForecastObjective = () => {
   ] = useState<number>(1);
   const [expandedEntityIndex, setExpandedEntityIndex] = useState<number>(0);
   // const [executePlanCustomEntries, setExecutePlanCustomEntries] = useState<Record<string, any>[] | null>(null)
-  const [isExportingTable, setIsExportingTable] = useState(false);
+  // const [isExportingTable, setIsExportingTable] = useState(false);
 
   const [expandedChartJSONspec, setExpandedChartJSONspec] = useState<Record<
     any,
@@ -136,7 +132,7 @@ const ForecastObjective = () => {
 
   const access_token_indexhub_api = useAuth0AccessToken();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
-  const toast = useToast();
+  // const toast = useToast();
 
   const {
     isOpen: isOpenExpandedChartModal,
@@ -166,28 +162,28 @@ const ForecastObjective = () => {
     }
   };
 
-  const exportRecommendationTable = async () => {
-    if (objective_id && access_token_indexhub_api) {
-      setIsExportingTable(true);
-      const export_table_response = await exportAIRecommendationTable(
-        objective_id,
-        null, // to be replaced with executePlanCustomEntries when available
-        access_token_indexhub_api
-      );
+  // const exportRecommendationTable = async () => {
+  //   if (objective_id && access_token_indexhub_api) {
+  //     setIsExportingTable(true);
+  //     const export_table_response = await exportAIRecommendationTable(
+  //       objective_id,
+  //       null, // to be replaced with executePlanCustomEntries when available
+  //       access_token_indexhub_api
+  //     );
 
-      if (Object.keys(export_table_response).includes("path")) {
-        Toast(
-          toast,
-          "Export Completed",
-          `Path to your AI Recommendation file: ${export_table_response["path"]}`,
-          "success"
-        );
-      } else {
-        Toast(toast, "Export Failed", export_table_response["detail"], "error");
-      }
-      setIsExportingTable(false);
-    }
-  };
+  //     if (Object.keys(export_table_response).includes("path")) {
+  //       Toast(
+  //         toast,
+  //         "Export Completed",
+  //         `Path to your AI Recommendation file: ${export_table_response["path"]}`,
+  //         "success"
+  //       );
+  //     } else {
+  //       Toast(toast, "Export Failed", export_table_response["detail"], "error");
+  //     }
+  //     setIsExportingTable(false);
+  //   }
+  // };
 
   useEffect(() => {
     const getObjectiveApi = async () => {
@@ -725,6 +721,7 @@ const ForecastObjective = () => {
             >
               <TabList>
                 <Tab fontWeight="bold">Forecast Selection</Tab>
+                <Tab fontWeight="bold">Table View</Tab>
                 <Tab fontWeight="bold">Inventory Table</Tab>
               </TabList>
               <TabIndicator
@@ -759,7 +756,8 @@ const ForecastObjective = () => {
                         </Button>
                       </HStack>
 
-                      <Tooltip label="Execute Plan" placement="left">
+                      {/* Disabled temporarily */}
+                      {/* <Tooltip label="Execute Plan" placement="left">
                         <Button
                           borderRadius="50px"
                           width="60px"
@@ -788,7 +786,7 @@ const ForecastObjective = () => {
                             />
                           </HStack>
                         </Button>
-                      </Tooltip>
+                      </Tooltip> */}
                     </VStack>
 
                     {AIRecommendationTable ? (
@@ -1272,6 +1270,9 @@ const ForecastObjective = () => {
                       </Stack>
                     )}
                   </>
+                </TabPanel>
+                <TabPanel>
+                  {objective_id && <TableView objective_id={objective_id} />}
                 </TabPanel>
                 <TabPanel>
                   {objective_id && (

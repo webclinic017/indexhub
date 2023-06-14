@@ -96,3 +96,28 @@ export const getCombinedEntitiesAndInventoryTable = async (
     await get_combined_entities_and_inventory_table_response.json();
   return response_json;
 };
+
+export const getForecastTableView = async (
+  objective_id: string,
+  access_token_indexhub_api: string
+) => {
+  const get_forecast_table_view_table_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/tables/${objective_id}/forecast/table_view`;
+
+  const get_forecast_table_view_table_response = await fetch(
+    get_forecast_table_view_table_url,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${access_token_indexhub_api}`,
+      },
+      body: JSON.stringify({
+        filter_by: {},
+      }),
+    }
+  );
+
+  const response_json = await get_forecast_table_view_table_response.json();
+  console.log(response_json);
+  return response_json;
+};

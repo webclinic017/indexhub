@@ -1,7 +1,7 @@
 import json
 from enum import Enum
 from functools import partial, reduce
-from typing import Any, List, Mapping, Optional
+from typing import Any, List, Mapping, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -510,7 +510,7 @@ def get_objective_table(
 @router.post("/tables/{objective_id}/{table_tag}/table_view")
 def get_objective_table_view(
     params: TableViewParams, objective_id: str, table_tag: TableTag
-) -> Mapping[str, List[Mapping[str, Any]]]:
+) -> Mapping[str, List[Union[Mapping[str, Any], str]]]:
     objective = get_objective(objective_id)["objective"]
     table_view = TAGS_TO_TABLE_VIEW[objective.tag][table_tag]
 
