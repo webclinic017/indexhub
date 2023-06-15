@@ -562,6 +562,7 @@ SEGMENTATION_FACTOR_TO_EXPR = {
 def create_segmentation_chart(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
+    source_fields: Mapping[str, str],
     user: User,
     objective_id: str,
     segmentation_factor: Literal[
@@ -618,10 +619,8 @@ def create_segmentation_chart(
             scores.lazy().select([entity_col, "crps"]).rename({"crps": "seg_factor"})
         )
     else:
-        if segmentation_factor == "predicted_growth_rate":
-            stat_key = SEGMENTATION_FACTOR_TO_KEY[
-                f"{segmentation_factor}__{fields['agg_method']}"
-            ]
+        if segmentation_factor == "predicted growth rate":
+            stat_key = f"{SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]}__{source_fields['agg_method']}"
         else:
             stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
         seg_factor_stat = (
