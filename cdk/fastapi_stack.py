@@ -70,7 +70,7 @@ class FastAPIStack(Stack):
         execution_role = iam.Role(
             self,
             "ExecutionRole",
-            role_name="IndexHubExecutionRole",
+            role_name="IndexHubExecutionRoleV2",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
         )
         execution_role.add_managed_policy(
@@ -103,7 +103,7 @@ class FastAPIStack(Stack):
         task_role = iam.Role(
             self,
             "TaskRole",
-            role_name="IndexHubTaskRole",
+            role_name="IndexHubTaskRoleV2",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
         )
         iam.Policy(
