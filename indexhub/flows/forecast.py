@@ -609,16 +609,7 @@ def run_forecast(
         # NOTE: Only compares against BEST MODEL
         if baseline_path:
             # Read baseline from storage
-            dates = (
-                pl.from_arrow(outputs["backtests"]["best_models"])
-                .get_column(time_col)
-                .unique()
-            )
-            y_baseline = (
-                read(object_path=baseline_path)
-                # Filter backtest period
-                .filter(pl.col(time_col).is_in(dates))
-            )
+            y_baseline = read(object_path=baseline_path)
         else:
             # Read baseline from selected baseline model
             y_baseline_backtest = (
@@ -630,7 +621,18 @@ def run_forecast(
             y_baseline = pl.concat([y_baseline_backtest, y_baseline_forecast])
 
         # Score baseline compared to best scores
-        baseline_scores = score_forecast(y, y_baseline, y_train=y)
+        dates = (
+            pl.from_arrow(outputs["backtests"]["best_models"])
+            .get_column(time_col)
+            .unique()
+        )
+        baseline_scores = score_forecast(
+            y,
+            y_baseline
+            # Filter backtest and fh period
+            .filter(pl.col(time_col).is_in(dates)),
+            y_train=y,
+        )
         baseline_metrics = asdict(summarize_scores(baseline_scores))
         uplift = _compare_scores(
             baseline_scores, pl.from_arrow(outputs["scores"]["best_models"])
