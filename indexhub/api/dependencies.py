@@ -7,7 +7,9 @@ from .auth0 import VerifyToken
 
 class CustomHTTPBearer(HTTPBearer):
     async def __call__(self, request: Request = None, websocket: WebSocket = None):
-        return await super().__call__(request or websocket)
+        # Temporarily disable protection for websockets
+        if request != None:
+            return await super().__call__(request)
 
 token_auth_scheme = CustomHTTPBearer()
 
