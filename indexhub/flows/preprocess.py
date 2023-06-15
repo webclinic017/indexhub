@@ -380,14 +380,15 @@ def run_preprocess(
             object_path=output_path,
             **storage_creds,
         )
+        # TODO: Pending to fix issue in modal
         # Embed time series and write to S3
-        embs = _embed_ts(panel_data=panel_data)
-        _upload_embs(
-            pl.from_arrow(embs),
-            source_id=source_id,
-            storage_bucket_name=storage_bucket_name,
-            prefix=prefix,
-        )
+        # embs = _embed_ts(panel_data=panel_data)
+        # _upload_embs(
+        #     pl.from_arrow(embs),
+        #     source_id=source_id,
+        #     storage_bucket_name=storage_bucket_name,
+        #     prefix=prefix,
+        # )
 
     except ClientError as exc:
         status = "FAILED"
