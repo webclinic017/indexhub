@@ -41,7 +41,7 @@ class FastAPIStack(Stack):
         self.ecs_cluster = ecs.Cluster(
             self,
             "IndexHubECSCluster",
-            cluster_name="indexhub-ecs-cluster",
+            cluster_name="indexhub-ecs-cluster-v2",
             vpc=self.vpc,
             # enable_fargate_capacity_providers=True,
             # container_insights=True
