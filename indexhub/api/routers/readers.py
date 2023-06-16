@@ -20,15 +20,13 @@ def read_s3(
         user = session.get(User, user_id)
 
     # Get credentials
-    storage_creds = get_aws_secret(
-        tag=user.storage_tag, secret_type="storage", user_id=user.id
-    )
+    source_creds = get_aws_secret(tag="s3", secret_type="sources", user_id=user.id)
 
     data = read_data_from_s3(
         bucket_name=bucket_name,
         object_path=object_path,
         file_ext=file_ext,
-        **storage_creds,
+        **source_creds,
     )
     if orient == "records":
         return {"data": data.to_dicts()}

@@ -43,7 +43,7 @@ def get_aws_secret(tag: str, secret_type: str, user_id: str):
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-        logger.exception(f"❌ Error occured when getting aws secret: {secret_name}.")
+        logger.exception("❌ Error occured when getting aws secret.")
         raise e
 
     # Decrypts secret using the associated KMS key.
