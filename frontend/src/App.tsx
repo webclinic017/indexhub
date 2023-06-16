@@ -16,6 +16,7 @@ import NewObjective from "./views/objectives/new_objective";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
 import ChatContextProvider from "./views/chat/chat_context";
+import NotFound404 from "./views/404";
 // import TrendsContextProvider from "./views/trends/trends_context";
 // import TrendsLanding from "./views/trends/trends_landing";
 
@@ -60,6 +61,7 @@ function App() {
                 <Route path="new_storage" element={<NewStorage />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="profile" element={<Profile />} />
+                <Route path="*" element={<NotFound404 />} />
               </Route>
             </Route>
           </Routes>
