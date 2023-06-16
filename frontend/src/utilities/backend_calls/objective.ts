@@ -87,17 +87,12 @@ export const createObjective = async (
 };
 
 export const getObjective = async (
-  user_id = "",
-  objective_id = "",
+  user_id: string,
+  objective_id: string,
   access_token_indexhub_api: string
 ) => {
-  let get_objective_url = "";
+  const get_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives/${objective_id}?user_id=${user_id}`;
 
-  if (objective_id) {
-    get_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives/${objective_id}`;
-  } else {
-    get_objective_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/objectives?user_id=${user_id}`;
-  }
   const get_objective_response = await fetch(get_objective_url, {
     method: "GET",
     headers: {

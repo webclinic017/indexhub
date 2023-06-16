@@ -137,11 +137,15 @@ def list_objectives(user_id: str):
 
 
 @router.get("/objectives/{objective_id}")
-def get_objective(objective_id: str):
+def get_objective(objective_id: str, user_id: str = None):
     engine = create_sql_engine()
     with Session(engine) as session:
         query = select(Objective).where(Objective.id == objective_id)
         objective = session.exec(query).first()
+        if objective is None:
+            raise HTTPException(status_code=404, detail="Objective not found")
+        if user_id and (objective.user_id != user_id):
+            raise HTTPException(status_code=401, detail="Unauthorised to view this objective")
         objective_sources = json.loads(objective.sources)
         panel_source = get_source(objective_sources["panel"])["source"]
         panel_source_data_fields = json.loads(panel_source.data_fields)
