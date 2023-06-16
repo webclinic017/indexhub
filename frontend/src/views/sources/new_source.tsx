@@ -143,6 +143,7 @@ export default function NewSource(props: {
           configs["bucket_name"],
           configs["object_path"],
           configs["file_ext"],
+          user_details.id,
           access_token_indexhub_api
         );
       }

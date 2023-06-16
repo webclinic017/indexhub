@@ -122,9 +122,10 @@ export const getS3SourceColumns = async (
   bucket_name: string,
   object_path: string,
   file_ext: string,
+  user_id: string,
   access_token_indexhub_api: string
 ) => {
-  const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/readers/s3?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list`;
+  const get_source_columns_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/readers/s3/${user_id}?bucket_name=${bucket_name}&object_path=${object_path}&file_ext=${file_ext}&orient=list`;
 
   const get_source_columns_response = await fetch(get_source_columns_url, {
     method: "GET",
