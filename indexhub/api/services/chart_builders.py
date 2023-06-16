@@ -620,7 +620,7 @@ def create_segmentation_chart(
         )
     else:
         if segmentation_factor == "predicted growth rate":
-            stat_key = f"{SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]}__{source_fields['agg_method']}"
+            stat_key = f"{SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]}__{source_fields.get('agg_method', 'sum')}"
         else:
             stat_key = SEGMENTATION_FACTOR_TO_KEY[segmentation_factor]
         seg_factor_stat = (
