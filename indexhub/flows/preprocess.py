@@ -433,7 +433,7 @@ def run_preprocess(
     memory=5120,
     cpu=4.0,
     timeout=900,
-    # schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
+    schedule=modal.Cron("0 16 * * *"),  # run at 12am daily (utc 4pm)
 )
 def schedule_preprocess():
     # 1. Get all sources
