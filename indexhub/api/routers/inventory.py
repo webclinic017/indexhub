@@ -225,6 +225,8 @@ def _create_inventory_table(
 
     # Join forecast and inventory
     unique_entity_cols = [col for col in entity_cols if col not in inv_entity_cols]
+    join_entity_cols = [col for col in entity_cols if col in inv_entity_cols]
+
     rows = (
         forecast_df
         # Split entity cols
@@ -256,7 +258,7 @@ def _create_inventory_table(
             .with_columns(
                 [pl.col(col).cast(pl.Categorical) for col in inv_entity_cols]
             ),
-            on=[*inv_entity_cols, time_col],
+            on=[*join_entity_cols, time_col],
             how="left",
         )
         .sort(["time", *inv_entity_cols, *unique_entity_cols])
