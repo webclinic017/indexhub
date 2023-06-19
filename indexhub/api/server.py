@@ -23,7 +23,7 @@ origins = [
     "http://localhost:3000",
     "https://indexhub.vercel.app",
     "https://app.indexhub.ai",
-    "https://api_v2.indexhub.ai",  # original: https://api.indexhub.ai
+    "https://api.indexhub.ai",
 ]
 
 app.add_middleware(
