@@ -65,6 +65,9 @@ class FastAPIStack(Stack):
         modal_secret = Secret.from_secret_name_v2(
             self, "ModalSecret", secret_name="prod/indexhub/modal"
         )
+        auth0_secret = Secret.from_secret_name_v2(
+            self, "Auth0Secret", secret_name="prod/indexhub/auth0"
+        )
 
         # EXECUTION ROLE
         execution_role = iam.Role(
@@ -93,7 +96,7 @@ class FastAPIStack(Stack):
                         "secretsmanager:GetSecretValue",
                         "secretsmanager:DescribeSecret",
                     ],
-                    resources=[psql_secret.secret_arn, modal_secret.secret_arn],
+                    resources=[psql_secret.secret_arn, modal_secret.secret_arn, auth0_secret.secret_arn],
                 ),
             ],
             roles=[execution_role],
@@ -170,6 +173,9 @@ class FastAPIStack(Stack):
                 "MODAL_TOKEN_SECRET": ecs.Secret.from_secrets_manager(
                     modal_secret, "secret"
                 ),
+                "AUTH0_M2M__DOMAIN": ecs.Secret.from_secrets_manager(auth0_secret, "AUTH0_M2M__DOMAIN"),
+                "AUTH0_M2M__AUDIENCE": ecs.Secret.from_secrets_manager(auth0_secret, "AUTH0_M2M__AUDIENCE"),
+                "AUTH0_M2M__ISSUER": ecs.Secret.from_secrets_manager(auth0_secret, "AUTH0_M2M__ISSUER"),
             },
             execution_role=execution_role,
             task_role=task_role,

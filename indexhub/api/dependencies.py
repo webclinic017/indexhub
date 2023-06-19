@@ -1,7 +1,6 @@
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from fastapi import Request, WebSocket
-from jwt import exceptions
 
 from .auth0 import VerifyToken
 
@@ -15,7 +14,7 @@ token_auth_scheme = CustomHTTPBearer()
 
 
 async def verify_oauth_token(token: str = Depends(token_auth_scheme)):
-    try:
-        _ = VerifyToken(token).verify()
-    except exceptions.InvalidTokenError:
-        raise
+    result = VerifyToken(token.credentials).verify()
+    if result.get("status"): 
+        raise HTTPException(status_code=403, detail="Authentication failed")
+

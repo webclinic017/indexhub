@@ -7,10 +7,10 @@ def set_up():
     """Sets up configuration for the app"""
 
     config = {
-        "DOMAIN": os.getenv("DOMAIN", "your.domain.com"),
-        "API_AUDIENCE": os.getenv("API_AUDIENCE", "your.audience.com"),
-        "ISSUER": os.getenv("ISSUER", "https://your.domain.com/"),
-        "ALGORITHMS": os.getenv("ALGORITHMS", "RS256"),
+        "DOMAIN": os.getenv("AUTH0_M2M__DOMAIN", "your.domain.com"),
+        "API_AUDIENCE": os.getenv("AUTH0_M2M__AUDIENCE", "your.audience.com"),
+        "ISSUER": os.getenv("AUTH0_M2M__ISSUER", "https://your.domain.com/"),
+        "ALGORITHMS": os.getenv("AUTH0_M2M__ALGORITHMS", "RS256"),
     }
     return config
 

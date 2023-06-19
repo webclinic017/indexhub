@@ -2,10 +2,10 @@ import json
 
 from fastapi import WebSocket
 
-from indexhub.api.routers import router
+from indexhub.api.routers import unprotected_router
 
 
-@router.websocket("/test/sources/ws")
+@unprotected_router.websocket("/test/sources/ws")
 async def ws_get_sources(websocket: WebSocket):
     await websocket.accept()
     while True:

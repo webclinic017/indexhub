@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from indexhub.api.db import create_sql_engine
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.routers import router
+from indexhub.api.routers import router, unprotected_router
 from indexhub.api.schemas import CONNECTION_SCHEMA, DATASET_SCHEMA
 import os
 
@@ -103,7 +103,7 @@ def delete_source(source_id: str):
         return {"ok": True}
 
 
-@router.websocket("/sources/ws")
+@unprotected_router.websocket("/sources/ws")
 async def ws_get_sources(websocket: WebSocket):
     await websocket.accept()
     while True:

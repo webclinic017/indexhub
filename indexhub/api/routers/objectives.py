@@ -11,7 +11,7 @@ from indexhub.api.db import create_sql_engine
 from indexhub.api.models.objective import Objective
 from indexhub.api.models.source import Source
 from indexhub.api.models.user import User
-from indexhub.api.routers import router
+from indexhub.api.routers import router, unprotected_router
 from indexhub.api.routers.sources import get_source
 from indexhub.api.schemas import (
     OBJECTIVE_SCHEMAS,
@@ -165,7 +165,7 @@ def delete_objective(objective_id: str):
         return {"ok": True}
 
 
-@router.websocket("/objectives/ws")
+@unprotected_router.websocket("/objectives/ws")
 async def ws_get_objectives(websocket: WebSocket):
     await websocket.accept()
     while True:
