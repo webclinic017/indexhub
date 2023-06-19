@@ -212,7 +212,9 @@ def create_single_forecast_chart(
 
     # Generate the chart
     line_chart = Line(init_opts=opts.InitOpts(bg_color="white"))
-    line_chart.add_xaxis(chart_data[time_col].to_list())
+    line_chart.add_xaxis(
+        chart_data[time_col].cast(pl.Date).to_list(),
+    )
 
     # Quantile range charts
     line_chart.add_yaxis(
@@ -325,11 +327,12 @@ def create_single_forecast_chart(
             "selected": series_name_to_legend_show,
             "item_width": 50,
         },
-        tooltip_opts=opts.TooltipOpts(is_show=True, formatter="{c}"),
+        tooltip_opts=opts.TooltipOpts(is_show=False),
         xaxis_opts=opts.AxisOpts(
             type_=time_col,
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axisline_opts=opts.AxisLineOpts(is_show=False),
+            axispointer_opts=opts.AxisPointerOpts(is_show=True),
         ),
         yaxis_opts=opts.AxisOpts(
             splitline_opts=opts.SplitLineOpts(is_show=False),
@@ -644,7 +647,13 @@ def create_segmentation_chart(
 
     # Add x and y data for each entity
     for entity in entities:
-        filtered = data.filter(pl.col(entity_col) == entity)
+        filtered = data.filter(pl.col(entity_col) == entity).with_columns(
+            # NOTE: Rounding doesn't work for float32.
+            [
+                pl.col("seg_factor").cast(pl.Float64).round(2),
+                pl.col("score__uplift__rolling_sum").cast(pl.Float64).round(2),
+            ]
+        )
         x_data = filtered.get_column("seg_factor").to_list()
         y_data = filtered.get_column("score__uplift__rolling_sum").to_list()
         scatter.add_xaxis(xaxis_data=x_data)
@@ -667,7 +676,9 @@ def create_segmentation_chart(
             name="AI Uplift (Cumulative)",
             type_="value",
         ),
-        tooltip_opts=opts.TooltipOpts(formatter="{a}: {c}"),
+        tooltip_opts=opts.TooltipOpts(
+            formatter="{a}: <br> (Segmentation Factor) {c} (AI Uplift)"
+        ),
         visualmap_opts=opts.VisualMapOpts(
             is_piecewise=True,
             pieces=[
