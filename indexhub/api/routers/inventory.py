@@ -338,8 +338,13 @@ def _create_inventory_chart(
             [time_col, *inventory_entity_cols], maintain_order=True
         ).agg(pl.col("inventory").mean(), agg_expr[forecast_agg_method])
 
-    chart_data = chart_data.groupby(time_col, maintain_order=True).agg(
-        AGG_METHODS[inventory_agg_method]("inventory"), agg_expr[forecast_agg_method]
+    chart_data = (
+        chart_data.groupby(time_col, maintain_order=True)
+        .agg(
+            AGG_METHODS[inventory_agg_method]("inventory"),
+            agg_expr[forecast_agg_method],
+        )
+        .with_columns(pl.col(time_col).cast(pl.Date))
     )
 
     # Generate the chart
@@ -389,7 +394,7 @@ def _create_inventory_chart(
                 symbol=None,
                 linestyle_opts=opts.LineStyleOpts(width=2, type_=line_type),
                 is_symbol_show=False,
-                tooltip_opts=opts.TooltipOpts(is_show=True),
+                tooltip_opts=opts.TooltipOpts(is_show=False),
                 markpoint_opts=opts.MarkPointOpts,
             )
 
@@ -403,16 +408,18 @@ def _create_inventory_chart(
         label_opts=opts.LabelOpts(is_show=False),
     ).set_global_opts(
         legend_opts=opts.LegendOpts(is_show=False),
-        tooltip_opts=opts.TooltipOpts(is_show=True, formatter="{c}"),
+        tooltip_opts=opts.TooltipOpts(is_show=False, formatter="{c}"),
         xaxis_opts=opts.AxisOpts(
             type_=time_col,
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axisline_opts=opts.AxisLineOpts(is_show=False),
+            axispointer_opts=opts.AxisPointerOpts(is_show=True),
         ),
         yaxis_opts=opts.AxisOpts(
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axislabel_opts=opts.LabelOpts(is_show=False),
             axispointer_opts=opts.AxisPointerOpts(is_show=True),
+            is_scale=True,
         ),
         toolbox_opts=opts.ToolboxOpts(
             is_show=True,

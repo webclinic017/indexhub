@@ -338,6 +338,7 @@ def create_single_forecast_chart(
             splitline_opts=opts.SplitLineOpts(is_show=False),
             axislabel_opts=opts.LabelOpts(is_show=False),
             axispointer_opts=opts.AxisPointerOpts(is_show=True),
+            is_scale=True,
         ),
         toolbox_opts=opts.ToolboxOpts(
             is_show=True,
@@ -501,6 +502,7 @@ def create_multi_forecast_chart(
             yaxis_opts=opts.AxisOpts(
                 splitline_opts=opts.SplitLineOpts(is_show=False),
                 axislabel_opts=opts.LabelOpts(is_show=False),
+                is_scale=True,
             ),
             tooltip_opts=opts.TooltipOpts(
                 formatter=f"{entity.title()}" + "<br/>{a}: {c}"
@@ -673,8 +675,7 @@ def create_segmentation_chart(
             type_="value",
         ),
         yaxis_opts=opts.AxisOpts(
-            name="AI Uplift (Cumulative)",
-            type_="value",
+            name="AI Uplift (Cumulative)", type_="value", is_scale=True
         ),
         tooltip_opts=opts.TooltipOpts(
             formatter="{a}: <br> (Segmentation Factor) {c} (AI Uplift)"
