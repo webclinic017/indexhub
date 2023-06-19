@@ -19,6 +19,9 @@ services:
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
       MODAL_TOKEN_ID: ${MODAL_TOKEN_ID}
       MODAL_TOKEN_SECRET: ${MODAL_TOKEN_SECRET}
+      AUTH0_M2M__DOMAIN: ${AUTH0_M2M__DOMAIN}
+      AUTH0_M2M__AUDIENCE: ${AUTH0_M2M__AUDIENCE}
+      AUTH0_M2M__ISSUER: ${AUTH0_M2M__ISSUER}
     volumes:
       - ./indexhub:/app/indexhub
     ports:
