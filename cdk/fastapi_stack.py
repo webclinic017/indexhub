@@ -19,7 +19,7 @@ AWS_ACCOUNT_ID = os.environ["AWS_ACCOUNT_ID"]
 AWS_DEFAULT_REGION = os.environ["AWS_DEFAULT_REGION"]
 HOSTED_ZONE_NAME = os.environ.get("HOSTED_ZONE_NAME", "indexhub.ai")
 HOSTED_ZONE_ID = os.environ.get("HOSTED_ZONE_ID", "Z036403337CGSDN2VWQ2C")
-APP_DNS_NAME = os.environ.get("APP_DNS_NAME", "api.indexhub.ai")
+APP_DNS_NAME = os.environ.get("APP_DNS_NAME", "api_v2.indexhub.ai")
 CERTIFICATE_ARN = os.environ.get(
     "CERTIFICATE_ARN",
     "arn:aws:acm:us-west-2:472617627528:certificate/32f09b92-f755-4d85-bac7-cd55bb8a3541",
@@ -41,7 +41,7 @@ class FastAPIStack(Stack):
         self.ecs_cluster = ecs.Cluster(
             self,
             "IndexHubECSCluster",
-            cluster_name="indexhub-ecs-cluster",
+            cluster_name="indexhub-ecs-cluster-V2",
             vpc=self.vpc,
             # enable_fargate_capacity_providers=True,
             # container_insights=True
@@ -73,7 +73,7 @@ class FastAPIStack(Stack):
         execution_role = iam.Role(
             self,
             "ExecutionRole",
-            role_name="IndexHubExecutionRole",
+            role_name="IndexHubExecutionRole-V2",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
         )
         execution_role.add_managed_policy(
@@ -106,7 +106,7 @@ class FastAPIStack(Stack):
         task_role = iam.Role(
             self,
             "TaskRole",
-            role_name="IndexHubTaskRole",
+            role_name="IndexHubTaskRole-V2",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
         )
         iam.Policy(

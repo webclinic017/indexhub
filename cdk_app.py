@@ -8,7 +8,7 @@ app = App()
 
 FastAPIStack(
     app,
-    "IndexHubFastAPIStack-TEMPORARY",
+    "IndexHubFastAPIStack-V2",
     env=Environment(
         account=os.environ["AWS_ACCOUNT_ID"],
         region=os.environ["AWS_DEFAULT_REGION"],
