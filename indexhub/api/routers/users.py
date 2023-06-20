@@ -64,12 +64,14 @@ def create_user(
 
 @router.get("/users/{user_id}")
 def get_user(response: Response, user_id: str):
+    logger.info(f"get_user: {user_id}")
     engine = create_sql_engine()
     with Session(engine) as session:
         user = session.get(User, user_id)
         if user is not None:
             return user
         else:
+            logger.info(f"user is None")
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {"message": "User id not found"}
 
