@@ -108,7 +108,6 @@ class TableTag(str, Enum):
     uplift = "uplift"
 
 
-# OBJECTIVE RESULT TABLES
 def _get_forecast_table(
     fields: Mapping[str, str],
     outputs: Mapping[str, str],
