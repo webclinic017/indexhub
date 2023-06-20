@@ -115,6 +115,7 @@ def _get_forecast_table(
     user: User,
     objective_id: str,
     filter_by: Mapping[str, List[str]],
+    entities_keywords: List[str],
 ) -> pd.DataFrame:
     # Get credentials
     storage_creds = get_aws_secret(
@@ -271,6 +272,19 @@ def _get_forecast_table(
         # Combine expressions with 'and'
         filter_expr = reduce(lambda x, y: x & y, expr)
         table = table.filter(filter_expr)
+
+    # Filter by entities keywords
+    if entities_keywords:
+        filter_by_entities = []
+        for keyword in entities_keywords:
+            entities = (
+                forecast
+                .filter(pl.col(entity_col).cast(pl.Utf8).str.contains(keyword))
+                .get_column(entity_col)
+                .to_list()
+            )
+            filter_by_entities = [*filter_by_entities, *entities]
+        table = table.filter(pl.col("entity").is_in(filter_by_entities))
 
     return table
 
@@ -458,6 +472,7 @@ class TableResponse(BaseModel):
 
 class TableParams(BaseModel):
     filter_by: Mapping[str, List[str]] = None
+    entities_keywords: List[str] = None
     page: int
     display_n: int
 
@@ -489,6 +504,7 @@ def get_objective_table(
         user=user,
         objective_id=objective_id,
         filter_by=params.filter_by,
+        entities_keywords=params.entities_keywords
     ).collect(streaming=True)
     pl.toggle_string_cache(False)
 
@@ -529,28 +545,3 @@ def get_objective_table_view(
     return response
 
 
-@router.post("/tables/{objective_id}/entities")
-def get_objective_entities(
-    objective_id: str
-) -> List[str]:
-    objective = get_objective(objective_id)["objective"]
-    engine = create_sql_engine()
-    with Session(engine) as session:
-        user = session.get(User, objective.user_id)
-
-    # Get credentials
-    storage_creds = get_aws_secret(
-        tag=user.storage_tag, secret_type="storage", user_id=user.id
-    )
-
-    # Read artifacts
-    outputs=json.loads(objective.outputs)
-    forecast = SOURCE_TAG_TO_READER[user.storage_tag](
-        bucket_name=user.storage_bucket_name,
-        file_ext="parquet",
-        object_path=outputs["forecasts"]["best_models"],
-        **storage_creds,
-    )
-    entity_col = forecast.columns[0]
-    entities = forecast.sort(entity_col).get_column(entity_col).unique().to_list()
-    return entities
