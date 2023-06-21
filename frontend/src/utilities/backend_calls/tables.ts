@@ -3,7 +3,8 @@ export const getAIRecommendationTable = async (
   display_n: number,
   objective_id: string,
   access_token_indexhub_api: string,
-  filter_by: Record<string, any> = {}
+  filter_by: Record<string, any> = {},
+  entities_keywords: string[] | null = null
 ) => {
   const get_ai_recommendation_table_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/tables/${objective_id}/forecast`;
 
@@ -17,6 +18,7 @@ export const getAIRecommendationTable = async (
       },
       body: JSON.stringify({
         filter_by: filter_by,
+        entities_keywords: entities_keywords,
         page: page,
         display_n: display_n,
       }),
@@ -118,6 +120,26 @@ export const getForecastTableView = async (
   );
 
   const response_json = await get_forecast_table_view_table_response.json();
-  console.log(response_json);
+  return response_json;
+};
+
+export const getObjectiveEntities = async (
+  objective_id: string,
+  access_token_indexhub_api: string
+) => {
+  const get_objective_entities_url = `${process.env.REACT_APP__FASTAPI__DOMAIN}/tables/${objective_id}/entities`;
+
+  const get_objective_entities_response = await fetch(
+    get_objective_entities_url,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${access_token_indexhub_api}`,
+      },
+    }
+  );
+
+  const response_json = await get_objective_entities_response.json();
   return response_json;
 };

@@ -10,6 +10,7 @@ import {
   CircularProgressLabel,
   HStack,
   Heading,
+  Input,
   Spinner,
   Stack,
   Tab,
@@ -110,6 +111,7 @@ const ForecastObjective = () => {
   > | null>(null);
   const [segmentationFactor, setSegmentationFactor] = useState("volatility");
 
+  const [searchField, setSearchField] = useState<string | null>(null);
   const [AIRecommendationTableFilter, setAIRecommendationTableFilter] =
     useState<Record<string, string[]>>({});
   const [AIRecommendationTable, setAIRecommendationTable] =
@@ -160,6 +162,12 @@ const ForecastObjective = () => {
         access_token_indexhub_api
       );
       setRollingForecastChart(rollingForecastChart);
+    }
+  };
+
+  const handleEntitiesFilterButton = () => {
+    if (searchField && searchField !== "") {
+      getAIRecommendationTableApi(true);
     }
   };
 
@@ -235,15 +243,20 @@ const ForecastObjective = () => {
     }
   }, [access_token_indexhub_api, user_details, objective_id]);
 
-  const getAIRecommendationTableApi = async (clear_filter = false) => {
+  const getAIRecommendationTableApi = async (
+    clear_filter = false,
+    clear_entities_keywords = false
+  ) => {
     const filter_by = clear_filter ? {} : AIRecommendationTableFilter;
+    const entities_keywords = clear_entities_keywords ? null : searchField;
     setAIRecommendationTable(null);
     const AIRecommendationTable = await getAIRecommendationTable(
       currentPageAIRecommendationTable,
       5,
       objective_id ? objective_id : "",
       access_token_indexhub_api,
-      filter_by
+      filter_by,
+      entities_keywords ? [entities_keywords] : null
     );
     setAIRecommendationTable(AIRecommendationTable);
     AIRecommendationTableCache[currentPageAIRecommendationTable] =
@@ -767,10 +780,31 @@ const ForecastObjective = () => {
                           <Button
                             size="sm"
                             onClick={() => {
-                              getAIRecommendationTableApi(true);
+                              setSearchField(null);
+                              getAIRecommendationTableApi(true, true);
                             }}
+                            isDisabled={AIRecommendationTable ? false : true}
                           >
                             Show all entities
+                          </Button>
+                        </HStack>
+                        <HStack>
+                          <Box width="30rem">
+                            <Input
+                              onChange={(e) =>
+                                setSearchField(e.currentTarget.value)
+                              }
+                              placeholder="Filter by..."
+                              value={searchField ? searchField : ""}
+                            />
+                          </Box>
+                          <Button
+                            onClick={() => {
+                              handleEntitiesFilterButton();
+                            }}
+                            isDisabled={AIRecommendationTable ? false : true}
+                          >
+                            Filter
                           </Button>
                         </HStack>
 
