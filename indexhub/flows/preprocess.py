@@ -21,7 +21,11 @@ from indexhub.api.schemas import (
     SUPPORTED_DATETIME_FMT,
     SUPPORTED_FREQ,
 )
-from indexhub.api.services.io import SOURCE_TAG_TO_READER, STORAGE_TAG_TO_WRITER
+from indexhub.api.services.io import (
+    SOURCE_TAG_TO_READER,
+    STORAGE_TAG_TO_WRITER,
+    check_s3_path,
+)
 from indexhub.api.services.secrets_manager import get_aws_secret
 from indexhub.modal_stub import stub
 
@@ -333,23 +337,46 @@ def run_preprocess(
         storage_creds = get_aws_secret(
             tag=storage_tag, secret_type="storage", user_id=user_id
         )
+        dateformat = SUPPORTED_DATETIME_FMT[data_fields["datetime_fmt"]]
+        if source_tag == "s3":
+            path_type = check_s3_path(
+                bucket_name=conn_fields["bucket_name"],
+                object_path=object_path,
+                **source_creds,
+            )
+            source_tag = f"{source_tag}{path_type}"
         # Read data from source
         read = SOURCE_TAG_TO_READER[source_tag]
-        dateformat = SUPPORTED_DATETIME_FMT[data_fields["datetime_fmt"]]
         raw_panel_data = read(**conn_fields, **source_creds, dateformat=dateformat)
         # Set quantity as target if transaction type
         target_col = data_fields.get("target_col", data_fields.get("quantity_col"))
-        entity_cols = data_fields["entity_cols"]
+        entity_cols = data_fields.get("entity_cols", [])
         if source_type == "transaction":
             # Set product as entity if transaction type
             entity_cols = [data_fields["product_col"], *entity_cols]
+        time_col = data_fields.get("time_col")
+        idx_cols = [*entity_cols, time_col]
+
+        if isinstance(raw_panel_data, List) and all(
+            isinstance(df, pl.DataFrame) for df in raw_panel_data
+        ):
+            # Concat and drop duplicates based on time_col and entity_cols
+            raw_panel_data = (
+                pl.concat(raw_panel_data)
+                .sort([*idx_cols, "upload_date"])
+                .unique(
+                    subset=idx_cols,
+                    keep="last",
+                )
+                .select(pl.all().exclude("upload_date"))
+            )
         panel_data = (
             raw_panel_data
             # Clean data
             .pipe(
                 _clean_panel,
                 entity_cols=entity_cols,
-                time_col=data_fields["time_col"],
+                time_col=time_col,
                 datetime_fmt=dateformat,
             )
             # Merge multi levels
