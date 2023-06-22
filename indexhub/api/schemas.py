@@ -379,6 +379,19 @@ def OBJECTIVE_FIELDS_SCHEMA():
             "subtitle": "Which model do you want to use to train the baseline forecasts?",
             "values": list(SUPPORTED_BASELINE_MODELS.keys()),
         },
+        # TODO: Pending implementation from FE
+        # "product_col": {
+        #     "title": "Product column for product quadrant",
+        #     "subtitle": "Represents the column of products",
+        # },
+        # "quantity_col": {
+        #     "title": "Quantity column for product quadrant",
+        #     "subtitle": "Represents the column for quantities of products",
+        # },
+        # "value_col": {
+        #     "title": "Value column for product quadrant",
+        #     "subtitle": "Represents the column for values of products",
+        # }
     }
 
 
