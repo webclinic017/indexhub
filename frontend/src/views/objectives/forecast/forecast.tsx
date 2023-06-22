@@ -112,8 +112,6 @@ const ForecastObjective = () => {
   const [segmentationFactor, setSegmentationFactor] = useState("volatility");
 
   const [searchField, setSearchField] = useState<string | null>(null);
-  const [AIRecommendationTableFilter, setAIRecommendationTableFilter] =
-    useState<Record<string, string[]>>({});
   const [AIRecommendationTable, setAIRecommendationTable] =
     useState<AIRecommendationTable | null>(null);
   const [AIRecommendationTableCache, setAIRecommendationTableCache] = useState<
@@ -167,7 +165,7 @@ const ForecastObjective = () => {
 
   const handleEntitiesFilterButton = () => {
     if (searchField && searchField !== "") {
-      getAIRecommendationTableApi(true);
+      getAIRecommendationTableApi(false, true);
     }
   };
 
@@ -244,10 +242,10 @@ const ForecastObjective = () => {
   }, [access_token_indexhub_api, user_details, objective_id]);
 
   const getAIRecommendationTableApi = async (
-    clear_filter = false,
-    clear_entities_keywords = false
+    clear_entities_keywords = false,
+    clear_cache = false
   ) => {
-    const filter_by = clear_filter ? {} : AIRecommendationTableFilter;
+    const filter_by = {};
     const entities_keywords = clear_entities_keywords ? null : searchField;
     setAIRecommendationTable(null);
     const AIRecommendationTable = await getAIRecommendationTable(
@@ -259,9 +257,12 @@ const ForecastObjective = () => {
       entities_keywords ? [entities_keywords] : null
     );
     setAIRecommendationTable(AIRecommendationTable);
-    AIRecommendationTableCache[currentPageAIRecommendationTable] =
+    const intAIRecommendationTableCache = clear_cache
+      ? {}
+      : AIRecommendationTableCache;
+    intAIRecommendationTableCache[currentPageAIRecommendationTable] =
       AIRecommendationTable;
-    setAIRecommendationTableCache(AIRecommendationTableCache);
+    setAIRecommendationTableCache(intAIRecommendationTableCache);
   };
 
   useEffect(() => {
@@ -674,8 +675,7 @@ const ForecastObjective = () => {
                 The entities have been segmented based on their cumulative AI
                 uplift and <b>{segmentationFactor}</b>. Entities highlighted in
                 green represent recommended focus areas with low volatility and
-                high uplift the implementation of AI. To view the statistics for
-                each entity, click on the corresponding dot.
+                high uplift the implementation of AI.
               </Text>
               <hr></hr>
               <Tabs
@@ -718,17 +718,6 @@ const ForecastObjective = () => {
                     style={{
                       height: "100%",
                       width: "100%",
-                    }}
-                    onEvents={{
-                      click: (param: any) => {
-                        AIRecommendationTableFilter["entity"] = [
-                          param["seriesName"],
-                        ];
-                        setAIRecommendationTableFilter(
-                          AIRecommendationTableFilter
-                        );
-                        getAIRecommendationTableApi();
-                      },
                     }}
                   />
                 ) : (
