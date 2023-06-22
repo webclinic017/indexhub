@@ -305,7 +305,7 @@ def SOURCES_SCHEMA(sources: List[Source], type: str):
         "panel": {
             "title": "Dataset",
             "subtitle": "Select one panel dataset of observed values to forecast.",
-            "values": {src.name: src.id for src in sources if src.dataset_type == type},
+            "values": {src.name: src.id for src in sources if (src.dataset_type == type and src.status == "SUCCESS")},
             "is_required": True,
         },
         "baseline": {
@@ -315,14 +315,14 @@ def SOURCES_SCHEMA(sources: List[Source], type: str):
                 " Must have the same schema as `panel`."
                 " Note: If this is not specified, a seasonal naive/naive forecast will be automatically generated and used as a baseline."
             ),
-            "values": {src.name: src.id for src in sources if src.dataset_type == type},
+            "values": {src.name: src.id for src in sources if (src.dataset_type == type and src.status == "SUCCESS")},
         },
         "inventory": {
             "title": "Inventory",
             "subtitle": (
                 "Select one inventory dataset." " Must have the same schema as `panel`."
             ),
-            "values": {src.name: src.id for src in sources if src.dataset_type == type},
+            "values": {src.name: src.id for src in sources if (src.dataset_type == type and src.status == "SUCCESS")},
         },
     }
 

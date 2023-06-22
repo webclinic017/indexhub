@@ -8,6 +8,7 @@ import {
   Spinner,
   Stack,
   Text,
+  useToast,
   VStack,
 } from "@chakra-ui/react";
 import { faChartLine, faCircleDot } from "@fortawesome/pro-light-svg-icons";
@@ -20,12 +21,12 @@ import { useWebSocket } from "react-use-websocket/dist/lib/use-websocket";
 import { AppState } from "../..";
 import { colors } from "../../theme/theme";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
+import Toast from "../../components/toast";
 
 export type Objective = Record<string, any>;
 
 const objective_status_to_color: any = {
   RUNNING: colors.supplementary.diverging_color.main_yellow,
-  COMPLETED: colors.supplementary.indicators.main_green,
   SUCCESS: colors.supplementary.indicators.main_green,
   FAILED: colors.supplementary.indicators.main_red,
 };
@@ -38,6 +39,7 @@ const ObjectivesDashboard = () => {
   const [wsCallStarted, setWsCallStarted] = useState(false);
   const navigate = useNavigate();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
+  const toast = useToast();
 
   const getObjectivesByUserId = () => {
     sendMessage(JSON.stringify({ user_id: user_details.id }));
@@ -65,7 +67,7 @@ const ObjectivesDashboard = () => {
         const statuses: string[] = [];
         const objectives: Objective[] = JSON.parse(lastMessage.data).objectives;
         objectives.forEach((objective) => {
-          statuses.push(objective.status);
+          statuses.push(objective["status"]);
         });
         if (statuses.includes("RUNNING")) {
           setTimeout(getObjectivesByUserId, 5000);
@@ -126,7 +128,22 @@ const ObjectivesDashboard = () => {
                   key={idx}
                   bgColor="white"
                   onClick={() => {
-                    navigate(`objectives/forecast/${objective["id"]}`);
+                    if (objective["status"] == "SUCCESS")
+                      navigate(`objectives/forecast/${objective["id"]}`);
+                    else if (objective["status"] == "RUNNING")
+                      Toast(
+                        toast,
+                        "Objective Not Ready",
+                        "The objective you're trying to open is still being processed. Try again when the status is 'SUCCESS'",
+                        "error"
+                      );
+                    else
+                      Toast(
+                        toast,
+                        "Objective Failed",
+                        "The objective you're trying to open has failed to process. Please contact support for assistance",
+                        "error"
+                      );
                   }}
                 >
                   <CardBody>
