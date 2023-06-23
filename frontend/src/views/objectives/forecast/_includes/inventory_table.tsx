@@ -30,6 +30,7 @@ import { getCombinedEntitiesAndInventoryChart } from "../../../../utilities/back
 const MuiTheme = createTheme({});
 
 export default function InventoryTable(props: { objective_id: string }) {
+  const [inventoryNotAvailable, setInventoryNotAvailable] = useState(false);
   const [forecastAndInventoryEntities, setForecastAndInventoryEntities] =
     useState<Record<string, any> | null>(null);
   const [
@@ -70,7 +71,11 @@ export default function InventoryTable(props: { objective_id: string }) {
         props.objective_id,
         access_token_indexhub_api
       );
-      setForecastAndInventoryEntities(entities);
+      if (entities == null) {
+        setInventoryNotAvailable(true);
+      } else {
+        setForecastAndInventoryEntities(entities);
+      }
     };
 
     if (user_details.id && access_token_indexhub_api) {
@@ -143,226 +148,249 @@ export default function InventoryTable(props: { objective_id: string }) {
 
   return (
     <Stack>
-      {forecastAndInventoryEntities ? (
-        <VStack
-          width="100%"
-          justify="space-between"
-          mb="1rem"
-          mt="1rem"
-          alignItems="flex-start"
-        >
-          <VStack width="100%">
-            <Text width="100%" fontSize="sm">
-              Choose at least one entity and your preferred inventory to view
-              the entity-inventory table below.
-            </Text>
-            <HStack width="100%">
-              <Box width="50%">
-                <Text fontWeight="bold">Entities</Text>
-                <Text fontSize="sm">
-                  Select entities to be included in the inventory data report.
-                </Text>
-                <Box height="25rem">
-                  <ThemeProvider theme={MuiTheme}>
-                    <DataGridPremium
-                      rows={forecastAndInventoryEntities["forecast_entities"]}
-                      checkboxSelection
-                      apiRef={apiRef}
-                      columns={forecastAndInventoryEntitiesGridCols["forecast"]}
-                      disableRowSelectionOnClick
-                      isRowSelectable={(params: GridRowParams) =>
-                        params.row.id > -1
-                      }
-                      rowGroupingColumnMode="multiple"
-                      rowGroupingModel={forecastAndInventoryEntities[
-                        "forecast_entity_cols"
-                      ].slice(0, -1)}
-                      onRowSelectionModelChange={(selectedEntityIds) => {
-                        const selectedEntities: string[] = [];
-                        selectedEntityIds.forEach((id) => {
-                          const col_vals: string[] = [];
-                          forecastAndInventoryEntities[
-                            "forecast_entity_cols"
-                          ].forEach((col: string) => {
-                            col_vals.push(
-                              forecastAndInventoryEntities["forecast_entities"][
-                                id
-                              ][col]
-                            );
-                          });
-                          selectedEntities.push(col_vals.join(" - "));
-                        });
-                        selectedForecastAndInventoryEntities[
-                          "forecast_entities"
-                        ] = selectedEntities;
-                        setSelectedForecastAndInventoryEntities(
-                          structuredClone(selectedForecastAndInventoryEntities)
-                        );
-                      }}
-                    />
-                  </ThemeProvider>
-                </Box>
-              </Box>
-
-              <Box width="50%">
-                <Text fontWeight="bold">Inventories</Text>
-                <Text fontSize="sm">
-                  Select inventories to be included in the inventory data
-                  report.
-                </Text>
-                <Box height="25rem">
-                  <ThemeProvider theme={MuiTheme}>
-                    <DataGridPremium
-                      rows={forecastAndInventoryEntities["inventory_entities"]}
-                      checkboxSelection
-                      apiRef={apiRef}
-                      columns={
-                        forecastAndInventoryEntitiesGridCols["inventory"]
-                      }
-                      disableRowSelectionOnClick
-                      isRowSelectable={(params: GridRowParams) =>
-                        params.row.id > -1
-                      }
-                      rowGroupingColumnMode="multiple"
-                      rowGroupingModel={forecastAndInventoryEntities[
-                        "inventory_entity_cols"
-                      ].slice(0, -1)}
-                      onRowSelectionModelChange={(selectedEntityIds) => {
-                        const selectedEntities: string[] = [];
-                        selectedEntityIds.forEach((id) => {
-                          const col_vals: string[] = [];
-                          forecastAndInventoryEntities[
-                            "inventory_entity_cols"
-                          ].forEach((col: string) => {
-                            col_vals.push(
-                              forecastAndInventoryEntities[
-                                "inventory_entities"
-                              ][id][col]
-                            );
-                          });
-                          selectedEntities.push(col_vals.join(" - "));
-                        });
-                        selectedForecastAndInventoryEntities[
-                          "inventory_entities"
-                        ] = selectedEntities;
-                        setSelectedForecastAndInventoryEntities(
-                          structuredClone(selectedForecastAndInventoryEntities)
-                        );
-                      }}
-                    />
-                  </ThemeProvider>
-                </Box>
-              </Box>
-            </HStack>
-            <Button
-              isDisabled={
-                !(
-                  selectedForecastAndInventoryEntities["forecast_entities"] &&
-                  selectedForecastAndInventoryEntities["forecast_entities"]
-                    .length > 0 &&
-                  selectedForecastAndInventoryEntities["inventory_entities"] &&
-                  selectedForecastAndInventoryEntities["inventory_entities"]
-                    .length > 0
-                )
-              }
-              onClick={() => setToggleGenerateInventoryData(true)}
-              mt="2rem !important"
-              isLoading={isGeneratingInventoryData}
-              loadingText={
-                <>
-                  <Text mr="0.5rem">Generating Inventory Data</Text>
-                  <FontAwesomeIcon icon={faNotebook} />
-                </>
-              }
-            >
-              <Text mr="0.5rem">Generate Inventory Data</Text>
-              <FontAwesomeIcon icon={faNotebook} />
-            </Button>
-          </VStack>
-
-          <hr style={{ width: "100%", margin: "2rem 0" }}></hr>
-
-          <VStack width="100%">
-            {forecastAndInventoyEntitiesTableData &&
-            forecastAndInventoyEntitiesChartData ? (
-              <VStack width="100%" mt="unset !important">
-                <Box width="100%">
-                  <Text fontWeight="bold">Inventory Table</Text>
+      {!inventoryNotAvailable ? (
+        forecastAndInventoryEntities ? (
+          <VStack
+            width="100%"
+            justify="space-between"
+            mb="1rem"
+            mt="1rem"
+            alignItems="flex-start"
+          >
+            <VStack width="100%">
+              <Text width="100%" fontSize="sm">
+                Choose at least one entity and your preferred inventory to view
+                the entity-inventory table below.
+              </Text>
+              <HStack width="100%">
+                <Box width="50%">
+                  <Text fontWeight="bold">Entities</Text>
                   <Text fontSize="sm">
-                    The table shows statistics for each entity and is sorted by
-                    time (oldest to newest).
+                    Select entities to be included in the inventory data report.
                   </Text>
-                  <Box sx={{ height: 400, width: "100%" }}>
+                  <Box height="25rem">
                     <ThemeProvider theme={MuiTheme}>
                       <DataGridPremium
-                        rows={forecastAndInventoyEntitiesTableData["rows"]}
+                        rows={forecastAndInventoryEntities["forecast_entities"]}
+                        checkboxSelection
                         apiRef={apiRef}
-                        columns={forecastAndInventoryEntitiesTableGridCols}
+                        columns={
+                          forecastAndInventoryEntitiesGridCols["forecast"]
+                        }
                         disableRowSelectionOnClick
-                        // rowGroupingColumnMode="multiple"
-                        rowGroupingModel={[
-                          "time",
-                          ...new Set([
-                            ...forecastAndInventoryEntities[
-                              "forecast_entity_cols"
-                            ],
-                            ...forecastAndInventoryEntities[
-                              "inventory_entity_cols"
-                            ],
-                          ]),
+                        isRowSelectable={(params: GridRowParams) =>
+                          params.row.id > -1
+                        }
+                        rowGroupingColumnMode="multiple"
+                        rowGroupingModel={forecastAndInventoryEntities[
+                          "forecast_entity_cols"
                         ].slice(0, -1)}
-                        initialState={{
-                          aggregation: {
-                            model: {
-                              actual: "sum",
-                              inventory: "avg",
-                              baseline: "sum",
-                              ai: "sum",
-                              ai_10: "sum",
-                              ai_90: "sum",
-                              best_plan: "sum",
-                              plan: "sum",
-                            },
-                          },
+                        onRowSelectionModelChange={(selectedEntityIds) => {
+                          const selectedEntities: string[] = [];
+                          selectedEntityIds.forEach((id) => {
+                            const col_vals: string[] = [];
+                            forecastAndInventoryEntities[
+                              "forecast_entity_cols"
+                            ].forEach((col: string) => {
+                              col_vals.push(
+                                forecastAndInventoryEntities[
+                                  "forecast_entities"
+                                ][id][col]
+                              );
+                            });
+                            selectedEntities.push(col_vals.join(" - "));
+                          });
+                          selectedForecastAndInventoryEntities[
+                            "forecast_entities"
+                          ] = selectedEntities;
+                          setSelectedForecastAndInventoryEntities(
+                            structuredClone(
+                              selectedForecastAndInventoryEntities
+                            )
+                          );
                         }}
                       />
                     </ThemeProvider>
                   </Box>
                 </Box>
-                <Box width="100%" mt="2rem !important">
-                  <Text fontWeight="bold">Inventory Chart</Text>
+
+                <Box width="50%">
+                  <Text fontWeight="bold">Inventories</Text>
                   <Text fontSize="sm">
-                    The lines represents the latest forecasts and panel trends
-                    while the shaded area represents the quantile ranges.
+                    Select inventories to be included in the inventory data
+                    report.
                   </Text>
-                  <Box height="25rem" py="1rem">
-                    <ReactEcharts
-                      option={forecastAndInventoyEntitiesChartData}
-                      style={{
-                        height: "100%",
-                        width: "100%",
-                      }}
-                    />
+                  <Box height="25rem">
+                    <ThemeProvider theme={MuiTheme}>
+                      <DataGridPremium
+                        rows={
+                          forecastAndInventoryEntities["inventory_entities"]
+                        }
+                        checkboxSelection
+                        apiRef={apiRef}
+                        columns={
+                          forecastAndInventoryEntitiesGridCols["inventory"]
+                        }
+                        disableRowSelectionOnClick
+                        isRowSelectable={(params: GridRowParams) =>
+                          params.row.id > -1
+                        }
+                        rowGroupingColumnMode="multiple"
+                        rowGroupingModel={forecastAndInventoryEntities[
+                          "inventory_entity_cols"
+                        ].slice(0, -1)}
+                        onRowSelectionModelChange={(selectedEntityIds) => {
+                          const selectedEntities: string[] = [];
+                          selectedEntityIds.forEach((id) => {
+                            const col_vals: string[] = [];
+                            forecastAndInventoryEntities[
+                              "inventory_entity_cols"
+                            ].forEach((col: string) => {
+                              col_vals.push(
+                                forecastAndInventoryEntities[
+                                  "inventory_entities"
+                                ][id][col]
+                              );
+                            });
+                            selectedEntities.push(col_vals.join(" - "));
+                          });
+                          selectedForecastAndInventoryEntities[
+                            "inventory_entities"
+                          ] = selectedEntities;
+                          setSelectedForecastAndInventoryEntities(
+                            structuredClone(
+                              selectedForecastAndInventoryEntities
+                            )
+                          );
+                        }}
+                      />
+                    </ThemeProvider>
                   </Box>
                 </Box>
-              </VStack>
-            ) : (
-              <Stack
-                alignItems="center"
-                borderRadius="10"
-                justifyContent="center"
-                height="full"
-                backgroundColor="white"
-                width="100%"
+              </HStack>
+              <Button
+                isDisabled={
+                  !(
+                    selectedForecastAndInventoryEntities["forecast_entities"] &&
+                    selectedForecastAndInventoryEntities["forecast_entities"]
+                      .length > 0 &&
+                    selectedForecastAndInventoryEntities[
+                      "inventory_entities"
+                    ] &&
+                    selectedForecastAndInventoryEntities["inventory_entities"]
+                      .length > 0
+                  )
+                }
+                onClick={() => setToggleGenerateInventoryData(true)}
+                mt="2rem !important"
+                isLoading={isGeneratingInventoryData}
+                loadingText={
+                  <>
+                    <Text mr="0.5rem">Generating Inventory Data</Text>
+                    <FontAwesomeIcon icon={faNotebook} />
+                  </>
+                }
               >
-                <Text>
-                  Choose your preferred entities from the tables above and click
-                  on &quot;Generate Inventory Data&quot;
-                </Text>
-              </Stack>
-            )}
+                <Text mr="0.5rem">Generate Inventory Data</Text>
+                <FontAwesomeIcon icon={faNotebook} />
+              </Button>
+            </VStack>
+
+            <hr style={{ width: "100%", margin: "2rem 0" }}></hr>
+
+            <VStack width="100%">
+              {forecastAndInventoyEntitiesTableData &&
+              forecastAndInventoyEntitiesChartData ? (
+                <VStack width="100%" mt="unset !important">
+                  <Box width="100%">
+                    <Text fontWeight="bold">Inventory Table</Text>
+                    <Text fontSize="sm">
+                      The table shows statistics for each entity and is sorted
+                      by time (oldest to newest).
+                    </Text>
+                    <Box sx={{ height: 400, width: "100%" }}>
+                      <ThemeProvider theme={MuiTheme}>
+                        <DataGridPremium
+                          rows={forecastAndInventoyEntitiesTableData["rows"]}
+                          apiRef={apiRef}
+                          columns={forecastAndInventoryEntitiesTableGridCols}
+                          disableRowSelectionOnClick
+                          // rowGroupingColumnMode="multiple"
+                          rowGroupingModel={[
+                            "time",
+                            ...new Set([
+                              ...forecastAndInventoryEntities[
+                                "forecast_entity_cols"
+                              ],
+                              ...forecastAndInventoryEntities[
+                                "inventory_entity_cols"
+                              ],
+                            ]),
+                          ].slice(0, -1)}
+                          initialState={{
+                            aggregation: {
+                              model: {
+                                actual: "sum",
+                                inventory: "avg",
+                                baseline: "sum",
+                                ai: "sum",
+                                ai_10: "sum",
+                                ai_90: "sum",
+                                best_plan: "sum",
+                                plan: "sum",
+                              },
+                            },
+                          }}
+                        />
+                      </ThemeProvider>
+                    </Box>
+                  </Box>
+                  <Box width="100%" mt="2rem !important">
+                    <Text fontWeight="bold">Inventory Chart</Text>
+                    <Text fontSize="sm">
+                      The lines represents the latest forecasts and panel trends
+                      while the shaded area represents the quantile ranges.
+                    </Text>
+                    <Box height="25rem" py="1rem">
+                      <ReactEcharts
+                        option={forecastAndInventoyEntitiesChartData}
+                        style={{
+                          height: "100%",
+                          width: "100%",
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                </VStack>
+              ) : (
+                <Stack
+                  alignItems="center"
+                  borderRadius="10"
+                  justifyContent="center"
+                  height="full"
+                  backgroundColor="white"
+                  width="100%"
+                >
+                  <Text>
+                    Choose your preferred entities from the tables above and
+                    click on &quot;Generate Inventory Data&quot;
+                  </Text>
+                </Stack>
+              )}
+            </VStack>
           </VStack>
-        </VStack>
+        ) : (
+          <Stack
+            alignItems="center"
+            borderRadius="10"
+            justifyContent="center"
+            height="full"
+            backgroundColor="white"
+          >
+            <Spinner />
+            <Text>Loading...</Text>
+          </Stack>
+        )
       ) : (
         <Stack
           alignItems="center"
@@ -371,8 +399,7 @@ export default function InventoryTable(props: { objective_id: string }) {
           height="full"
           backgroundColor="white"
         >
-          <Spinner />
-          <Text>Loading...</Text>
+          <Text>Inventory not available for this objective</Text>
         </Stack>
       )}
     </Stack>
