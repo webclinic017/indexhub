@@ -76,16 +76,18 @@ const ConfirmCreateSource = (props: {
               </Text>
               <Text width="70%">{props.source_configs["time_col"]}</Text>
             </Stack>
-            <Stack
-              direction={{ base: "column", md: "row" }}
-              spacing={{ base: "1.5", md: "8" }}
-              justifyContent="space-between"
-            >
-              <Text width="30%" fontWeight="bold">
-                Target column(s)
-              </Text>
-              <Text width="70%">{props.source_configs["target_col"]}</Text>
-            </Stack>
+            {(props.source_configs["target_col"] && props.source_configs["target_col"].length > 0) && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Target column
+                </Text>
+                <Text width="70%">{props.source_configs["target_col"]}</Text>
+              </Stack>
+            )}
             {(props.source_configs["entity_cols"] && props.source_configs["entity_cols"].length > 0) && (
               <Stack
                 direction={{ base: "column", md: "row" }}
@@ -96,6 +98,90 @@ const ConfirmCreateSource = (props: {
                   Entity column(s)
                 </Text>
                 <Text width="70%">{props.source_configs["entity_cols"].join(", ")}</Text>
+              </Stack>
+            )}
+            {props.source_configs["quantity_col"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Quantity column:
+                </Text>
+                <Text width="70%">{props.source_configs["quantity_col"]}</Text>
+              </Stack>
+            )}
+            {props.source_configs["invoice_col"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Invoice ID column:
+                </Text>
+                <Text width="70%">{props.source_configs["invoice_col"]}</Text>
+              </Stack>
+            )}
+            {props.source_configs["product_col"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Product ID column:
+                </Text>
+                <Text width="70%">{props.source_configs["product_col"]}</Text>
+              </Stack>
+            )}
+            {props.source_configs["price_col"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Price column:
+                </Text>
+                <Text width="70%">{props.source_configs["price_col"]}</Text>
+              </Stack>
+            )}
+            {props.source_configs["feature_cols"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Feature column(s):
+                </Text>
+                <Text width="70%">{props.source_configs["feature_cols"] ? props.source_configs["feature_cols"].join(", ") : ""}</Text>
+              </Stack>
+            )}
+            {props.source_configs["agg_method"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Aggregation Method:
+                </Text>
+                <Text width="70%">{props.source_configs["agg_method"]}</Text>
+              </Stack>
+            )}
+            {props.source_configs["impute_method"] && (
+              <Stack
+                direction={{ base: "column", md: "row" }}
+                spacing={{ base: "1.5", md: "8" }}
+                justifyContent="space-between"
+              >
+                <Text width="30%" fontWeight="bold">
+                  Imputation Method:
+                </Text>
+                <Text width="70%">{props.source_configs["impute_method"]}</Text>
               </Stack>
             )}
           </Stack>
