@@ -33,6 +33,7 @@ logger = _logger(name=__name__)
 
 def create_single_forecast_chart(
     outputs: Mapping[str, str],
+    fields: Mapping[str, str],
     source_fields: Mapping[str, str],
     objective_id: str,
     user: User,
@@ -207,7 +208,8 @@ def create_single_forecast_chart(
     if additional_value:
         additional_value = round(additional_value, 2)
     series_plan = chart_data.get_column("plan").to_list()
-    series_plan[-4] = additional_value
+    idx = fields["fh"] + 1
+    series_plan[-idx] = additional_value
     chart_data = chart_data.with_columns(pl.Series(name="plan", values=series_plan))
 
     # Generate the chart
