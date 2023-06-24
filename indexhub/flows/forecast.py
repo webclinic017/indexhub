@@ -9,6 +9,7 @@ from typing import Any, Callable, List, Mapping, Optional
 import modal
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
 from functime.metrics.multi_objective import score_forecast, summarize_scores
@@ -485,6 +486,183 @@ def _compare_scores(
     return uplift
 
 
+def _select_best_models(
+    y: pl.DataFrame,
+    model_keys: List[str],
+    _scores: Mapping[str, pa.Table],
+    _forecasts: Mapping[str, pa.Table],
+    _backtests: Mapping[str, pa.Table],
+    _residuals: Mapping[str, pa.Table],
+):
+    scores = {k: pl.from_arrow(df) for k, df in _scores.items()}
+    forecasts = {k: pl.from_arrow(df) for k, df in _forecasts.items()}
+    backtests = {k: pl.from_arrow(df) for k, df in _backtests.items()}
+    residuals = {k: pl.from_arrow(df) for k, df in _residuals.items()}
+    entity_col, time_col, target_col = y.columns
+    # Select best model by lowest rmsse for each entity
+    # NOTE: We ignore naive models as naive residuals are not computed
+    best_models = (
+        pl.concat(
+            [
+                df.with_columns(pl.lit(model_name).alias("best_model"))
+                for model_name, df in scores.items()
+                if model_name in model_keys
+            ]
+        )
+        # Always select best model by rmsse
+        .sort([entity_col, "rmsse"])
+        .groupby(entity_col, maintain_order=True)
+        .head(1)
+        .select(entity_col, "best_model")
+        .to_dicts()
+    )
+    # Format from list of dicts to {"entity":"best_model"}
+    best_models = {
+        best_model[entity_col]: best_model["best_model"] for best_model in best_models
+    }
+
+    # 6. Select forecasts, backtests, residuals, and scores from best model
+    best_models__forecasts = []
+    best_models__backtests = []
+    best_models__residuals = []
+    best_models__scores = []
+    target_dtype = y.select(target_col).dtypes[0]
+    for entity, best_model in best_models.items():
+        best_models__forecasts.append(
+            forecasts[best_model]
+            .filter(pl.col(entity_col) == entity)
+            .with_columns(pl.col(target_col).cast(target_dtype))
+        )
+        best_models__backtests.append(
+            backtests[best_model]
+            .filter(pl.col(entity_col) == entity)
+            .with_columns(pl.col(target_col).cast(target_dtype))
+        )
+        best_models__residuals.append(
+            residuals[best_model]
+            .filter(pl.col(entity_col) == entity)
+            .select(
+                entity_col,
+                time_col,
+                pl.col("y_resid").cast(target_dtype).alias(f"{target_col}__residual"),
+                "split",
+            )
+        )
+        best_models__scores.append(
+            scores[best_model].filter(pl.col(entity_col) == entity)
+        )
+
+    # 7. Append best models df into forecasts, backtests, residuals, and scores
+    best_forecasts = pl.concat(best_models__forecasts)
+    best_backtests = pl.concat(best_models__backtests)
+    best_residuals = pl.concat(best_models__residuals)
+    best_scores = pl.concat(best_models__scores)
+    return best_forecasts, best_backtests, best_residuals, best_scores
+
+
+def _prepare_statistics(
+    y: pl.DataFrame,
+    y_stats: pa.Table,
+    y_forecasts: pa.Table,
+    fh: int
+):
+    y_stats = pl.from_arrow(y_stats)
+    y_forecasts = pl.from_arrow(y_forecasts)
+    entity_col, time_col, target_col = y.columns
+    stat_cols = y_stats.columns
+    y_rolling_cv = y_stats.select(
+        [entity_col, time_col, *[col for col in stat_cols if "rolling_cv" in col]]
+    )
+    y_rolling_sum = y_stats.select(
+        [entity_col, time_col, *[col for col in stat_cols if "rolling_sum" in col]]
+    )
+    y_rolling_mean = y_stats.select(
+        [entity_col, time_col, *[col for col in stat_cols if "rolling_mean" in col]]
+    )
+    last_window__sum = (
+        y.lazy().groupby(entity_col).agg(pl.col(target_col).tail(fh).sum())
+    )
+    last_window__mean = (
+        y.lazy().groupby(entity_col).agg(pl.col(target_col).tail(fh).mean())
+    )
+    last_window__median = (
+        y.lazy().groupby(entity_col).agg(pl.col(target_col).tail(fh).median())
+    )
+    current_window__sum = (
+        y_forecasts
+        .lazy()
+        .groupby(entity_col)
+        .agg(pl.sum(target_col))
+        .rename({target_col: "current_window__sum"})
+    )
+    current_window__mean = (
+        y_forecasts
+        .lazy()
+        .groupby(entity_col)
+        .agg(pl.mean(target_col))
+        .rename({target_col: "current_window__mean"})
+    )
+    current_window__median = (
+        y_forecasts
+        .lazy()
+        .groupby(entity_col)
+        .agg(pl.median(target_col))
+        .rename({target_col: "current_window__median"})
+    )
+    predicted_growth_rate__sum = (
+        last_window__sum.rename({last_window__sum.columns[-1]: "last_window__sum"})
+        .join(current_window__sum, on=entity_col)
+        .select(
+            entity_col,
+            (
+                ((pl.col("current_window__sum") / pl.col("last_window__sum")) - 1) * 100
+            ).alias("predicted_growth_rate"),
+        )
+    )
+    predicted_growth_rate__mean = (
+        last_window__mean.rename({last_window__mean.columns[-1]: "last_window__mean"})
+        .join(current_window__mean, on=entity_col)
+        .select(
+            entity_col,
+            (
+                ((pl.col("current_window__mean") / pl.col("last_window__mean")) - 1)
+                * 100
+            ).alias("predicted_growth_rate"),
+        )
+    )
+    predicted_growth_rate__median = (
+        last_window__median.rename(
+            {last_window__median.columns[-1]: "last_window__median"}
+        )
+        .join(current_window__median, on=entity_col)
+        .select(
+            entity_col,
+            (
+                ((pl.col("current_window__median") / pl.col("last_window__median")) - 1)
+                * 100
+            ).alias("predicted_growth_rate"),
+        )
+    )
+    statistics = {
+        "rolling__cv": y_rolling_cv.to_arrow(),
+        "rolling__sum": y_rolling_sum.to_arrow(),
+        "rolling__mean": y_rolling_mean.to_arrow(),
+        # NOTE: Should make lazy and collect_all for query optimization
+        "groupby__sum": y.groupby(entity_col).sum().to_arrow(),
+        "groupby__mean": y.groupby(entity_col).mean().to_arrow(),
+        "last_window__sum": last_window__sum.collect().to_arrow(),
+        "last_window__mean": last_window__mean.collect().to_arrow(),
+        "last_window__median": last_window__median.collect().to_arrow(),
+        "current_window__sum": current_window__sum.collect().to_arrow(),
+        "current_window__mean": current_window__mean.collect().to_arrow(),
+        "current_window__median": current_window__median.collect().to_arrow(),
+        "predicted_growth_rate__sum": predicted_growth_rate__sum.collect().to_arrow(),
+        "predicted_growth_rate__mean": predicted_growth_rate__mean.collect().to_arrow(),
+        "predicted_growth_rate__median": predicted_growth_rate__median.collect().to_arrow(),
+    }
+    return statistics
+
+
 @stub.function(
     memory=5120,
     cpu=8.0,
@@ -605,6 +783,21 @@ def run_forecast(
         outputs["y"] = make_path(prefix="y")
         write(y, object_path=make_path(prefix="y"))
 
+        # Select best models
+        best_models, best_forecasts, best_backtests, best_residuals, best_scores = _select_best_models(
+            y=y,
+            model_keys=outputs["residuals"].keys(),
+            _scores=outputs["scores"],
+            _forecasts=outputs["forecasts"],
+            _backtests=outputs["backtests"],
+            _residuals=outputs["residuals"],
+        )
+        outputs["best_models"] = best_models
+        outputs["forecasts"]["best_models"] = best_forecasts.to_arrow()
+        outputs["backtests"]["best_models"] = best_backtests.to_arrow()
+        outputs["residuals"]["best_models"] = best_residuals.to_arrow()
+        outputs["scores"]["best_models"] = best_scores.to_arrow()
+
         # 8. Compute uplift
         # NOTE: Only compares against BEST MODEL
         if baseline_path:
@@ -680,7 +873,13 @@ def run_forecast(
                 outputs[key][model] = output_path
 
         # 10. Export statistics
-        for key, df in outputs["statistics"].items():
+        y_stats = pl.from_arrow(outputs["statistics"])
+        statistics = _prepare_statistics(
+            y=y,
+            y_stats=y_stats,
+            y_forecasts=outputs["forecasts"]["best_models"]
+        )
+        for key, df in statistics.items():
             output_path = make_path(prefix=f"statistics__{key}")
             write(
                 pl.from_arrow(df)
