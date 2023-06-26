@@ -381,7 +381,7 @@ const ForecastObjective = () => {
                               </VStack>
                               <Stack spacing="4" mt="auto">
                                 <Text fontSize="xl" fontWeight="bold">
-                                  {mainStats[0]["values"]["sum"]} %
+                                  {mainStats[0]["values"]["sum"]}
                                 </Text>
                               </Stack>
                             </Stack>
@@ -395,7 +395,7 @@ const ForecastObjective = () => {
                                   </Heading>
                                   <Text
                                     mt="2px !important"
-                                    fontSize="3xs"
+                                    fontSize="2xs"
                                     fontWeight="bold"
                                     textTransform="uppercase"
                                   >
@@ -412,7 +412,7 @@ const ForecastObjective = () => {
                                   </Heading>
                                   <Text
                                     mt="2px !important"
-                                    fontSize="3xs"
+                                    fontSize="2xs"
                                     fontWeight="bold"
                                     textTransform="uppercase"
                                   >
