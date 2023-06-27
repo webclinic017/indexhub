@@ -15,7 +15,6 @@ import ObjectiveSource from "./steps/objective_source";
 import Toast from "../../components/toast";
 import ObjectiveConfigs from "./steps/objective_configs";
 import ConfirmCreateObjective from "./steps/confirm_create_objective";
-import { useNavigate } from "react-router-dom";
 import { getSource } from "../../utilities/backend_calls/source";
 
 const steps = [
@@ -37,7 +36,7 @@ const steps = [
   },
 ];
 
-const NewObjective = () => {
+const NewObjective = (props: { onCloseNewObjectiveModal: () => void }) => {
   const [objectives_schema, setObjectivesSchema] = useState<Record<any, any>>(
     {}
   );
@@ -45,13 +44,13 @@ const NewObjective = () => {
     Record<string, any>
   >({});
   const [panelSource, setPanelSource] = useState<Record<string, any>>({});
+  const [isCreatingObjective, setIsCreatingObjective] = useState(false);
   const access_token_indexhub_api = useAuth0AccessToken();
   const [currentStep, { goToNextStep, goToPrevStep }] = useStep({
     maxStep: steps.length,
   });
   const toast = useToast();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
-  const navigate = useNavigate();
 
   const submitObjectiveType = (objective_type: string) => {
     objective_configs["objective_type"] = objective_type;
@@ -114,6 +113,7 @@ const NewObjective = () => {
   };
 
   const createObjective = async () => {
+    setIsCreatingObjective(true);
     const create_objective_response = await createObjectiveApi(
       user_details.id,
       objective_configs,
@@ -126,10 +126,11 @@ const NewObjective = () => {
         `Your new objective (${objective_configs["objective_name"]}) was successfuly created`,
         "success"
       );
-      navigate("/");
+      props.onCloseNewObjectiveModal();
     } else {
       Toast(toast, "Error", create_objective_response["detail"], "error");
     }
+    setIsCreatingObjective(false);
   };
 
   const stepScreens: Record<number, JSX.Element> = {
@@ -161,6 +162,7 @@ const NewObjective = () => {
         objective_configs={objective_configs}
         createObjective={createObjective}
         goToPrevStep={goToPrevStep}
+        isCreatingObjective={isCreatingObjective}
       />
     ),
   };

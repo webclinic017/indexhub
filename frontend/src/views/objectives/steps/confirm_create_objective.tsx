@@ -15,6 +15,7 @@ const ConfirmCreateObjective = (props: {
   objective_configs: Record<string, any>;
   createObjective: () => Promise<void>;
   goToPrevStep: () => void;
+  isCreatingObjective: boolean;
 }) => {
   return (
     <Box
@@ -100,6 +101,7 @@ const ConfirmCreateObjective = (props: {
           ml="2rem"
           onClick={() => props.createObjective()}
           colorScheme="facebook"
+          isLoading={props.isCreatingObjective}
         >
           Create objective
         </Button>

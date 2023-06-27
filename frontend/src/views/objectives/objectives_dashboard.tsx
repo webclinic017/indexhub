@@ -5,9 +5,15 @@ import {
   Grid,
   Heading,
   HStack,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalOverlay,
   Spinner,
   Stack,
   Text,
+  useDisclosure,
   useToast,
   VStack,
 } from "@chakra-ui/react";
@@ -22,6 +28,7 @@ import { AppState } from "../..";
 import { colors } from "../../theme/theme";
 import { capitalizeFirstLetter } from "../../utilities/helpers";
 import Toast from "../../components/toast";
+import NewObjective from "./new_objective";
 
 export type Objective = Record<string, any>;
 
@@ -40,6 +47,11 @@ const ObjectivesDashboard = () => {
   const navigate = useNavigate();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
   const toast = useToast();
+  const {
+    isOpen: isOpenNewObjectiveModal,
+    onOpen: onOpenNewObjectiveModal,
+    onClose: onCloseNewObjectiveModal,
+  } = useDisclosure();
 
   const getObjectivesByUserId = () => {
     sendMessage(JSON.stringify({ user_id: user_details.id }));
@@ -77,179 +89,200 @@ const ObjectivesDashboard = () => {
   }, [lastMessage]);
 
   return (
-    <VStack width="100%" spacing="8">
-      <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
-        Your Objectives
-      </Text>
-      <HStack width="100%" justify="space-between">
-        <Card
-          backgroundColor="cards.background"
-          p="1rem"
-          width="49%"
-          cursor="pointer"
-          onClick={() => navigate("/objectives/new_objective")}
-        >
-          <HStack height="100%">
-            <VStack
-              height="100%"
-              alignItems="flex-start"
-              justify="space-between"
-            >
-              <VStack mb="6" alignItems="flex-start">
-                <Flex
-                  p="1rem"
-                  mb="2"
-                  border="1px solid"
-                  borderColor="cards.border"
-                  borderRadius="8"
-                >
-                  <FontAwesomeIcon icon={faChartLine as any} />
-                </Flex>
-                <Heading fontSize="md">New Objective</Heading>
-                <Text color="text.gray">
-                  Create new objectives from your sources
-                </Text>
+    <>
+      <VStack width="100%" spacing="8">
+        <Text fontSize="2xl" fontWeight="bold" width="100%" textAlign="left">
+          Your Objectives
+        </Text>
+        <HStack width="100%" justify="space-between">
+          <Card
+            backgroundColor="cards.background"
+            p="1rem"
+            width="49%"
+            cursor="pointer"
+            onClick={() => onOpenNewObjectiveModal()}
+          >
+            <HStack height="100%">
+              <VStack
+                height="100%"
+                alignItems="flex-start"
+                justify="space-between"
+              >
+                <VStack mb="6" alignItems="flex-start">
+                  <Flex
+                    p="1rem"
+                    mb="2"
+                    border="1px solid"
+                    borderColor="cards.border"
+                    borderRadius="8"
+                  >
+                    <FontAwesomeIcon icon={faChartLine as any} />
+                  </Flex>
+                  <Heading fontSize="md">New Objective</Heading>
+                  <Text color="text.gray">
+                    Create new objectives from your sources
+                  </Text>
+                </VStack>
+                <Button backgroundColor="cards.button">Create new</Button>
               </VStack>
-              <Button backgroundColor="cards.button">Create new</Button>
-            </VStack>
-          </HStack>
-        </Card>
-      </HStack>
-      <hr style={{ width: "100%", margin: "3rem 0" }}></hr>
-      {objectives.length > 0 ? (
-        <>
-          <Grid templateColumns="repeat(3, 1fr)" gap={6} mt="unset !important">
-            {objectives.map((objective, idx) => {
-              return (
-                <Card
-                  cursor="pointer"
-                  boxShadow="md"
-                  borderRadius="lg"
-                  key={idx}
-                  bgColor="white"
-                  onClick={() => {
-                    if (objective["status"] == "SUCCESS")
-                      navigate(`objectives/forecast/${objective["id"]}`);
-                    else if (objective["status"] == "RUNNING")
-                      Toast(
-                        toast,
-                        "Objective Not Ready",
-                        "The objective you're trying to open is still being processed. Try again when the status is 'SUCCESS'",
-                        "error"
-                      );
-                    else
-                      Toast(
-                        toast,
-                        "Objective Failed",
-                        "The objective you're trying to open has failed to process. Please contact support for assistance",
-                        "error"
-                      );
-                  }}
-                >
-                  <CardBody>
-                    <VStack p="4">
-                      <HStack width="100%" justify="left">
-                        <Text
-                          pr={2}
-                          fontSize="2xs"
-                          textTransform="uppercase"
-                          fontWeight="bold"
-                        >
-                          {objective["tag"]}
-                        </Text>
-                        <Text
-                          pl={2}
-                          fontSize="2xs"
-                          borderLeft="1px solid"
-                          margin="unset !important"
-                        >
-                          {new Date(
-                            objective["created_at"]
-                          ).toLocaleDateString()}
-                        </Text>
-                      </HStack>
-
-                      <Text width="100%" textAlign="left" fontWeight="bold">
-                        {capitalizeFirstLetter(objective["name"])}
-                      </Text>
-
-                      <HStack width="100%" justify="space-between">
-                        <HStack>
-                          <FontAwesomeIcon
-                            size="2xs"
-                            icon={faCircleDot as any}
-                            beatFade
-                            style={{
-                              color:
-                                objective_status_to_color[objective["status"]],
-                            }}
-                          />
+            </HStack>
+          </Card>
+        </HStack>
+        <hr style={{ width: "100%", margin: "3rem 0" }}></hr>
+        {objectives.length > 0 ? (
+          <>
+            <Grid
+              templateColumns="repeat(3, 1fr)"
+              gap={6}
+              mt="unset !important"
+            >
+              {objectives.map((objective, idx) => {
+                return (
+                  <Card
+                    cursor="pointer"
+                    boxShadow="md"
+                    borderRadius="lg"
+                    key={idx}
+                    bgColor="white"
+                    onClick={() => {
+                      if (objective["status"] == "SUCCESS")
+                        navigate(`objectives/forecast/${objective["id"]}`);
+                      else if (objective["status"] == "RUNNING")
+                        Toast(
+                          toast,
+                          "Objective Not Ready",
+                          "The objective you're trying to open is still being processed. Try again when the status is 'SUCCESS'",
+                          "error"
+                        );
+                      else
+                        Toast(
+                          toast,
+                          "Objective Failed",
+                          "The objective you're trying to open has failed to process. Please contact support for assistance",
+                          "error"
+                        );
+                    }}
+                  >
+                    <CardBody>
+                      <VStack p="4">
+                        <HStack width="100%" justify="left">
                           <Text
-                            textAlign="center"
+                            pr={2}
                             fontSize="2xs"
-                            color={
-                              objective_status_to_color[objective["status"]]
-                            }
-                            pl="1"
+                            textTransform="uppercase"
+                            fontWeight="bold"
                           >
-                            {objective["status"]}
+                            {objective["tag"]}
+                          </Text>
+                          <Text
+                            pl={2}
+                            fontSize="2xs"
+                            borderLeft="1px solid"
+                            margin="unset !important"
+                          >
+                            {new Date(
+                              objective["created_at"]
+                            ).toLocaleDateString()}
                           </Text>
                         </HStack>
 
-                        <Text
-                          textAlign="center"
-                          fontSize="2xs"
-                          textTransform="uppercase"
-                        >
-                          Last Updated :{" "}
-                          {new Date(objective["updated_at"]).toLocaleString()}
+                        <Text width="100%" textAlign="left" fontWeight="bold">
+                          {capitalizeFirstLetter(objective["name"])}
                         </Text>
-                      </HStack>
 
-                      <Text py={4} textAlign="left" fontWeight="bold">
-                        {capitalizeFirstLetter(
-                          objective["fields"]["description"]
-                        )}
-                      </Text>
+                        <HStack width="100%" justify="space-between">
+                          <HStack>
+                            <FontAwesomeIcon
+                              size="2xs"
+                              icon={faCircleDot as any}
+                              beatFade
+                              style={{
+                                color:
+                                  objective_status_to_color[
+                                    objective["status"]
+                                  ],
+                              }}
+                            />
+                            <Text
+                              textAlign="center"
+                              fontSize="2xs"
+                              color={
+                                objective_status_to_color[objective["status"]]
+                              }
+                              pl="1"
+                            >
+                              {objective["status"]}
+                            </Text>
+                          </HStack>
 
-                      <hr style={{ width: "100%", margin: "0.5rem 0" }}></hr>
+                          <Text
+                            textAlign="center"
+                            fontSize="2xs"
+                            textTransform="uppercase"
+                          >
+                            Last Updated :{" "}
+                            {new Date(objective["updated_at"]).toLocaleString()}
+                          </Text>
+                        </HStack>
 
-                      <VStack width="100%" justify="left">
-                        <Text width="100%" fontSize="xs">
-                          SOURCES
+                        <Text py={4} textAlign="left" fontWeight="bold">
+                          {capitalizeFirstLetter(
+                            objective["fields"]["description"]
+                          )}
                         </Text>
-                        <Text width="100%" fontSize="small">
-                          <b>PANEL:</b> {objective["sources"]["panel_name"]}
-                        </Text>
-                        <Text width="100%" fontSize="small">
-                          <b>BASELINE:</b>{" "}
-                          {objective["sources"]["baseline_name"]}
-                        </Text>
-                        <Text width="100%" fontSize="small">
-                          <b>INVENTORY:</b>{" "}
-                          {objective["sources"]["inventory_name"]}
-                        </Text>
-                        <Text width="100%" fontSize="small">
-                          <b>TRANSACTION:</b>{" "}
-                          {objective["sources"]["transaction_name"]}
-                        </Text>
+
+                        <hr style={{ width: "100%", margin: "0.5rem 0" }}></hr>
+
+                        <VStack width="100%" justify="left">
+                          <Text width="100%" fontSize="xs">
+                            SOURCES
+                          </Text>
+                          <Text width="100%" fontSize="small">
+                            <b>PANEL:</b> {objective["sources"]["panel_name"]}
+                          </Text>
+                          <Text width="100%" fontSize="small">
+                            <b>BASELINE:</b>{" "}
+                            {objective["sources"]["baseline_name"]}
+                          </Text>
+                          <Text width="100%" fontSize="small">
+                            <b>INVENTORY:</b>{" "}
+                            {objective["sources"]["inventory_name"]}
+                          </Text>
+                          <Text width="100%" fontSize="small">
+                            <b>TRANSACTION:</b>{" "}
+                            {objective["sources"]["transaction_name"]}
+                          </Text>
+                        </VStack>
+
+                        {/* <Box p="6">{logos[source_type]}</Box> */}
                       </VStack>
-
-                      {/* <Box p="6">{logos[source_type]}</Box> */}
-                    </VStack>
-                  </CardBody>
-                </Card>
-              );
-            })}
-          </Grid>
-        </>
-      ) : (
-        <Stack alignItems="center" justifyContent="center" height="full">
-          <Spinner />
-          <Text>Loading...</Text>
-        </Stack>
-      )}
-    </VStack>
+                    </CardBody>
+                  </Card>
+                );
+              })}
+            </Grid>
+          </>
+        ) : (
+          <Stack alignItems="center" justifyContent="center" height="full">
+            <Spinner />
+            <Text>Loading...</Text>
+          </Stack>
+        )}
+      </VStack>
+      <Modal
+        size="6xl"
+        isOpen={isOpenNewObjectiveModal}
+        onClose={onCloseNewObjectiveModal}
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalCloseButton />
+          <ModalBody>
+            <NewObjective onCloseNewObjectiveModal={onCloseNewObjectiveModal} />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+    </>
   );
 };
 

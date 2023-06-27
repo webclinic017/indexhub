@@ -11,7 +11,7 @@ import Settings from "./views/settings";
 import Profile from "./views/profile";
 import DataAndIntegrations from "./views/sources/data_integrations";
 import NewStorage from "./views/storage/new_storage";
-import NewObjective from "./views/objectives/new_objective";
+// import NewObjective from "./views/objectives/new_objective";
 // import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
@@ -39,7 +39,7 @@ function App() {
                 /> */}
 
                 <Route index element={<ObjectivesDashboard />} />
-                <Route path="new_objective" element={<NewObjective />} />
+                {/* <Route path="new_objective" element={<NewObjective />} /> */}
 
                 <Route path="data" element={<Data />}>
                   <Route index element={<DataAndIntegrations />} />
@@ -49,10 +49,10 @@ function App() {
                   <Route index element={<ObjectivesDashboard />} />
                   <Route path="new_objective" element={<NewObjective />} />
                 </Route> */}
-                <Route
+                {/* <Route
                   path="objectives/new_objective"
                   element={<NewObjective />}
-                />
+                /> */}
                 <Route
                   path="objectives/forecast/:objective_id"
                   element={<ForecastObjective />}
