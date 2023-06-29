@@ -165,7 +165,8 @@ const ForecastObjective = () => {
 
   const handleEntitiesFilterButton = () => {
     if (searchField && searchField !== "") {
-      getAIRecommendationTableApi(false, true);
+      setCurrentPageAIRecommendationTable(1);
+      getAIRecommendationTableApi(1, false, true);
     }
   };
 
@@ -191,6 +192,41 @@ const ForecastObjective = () => {
   //     setIsExportingTable(false);
   //   }
   // };
+
+  const getAIRecommendationTableApi = async (
+    current_page: number,
+    clear_entities_keywords = false,
+    clear_cache = false
+  ) => {
+    const filter_by = {};
+    const entities_keywords = clear_entities_keywords ? null : searchField;
+    setAIRecommendationTable(null);
+    const AIRecommendationTable = await getAIRecommendationTable(
+      current_page,
+      5,
+      objective_id ? objective_id : "",
+      access_token_indexhub_api,
+      filter_by,
+      entities_keywords ? [entities_keywords] : null
+    );
+    setAIRecommendationTable(AIRecommendationTable);
+    const intAIRecommendationTableCache = clear_cache
+      ? {}
+      : AIRecommendationTableCache;
+    intAIRecommendationTableCache[current_page] = AIRecommendationTable;
+    setAIRecommendationTableCache(intAIRecommendationTableCache);
+  };
+
+  const handlePaginationChange = (current_page: number) => {
+    setCurrentPageAIRecommendationTable(current_page);
+    if (
+      Object.keys(AIRecommendationTableCache).includes(current_page.toString())
+    ) {
+      setAIRecommendationTable(AIRecommendationTableCache[current_page]);
+    } else {
+      getAIRecommendationTableApi(current_page);
+    }
+  };
 
   useEffect(() => {
     const getObjectiveApi = async () => {
@@ -238,56 +274,9 @@ const ForecastObjective = () => {
       getMainTrendChartApi();
       getForecastObjectiveStatsApi();
       getRollingForecastChartApi();
+      getAIRecommendationTableApi(1);
     }
   }, [access_token_indexhub_api, user_details, objective_id]);
-
-  const getAIRecommendationTableApi = async (
-    clear_entities_keywords = false,
-    clear_cache = false
-  ) => {
-    const filter_by = {};
-    const entities_keywords = clear_entities_keywords ? null : searchField;
-    setAIRecommendationTable(null);
-    const AIRecommendationTable = await getAIRecommendationTable(
-      currentPageAIRecommendationTable,
-      5,
-      objective_id ? objective_id : "",
-      access_token_indexhub_api,
-      filter_by,
-      entities_keywords ? [entities_keywords] : null
-    );
-    setAIRecommendationTable(AIRecommendationTable);
-    const intAIRecommendationTableCache = clear_cache
-      ? {}
-      : AIRecommendationTableCache;
-    intAIRecommendationTableCache[currentPageAIRecommendationTable] =
-      AIRecommendationTable;
-    setAIRecommendationTableCache(intAIRecommendationTableCache);
-  };
-
-  useEffect(() => {
-    if (
-      access_token_indexhub_api &&
-      objective_id &&
-      currentPageAIRecommendationTable
-    ) {
-      if (
-        Object.keys(AIRecommendationTableCache).includes(
-          currentPageAIRecommendationTable.toString()
-        )
-      ) {
-        setAIRecommendationTable(
-          AIRecommendationTableCache[currentPageAIRecommendationTable]
-        );
-      } else {
-        getAIRecommendationTableApi();
-      }
-    }
-  }, [
-    currentPageAIRecommendationTable,
-    access_token_indexhub_api,
-    objective_id,
-  ]);
 
   useEffect(() => {
     const getSegmentationPlot = async () => {
@@ -770,7 +759,8 @@ const ForecastObjective = () => {
                             size="sm"
                             onClick={() => {
                               setSearchField(null);
-                              getAIRecommendationTableApi(true, true);
+                              setCurrentPageAIRecommendationTable(1);
+                              getAIRecommendationTableApi(1, true, true);
                             }}
                             isDisabled={AIRecommendationTable ? false : true}
                           >
@@ -1274,7 +1264,7 @@ const ForecastObjective = () => {
                           <HStack py="1rem" width="100%" justify="right">
                             <Button
                               onClick={() =>
-                                setCurrentPageAIRecommendationTable(
+                                handlePaginationChange(
                                   currentPageAIRecommendationTable - 1
                                 )
                               }
@@ -1289,7 +1279,7 @@ const ForecastObjective = () => {
                             </Text>
                             <Button
                               onClick={() =>
-                                setCurrentPageAIRecommendationTable(
+                                handlePaginationChange(
                                   currentPageAIRecommendationTable + 1
                                 )
                               }
