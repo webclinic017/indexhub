@@ -13,7 +13,7 @@ import React from "react";
 
 const ConfirmCreateObjective = (props: {
   objective_configs: Record<string, any>;
-  createObjective: () => Promise<void>;
+  createObjective: () => void;
   goToPrevStep: () => void;
   isCreatingObjective: boolean;
 }) => {

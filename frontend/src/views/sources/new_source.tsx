@@ -129,7 +129,7 @@ export default function NewSource(props: {
     }
   };
 
-  const submitSourcePath = async (configs: Record<string, string>) => {
+  const submitSourcePath = (configs: Record<string, string>) => {
     if (
       Object.keys(conn_schema[source_tag]["conn_fields"]).every((variable) =>
         Object.keys(configs).includes(variable)
@@ -137,24 +137,47 @@ export default function NewSource(props: {
       Object.keys(configs).includes("source_name")
     ) {
       setIsLoadingSourceColumns(true);
-      let source_columns: Record<string, any> = [];
       if (source_tag == "s3") {
-        source_columns = await getS3SourceColumns(
+        getS3SourceColumns(
           configs["bucket_name"],
           configs["object_path"],
           configs["file_ext"],
           user_details.id,
           access_token_indexhub_api
+        )
+          .then(
+            // success
+            (response) => {
+              if (Object.keys(response).includes("data")) {
+                setSourceConfigs(configs);
+                setSourceColumns(Object.keys(response["data"]));
+                goToNextStep();
+              } else {
+                Toast(toast, "Error", response["detail"], "error");
+              }
+            },
+            // failed
+            () => {
+              Toast(
+                toast,
+                "Error",
+                "Something went wrong. Please try again later or contact our support if issue persists",
+                "error"
+              );
+            }
+          )
+          .finally(() => {
+            setIsLoadingSourceColumns(false);
+          });
+      } else {
+        setIsLoadingSourceColumns(false);
+        Toast(
+          toast,
+          "Error",
+          "The source type you have chosen is currently not supported. Try using other source types in Step 1",
+          "error"
         );
       }
-      if (Object.keys(source_columns).includes("data")) {
-        setSourceConfigs(configs);
-        setSourceColumns(Object.keys(source_columns["data"]));
-        goToNextStep();
-      } else {
-        Toast(toast, "Error", source_columns["detail"], "error");
-      }
-      setIsLoadingSourceColumns(false);
     } else {
       Toast(
         toast,
@@ -231,26 +254,43 @@ export default function NewSource(props: {
     }
   };
 
-  const createSource = async () => {
+  const createSource = () => {
     setIsCreatingSource(true);
-    const create_source_response = await createSourceApi(
+
+    createSourceApi(
       user_details.id,
       source_tag,
       source_configs,
       access_token_indexhub_api
-    );
-    if (Object.keys(create_source_response).includes("source_id")) {
-      Toast(
-        toast,
-        "Preprocessing Source",
-        "We will let you know when it's ready to create reports",
-        "info"
-      );
-      props.onCloseNewSourceModal();
-    } else {
-      Toast(toast, "Error", create_source_response["detail"], "error");
-    }
-    setIsCreatingSource(false);
+    )
+      .then(
+        // success
+        (response) => {
+          if (Object.keys(response).includes("source_id")) {
+            Toast(
+              toast,
+              "Preprocessing Source",
+              "We will let you know when it's ready to create reports",
+              "info"
+            );
+            props.onCloseNewSourceModal();
+          } else {
+            Toast(toast, "Error", response["detail"], "error");
+          }
+        },
+        // failed
+        () => {
+          Toast(
+            toast,
+            "Error",
+            "Something went wrong. Please try again later or contact our support if issue persists.",
+            "error"
+          );
+        }
+      )
+      .finally(() => {
+        setIsCreatingSource(false);
+      });
   };
 
   const stepScreens: Record<number, JSX.Element> = {

@@ -6,17 +6,15 @@ import ProtectedRoute from "./utilities/protected_route_handler";
 import Layout from "./views/includes/layout";
 import { themes } from "./theme/theme";
 import Data from "./views/sources/data";
-import Alerts from "./views/alerts";
 import Settings from "./views/settings";
 import Profile from "./views/profile";
 import DataAndIntegrations from "./views/sources/data_integrations";
 import NewStorage from "./views/storage/new_storage";
-// import NewObjective from "./views/objectives/new_objective";
-// import Objectives from "./views/objectives/objectives";
 import ObjectivesDashboard from "./views/objectives/objectives_dashboard";
 import ForecastObjective from "./views/objectives/forecast/forecast";
 import ChatContextProvider from "./views/chat/chat_context";
 import NotFound404 from "./views/404";
+import ReactErrorBoundary from "./views/includes/error_boundry";
 // import TrendsContextProvider from "./views/trends/trends_context";
 // import TrendsLanding from "./views/trends/trends_landing";
 
@@ -25,11 +23,12 @@ function App() {
     <ChakraProvider theme={themes["default_theme"]}>
       <ChatContextProvider>
         <BrowserRouter>
-          <Routes>
-            {/* All protected pages will go inside this parent route */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Layout />}>
-                {/* <Route
+          <ReactErrorBoundary>
+            <Routes>
+              {/* All protected pages will go inside this parent route */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Layout />}>
+                  {/* <Route
                   index
                   element={
                     <TrendsContextProvider>
@@ -37,34 +36,66 @@ function App() {
                     </TrendsContextProvider>
                   }
                 /> */}
+                  <Route
+                    index
+                    element={
+                      <ReactErrorBoundary>
+                        <ObjectivesDashboard />
+                      </ReactErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="data"
+                    element={
+                      <ReactErrorBoundary>
+                        <Data />
+                      </ReactErrorBoundary>
+                    }
+                  >
+                    <Route index element={<DataAndIntegrations />} />
+                  </Route>
 
-                <Route index element={<ObjectivesDashboard />} />
-                {/* <Route path="new_objective" element={<NewObjective />} /> */}
-
-                <Route path="data" element={<Data />}>
-                  <Route index element={<DataAndIntegrations />} />
-                </Route>
-
-                {/* <Route path="objectives" element={<Objectives />}>
+                  {/* <Route path="objectives" element={<Objectives />}>
                   <Route index element={<ObjectivesDashboard />} />
                   <Route path="new_objective" element={<NewObjective />} />
                 </Route> */}
-                {/* <Route
-                  path="objectives/new_objective"
-                  element={<NewObjective />}
-                /> */}
-                <Route
-                  path="objectives/forecast/:objective_id"
-                  element={<ForecastObjective />}
-                />
-                <Route path="alerts" element={<Alerts />} />
-                <Route path="new_storage" element={<NewStorage />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="*" element={<NotFound404 />} />
+                  <Route
+                    path="objectives/forecast/:objective_id"
+                    element={
+                      <ReactErrorBoundary>
+                        <ForecastObjective />
+                      </ReactErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="new_storage"
+                    element={
+                      <ReactErrorBoundary>
+                        <NewStorage />
+                      </ReactErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="settings"
+                    element={
+                      <ReactErrorBoundary>
+                        <Settings />
+                      </ReactErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="profile"
+                    element={
+                      <ReactErrorBoundary>
+                        <Profile />
+                      </ReactErrorBoundary>
+                    }
+                  />
+                  <Route path="*" element={<NotFound404 />} />
+                </Route>
               </Route>
-            </Route>
-          </Routes>
+            </Routes>
+          </ReactErrorBoundary>
         </BrowserRouter>
       </ChatContextProvider>
     </ChakraProvider>

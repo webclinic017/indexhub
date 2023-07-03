@@ -26,7 +26,7 @@ const SourcePath = (props: {
   source_tag: string;
   conn_schema: Record<string, any>;
   goToPrevStep: () => void;
-  submitSourcePath: (configs: Record<string, string>) => Promise<void>;
+  submitSourcePath: (configs: Record<string, string>) => void;
   isLoadingSourceColumns: boolean;
 }) => {
   // const configs: Record<string, string> = {};

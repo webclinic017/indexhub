@@ -20,7 +20,7 @@ const NotFound404 = () => {
         <Text>
           We can&apos;t seem to find the page you&apos;re looking for.
         </Text>
-        <Button onClick={() => navigate("/")}>Back to Home</Button>
+        <Button onClick={() => navigate("/")}>Back to Objectives</Button>
       </VStack>
       <VStack height="50%" justify="flex-end">
         <Box>

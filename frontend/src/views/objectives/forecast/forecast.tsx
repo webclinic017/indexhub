@@ -51,6 +51,7 @@ import {
   faArrowUpRightAndArrowDownLeftFromCenter,
   faCircleInfo,
 } from "@fortawesome/pro-light-svg-icons";
+import { useErrorBoundary } from "react-error-boundary";
 // import Toast from "../../../components/toast";
 import ExpandedChartModal from "../../../components/expanded_chart_modal";
 import InventoryTable from "./_includes/inventory_table";
@@ -130,7 +131,7 @@ const ForecastObjective = () => {
     any
   > | null>(null);
   const [expandedChartModalHeader, setExpandedChartModalHeader] = useState("");
-
+  const { showBoundary } = useErrorBoundary();
   const access_token_indexhub_api = useAuth0AccessToken();
   const user_details = useSelector((state: AppState) => state.reducer?.user);
   // const toast = useToast();
@@ -229,25 +230,6 @@ const ForecastObjective = () => {
   };
 
   useEffect(() => {
-    const getObjectiveApi = async () => {
-      if (objective_id) {
-        const objective = await getObjective(
-          user_details.id,
-          objective_id,
-          access_token_indexhub_api
-        );
-        if (Object.keys(objective).includes("objective")) {
-          objective["objective"]["fields"] = JSON.parse(
-            objective["objective"]["fields"]
-          );
-          setObjective(objective["objective"]);
-          setPanelSourceDataFields(objective["panel_source_data_fields"]);
-        } else {
-          setError(objective["detail"]);
-        }
-      }
-    };
-
     const getMainTrendChartApi = async () => {
       if (objective_id) {
         const mainTrendChart = await getTrendChart(
@@ -259,22 +241,56 @@ const ForecastObjective = () => {
       }
     };
 
-    const getForecastObjectiveStatsApi = async () => {
+    const getForecastObjectiveStatsApi = () => {
       if (objective_id) {
-        const forecastObjectiveStats = await getForecastObjectiveStats(
+        getForecastObjectiveStats(objective_id, access_token_indexhub_api).then(
+          // success
+          (response) => {
+            setMainStats(response);
+          },
+          // failed
+          (error) => {
+            showBoundary(error);
+          }
+        );
+      }
+    };
+
+    const getObjectiveData = async () => {
+      if (objective_id) {
+        getObjective(
+          user_details.id,
           objective_id,
           access_token_indexhub_api
+        ).then(
+          // success
+          (response) => {
+            if (Object.keys(response).includes("objective")) {
+              response["objective"]["fields"] = JSON.parse(
+                response["objective"]["fields"]
+              );
+              setObjective(response["objective"]);
+              setPanelSourceDataFields(response["panel_source_data_fields"]);
+              getMainTrendChartApi();
+              getForecastObjectiveStatsApi();
+              getRollingForecastChartApi();
+              getAIRecommendationTableApi(1);
+            } else {
+              setError(response["detail"]);
+            }
+          },
+          // failed
+          () => {
+            setError(
+              "Something has gone wrong with this objective. Please try again later or contact our support if this issue persists."
+            );
+          }
         );
-        setMainStats(forecastObjectiveStats);
       }
     };
 
     if (access_token_indexhub_api && user_details.id && objective_id) {
-      getObjectiveApi();
-      getMainTrendChartApi();
-      getForecastObjectiveStatsApi();
-      getRollingForecastChartApi();
-      getAIRecommendationTableApi(1);
+      getObjectiveData();
     }
   }, [access_token_indexhub_api, user_details, objective_id]);
 
@@ -291,10 +307,16 @@ const ForecastObjective = () => {
         setSegmentationPlot(segmentationPlot);
       }
     };
-    if (access_token_indexhub_api && objective_id && segmentationFactor) {
+    if (
+      access_token_indexhub_api &&
+      objective_id &&
+      segmentationFactor &&
+      objective &&
+      !objective["details"]
+    ) {
       getSegmentationPlot();
     }
-  }, [segmentationFactor, access_token_indexhub_api, objective_id]);
+  }, [segmentationFactor, access_token_indexhub_api, objective_id, objective]);
 
   useEffect(() => {
     if (AIRecommendationTable && expandedEntityIndex > -1) {

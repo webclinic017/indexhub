@@ -62,9 +62,6 @@ const NewObjective = (props: { onCloseNewObjectiveModal: () => void }) => {
     objective_sources: Record<string, string>
   ) => {
     if (Object.keys(objective_sources).includes("panel")) {
-      objective_configs["panel"] = objective_sources["panel"];
-      objective_configs["panel_name"] = objective_sources["panel_name"];
-
       const panel_source = await getSource(
         "",
         objective_sources["panel"],
@@ -75,28 +72,52 @@ const NewObjective = (props: { onCloseNewObjectiveModal: () => void }) => {
       );
       setPanelSource(panel_source["source"]);
 
-      objective_configs["baseline"] = objective_sources["baseline"]
-        ? objective_sources["baseline"]
-        : "";
-      objective_configs["baseline_name"] = objective_sources["baseline_name"]
-        ? objective_sources["baseline_name"]
-        : "";
-      objective_configs["inventory"] = objective_sources["inventory"]
-        ? objective_sources["inventory"]
-        : "";
-      objective_configs["inventory_name"] = objective_sources["inventory_name"]
-        ? objective_sources["inventory_name"]
-        : "";
-      objective_configs["transaction"] = objective_sources["transaction"]
-        ? objective_sources["transaction"]
-        : "";
-      objective_configs["transaction_name"] = objective_sources[
-        "transaction_name"
-      ]
-        ? objective_sources["transaction_name"]
-        : "";
-      setObjectiveConfigs(objective_configs);
-      goToNextStep();
+      getSource("", objective_sources["panel"], access_token_indexhub_api).then(
+        // success
+        (response) => {
+          response["source"]["data_fields"] = JSON.parse(
+            response["source"]["data_fields"]
+          );
+          objective_configs["panel"] = objective_sources["panel"];
+          objective_configs["panel_name"] = objective_sources["panel_name"];
+
+          objective_configs["baseline"] = objective_sources["baseline"]
+            ? objective_sources["baseline"]
+            : "";
+          objective_configs["baseline_name"] = objective_sources[
+            "baseline_name"
+          ]
+            ? objective_sources["baseline_name"]
+            : "";
+          objective_configs["inventory"] = objective_sources["inventory"]
+            ? objective_sources["inventory"]
+            : "";
+          objective_configs["inventory_name"] = objective_sources[
+            "inventory_name"
+          ]
+            ? objective_sources["inventory_name"]
+            : "";
+          objective_configs["transaction"] = objective_sources["transaction"]
+            ? objective_sources["transaction"]
+            : "";
+          objective_configs["transaction_name"] = objective_sources[
+            "transaction_name"
+          ]
+            ? objective_sources["transaction_name"]
+            : "";
+          setObjectiveConfigs(objective_configs);
+          goToNextStep();
+        },
+        // failed
+        () => {
+          Toast(
+            toast,
+            "Error",
+            "Something went wrong. Please try again later or contact our support if issue persists",
+            "error"
+          );
+        }
+      );
     } else {
       Toast(
         toast,
@@ -112,25 +133,42 @@ const NewObjective = (props: { onCloseNewObjectiveModal: () => void }) => {
     goToNextStep();
   };
 
-  const createObjective = async () => {
+  const createObjective = () => {
     setIsCreatingObjective(true);
-    const create_objective_response = await createObjectiveApi(
+
+    createObjectiveApi(
       user_details.id,
       objective_configs,
       access_token_indexhub_api
-    );
-    if (Object.keys(create_objective_response).includes("objective_id")) {
-      Toast(
-        toast,
-        "Objective Created",
-        `Your new objective (${objective_configs["objective_name"]}) was successfuly created`,
-        "success"
-      );
-      props.onCloseNewObjectiveModal();
-    } else {
-      Toast(toast, "Error", create_objective_response["detail"], "error");
-    }
-    setIsCreatingObjective(false);
+    )
+      .then(
+        // success
+        (response) => {
+          if (Object.keys(response).includes("objective_id")) {
+            Toast(
+              toast,
+              "Objective Created",
+              `Your new objective (${objective_configs["objective_name"]}) was successfuly created`,
+              "success"
+            );
+            props.onCloseNewObjectiveModal();
+          } else {
+            Toast(toast, "Error", response["detail"], "error");
+          }
+        },
+        // failed
+        () => {
+          Toast(
+            toast,
+            "Error",
+            "Something went wrong. Please try again later or contact our support if issue persists.",
+            "error"
+          );
+        }
+      )
+      .finally(() => {
+        setIsCreatingObjective(false);
+      });
   };
 
   const stepScreens: Record<number, JSX.Element> = {
